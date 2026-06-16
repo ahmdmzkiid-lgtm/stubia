@@ -1,0 +1,97 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const cloudinary = require('../config/cloudinary');
+const { verifyToken, verifyAdmin } = require('../middleware/auth');
+
+const path = require('path');
+
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    const allowedMimetypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (!allowedMimetypes.includes(file.mimetype) || !allowedExtensions.includes(ext)) {
+      return cb(new Error('Hanya format JPG, JPEG, PNG, dan WEBP yang diizinkan untuk keamanan.'), false);
+    }
+    cb(null, true);
+  },
+});
+
+// Upload single image
+router.post('/image', verifyToken, (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'Ukuran file maksimal 5MB.' });
+      }
+      return res.status(400).json({ success: false, error: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'File gambar tidak ditemukan' });
+    }
+
+    const folder = req.body.folder || 'eduzet';
+
+    // Upload to Cloudinary using buffer
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `eduzet/${folder}`,
+          resource_type: 'image',
+          transformation: [
+            { quality: 'auto:good' },
+            { fetch_format: 'auto' },
+          ],
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        public_id: result.public_id,
+        width: result.width,
+        height: result.height,
+      },
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload image' });
+  }
+});
+
+// Delete image (admin only)
+router.delete('/image', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { public_id } = req.body;
+    if (!public_id) {
+      return res.status(400).json({ success: false, error: 'public_id is required' });
+    }
+
+    await cloudinary.uploader.destroy(public_id);
+    res.json({ success: true, message: 'Image deleted successfully' });
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete image' });
+  }
+});
+
+module.exports = router;

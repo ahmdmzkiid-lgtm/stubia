@@ -1,0 +1,24 @@
+<svg width="380" height="120" viewBox="0 0 380 120" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>EduZET Logo — Light</title>
+  <desc>EduZET brand logo with owl icon and wordmark for light backgrounds</desc>
+
+  <circle cx="52" cy="60" r="50" fill="#1A5CCC"/>
+  <ellipse cx="37" cy="58" rx="13" ry="15" fill="#ffffff" opacity="0.95"/>
+  <ellipse cx="67" cy="58" rx="13" ry="15" fill="#ffffff" opacity="0.95"/>
+  <circle cx="37" cy="58" r="8.5" fill="#0F3A8A"/>
+  <circle cx="67" cy="58" r="8.5" fill="#0F3A8A"/>
+  <circle cx="37" cy="58" r="4" fill="#ffffff"/>
+  <circle cx="67" cy="58" r="4" fill="#ffffff"/>
+  <circle cx="38.8" cy="56.2" r="1.5" fill="#1A5CCC"/>
+  <circle cx="68.8" cy="56.2" r="1.5" fill="#1A5CCC"/>
+  <polygon points="52,64 47,72 57,72" fill="#22C47A"/>
+  <path d="M22 32 Q32 20 42 30" fill="none" stroke="#22C47A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M62 30 Q72 20 82 32" fill="none" stroke="#22C47A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M18 78 Q34 96 52 91 Q70 96 86 78" fill="#0F3A8A" stroke="none"/>
+  <path d="M26 87 Q38 100 52 96 Q66 100 78 87" fill="#22C47A" stroke="none"/>
+
+  <!-- Wordmark satu teks, Edu biru ZET hijau tanpa spasi -->
+  <text font-family="'Segoe UI', Arial, sans-serif" font-size="48" font-weight="700" letter-spacing="-1.5">
+    <tspan x="116" y="74" fill="#0F3A8A">Edu</tspan><tspan fill="#22C47A">ZET</tspan>
+  </text>
+</svg>
