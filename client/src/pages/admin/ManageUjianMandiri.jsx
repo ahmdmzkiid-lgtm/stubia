@@ -44,7 +44,6 @@ const emptyLatihan = {
   package_name: '',
   description: '',
   is_active: true,
-  required_plan: 'gratis',
 };
 
 const emptyExercise = {
@@ -283,7 +282,8 @@ export default function ManageUjianMandiri() {
     setSelectedUjianId(ujianId);
     if (lat) {
       setEditingLatihan(lat);
-      setLatihanForm({ ...emptyLatihan, ...lat });
+      const { required_plan, ...paketFields } = lat;
+      setLatihanForm({ ...emptyLatihan, ...paketFields });
     } else {
       setEditingLatihan(null);
       setLatihanForm({ ...emptyLatihan });
@@ -297,9 +297,10 @@ export default function ManageUjianMandiri() {
       toast.error('Nama paket wajib diisi');
       return;
     }
+    const { required_plan, ...paketForm } = latihanForm;
     const payload = {
-      ...latihanForm,
-      title: latihanForm.package_name,
+      ...paketForm,
+      title: paketForm.package_name,
       category: 'package_placeholder',
     };
     try {
@@ -775,7 +776,6 @@ export default function ManageUjianMandiri() {
                         const placeholder = packageGroups[pkgName].find(lat => lat.category === 'package_placeholder');
                         const exercises = packageGroups[pkgName].filter(lat => lat.category !== 'package_placeholder');
                         const pkgDescription = placeholder?.description || 'Paket latihan soal mandiri.';
-                        const pkgPlan = placeholder?.required_plan || 'gratis';
                         const pkgActive = placeholder?.is_active ?? true;
 
                         return (
@@ -785,11 +785,6 @@ export default function ManageUjianMandiri() {
                                 <div className="flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[#0050cb] text-[20px]">inventory_2</span>
                                   <h4 className="font-bold text-[16px] text-[#191b24]">{pkgName}</h4>
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                    pkgPlan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
-                                    pkgPlan === 'premium' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-green-100 text-green-700'
-                                  }`}>{pkgPlan.toUpperCase()}</span>
                                   {!pkgActive && (
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700">NON-AKTIF</span>
                                   )}
@@ -807,7 +802,7 @@ export default function ManageUjianMandiri() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => openLatihanModal(ujian.id, placeholder || { package_name: pkgName, description: pkgDescription, required_plan: pkgPlan, is_active: pkgActive })}
+                                  onClick={() => openLatihanModal(ujian.id, placeholder || { package_name: pkgName, description: pkgDescription, is_active: pkgActive })}
                                   className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
                                   title="Edit Paket"
                                 >
@@ -1199,26 +1194,6 @@ export default function ManageUjianMandiri() {
                 />
                 <span className="text-[14px] font-bold text-[#191b24]">Aktifkan paket</span>
               </label>
-              <div>
-                <label className={labelCls}>Akses Minimum</label>
-                <div className="flex gap-3 flex-wrap">
-                  {PLAN_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setLatihanForm({ ...latihanForm, required_plan: opt.value })}
-                      className={`flex-1 min-w-[120px] py-3 rounded-xl font-bold text-[13px] border-2 transition-all flex items-center justify-center gap-2 ${
-                        (latihanForm.required_plan || 'gratis') === opt.value
-                          ? 'border-[#0050cb] bg-[#dae1ff] text-[#0050cb]'
-                          : 'border-[#c2c6d8]/30 bg-[#f2f3ff] text-[#727687] hover:border-[#c2c6d8]'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[16px]">{opt.icon}</span>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <div className="flex gap-3 pt-4 border-t border-[#c2c6d8]/20">
                 <button type="submit" className="bg-[#0050cb] text-white px-6 py-3 rounded-xl font-bold text-[14px] hover:bg-[#003fa4] transition-all flex items-center gap-2">

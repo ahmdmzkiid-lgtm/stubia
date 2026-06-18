@@ -58,7 +58,7 @@ router.get('/questions', verifyToken, async (req, res, next) => {
     const { tryout_package_id, latihan_id, parent_type, parent_id } = req.query;
 
     // Free plan practice limit check (global, not per-latihan)
-    if (!tryout_package_id && (latihan_id || parent_type === 'latihan_soal')) {
+    if (!tryout_package_id && (latihan_id || parent_type === 'latihan_soal') && req.user.role !== 'admin') {
       // Check if user has an active subscription/access plan for UM
       const activeUmRes = await pool.query(
         `SELECT 1 FROM subscriptions s

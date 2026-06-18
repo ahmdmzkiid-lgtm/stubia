@@ -36,7 +36,7 @@ router.get('/', verifyToken, async (req, res, next) => {
     const { subject_id, topic_id, subject_name, difficulty, tryout_package_id, source, exclude_completed, page = 1, limit = 100 } = req.query;
 
     // Free plan practice limit check
-    if (!tryout_package_id) {
+    if (!tryout_package_id && req.user.role !== 'admin') {
       // Check if user has an active subscription/access plan for UTBK
       const activeUtbkRes = await pool.query(
         `SELECT 1 FROM subscriptions s

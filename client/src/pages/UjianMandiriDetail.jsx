@@ -241,45 +241,33 @@ export default function UjianMandiriDetail() {
 
   const statusCfg = getStatusConfig(ujian.status);
 
-  // Map package name to its required plan
-  const packagePlans = {};
-  latihanSoal.forEach(lat => {
-    const pkgName = lat.package_name || 'Paket 1';
-    if (lat.category === 'package_placeholder') {
-      packagePlans[pkgName] = lat.required_plan || 'gratis';
+  const getExercisePlan = (lat) => lat.required_plan || 'gratis';
+
+  const matchesPlan = (plan, targetPlan) => {
+    if (targetPlan === 'premium') {
+      return plan === 'premium' || plan === 'premium_um';
     }
-  });
+    return plan === targetPlan;
+  };
 
-  // For packages that don't have a placeholder yet, default their plan to the first item's plan
-  latihanSoal.forEach(lat => {
-    const pkgName = lat.package_name || 'Paket 1';
-    if (!packagePlans[pkgName]) {
-      packagePlans[pkgName] = lat.required_plan || 'gratis';
-    }
-  });
+  const buildSectionList = (targetPlan) => {
+    const exercises = latihanSoal.filter(
+      lat => lat.category !== 'package_placeholder' && matchesPlan(getExercisePlan(lat), targetPlan)
+    );
+    const pkgNames = new Set(exercises.map(lat => lat.package_name || 'Paket 1'));
+    return latihanSoal.filter(lat =>
+      lat.category === 'package_placeholder'
+        ? pkgNames.has(lat.package_name || 'Paket 1')
+        : matchesPlan(getExercisePlan(lat), targetPlan)
+    );
+  };
 
-  // Group exercises by required plan of their parent package
-  const gratisLatihan = latihanSoal.filter(lat => {
-    const pkgName = lat.package_name || 'Paket 1';
-    const pkgPlan = packagePlans[pkgName];
-    return pkgPlan === 'gratis';
-  });
-
-  const premiumLatihan = latihanSoal.filter(lat => {
-    const pkgName = lat.package_name || 'Paket 1';
-    const pkgPlan = packagePlans[pkgName];
-    return pkgPlan === 'premium' || pkgPlan === 'premium_um';
-  });
-
-  const sultanLatihan = latihanSoal.filter(lat => {
-    const pkgName = lat.package_name || 'Paket 1';
-    const pkgPlan = packagePlans[pkgName];
-    return pkgPlan === 'sultan';
-  });
+  const gratisLatihan = buildSectionList('gratis');
+  const premiumLatihan = buildSectionList('premium');
+  const sultanLatihan = buildSectionList('sultan');
 
   const renderLatihanCard = (lat) => {
-    const pkgName = lat.package_name || 'Paket 1';
-    const reqPlan = packagePlans[pkgName] || lat.required_plan || 'gratis';
+    const reqPlan = getExercisePlan(lat);
     const badge = PLAN_BADGE[reqPlan] || PLAN_BADGE.gratis;
     const locked = !hasPlanAccess(reqPlan);
     const inactive = lat.is_active === false;
@@ -441,7 +429,7 @@ export default function UjianMandiriDetail() {
           
           const isExpanded = expandedSubtests[pkgName] ?? false;
           const pkgDescription = placeholder?.description || 'Paket latihan soal mandiri.';
-          const pkgPlan = placeholder?.required_plan || pkgItems[0]?.required_plan || 'gratis';
+          const sectionPlan = getExercisePlan(exercises[0] || pkgItems.find(lat => lat.category !== 'package_placeholder') || {});
           const totalSoal = exercises.reduce((sum, lat) => sum + (Number(lat.soal_count) || 0), 0);
 
           // Plan-themed icon and gradient
@@ -449,15 +437,15 @@ export default function UjianMandiriDetail() {
           let iconGradient = 'from-violet-500 via-indigo-500 to-blue-400';
           const accentColor = 'from-blue-500 to-[#0050cb]'; // Blue gradient only
 
-          if (pkgPlan === 'premium' || pkgPlan === 'premium_um') {
+          if (sectionPlan === 'premium' || sectionPlan === 'premium_um') {
             iconName = 'workspace_premium';
             iconGradient = 'from-indigo-600 via-blue-500 to-cyan-400';
-          } else if (pkgPlan === 'sultan') {
+          } else if (sectionPlan === 'sultan') {
             iconName = 'military_tech';
             iconGradient = 'from-amber-500 via-orange-500 to-yellow-400';
           }
 
-          const badge = PLAN_BADGE[pkgPlan] || PLAN_BADGE.gratis;
+          const badge = PLAN_BADGE[sectionPlan] || PLAN_BADGE.gratis;
           
           return (
             <div
