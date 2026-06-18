@@ -303,7 +303,7 @@ export default function ManageUjianMandiri() {
       category: 'package_placeholder',
     };
     try {
-      if (editingLatihan) {
+      if (editingLatihan && editingLatihan.id) {
         await ujianMandiriService.updateLatihan(editingLatihan.id, payload);
         toast.success('Paket latihan berhasil diupdate');
       } else {
