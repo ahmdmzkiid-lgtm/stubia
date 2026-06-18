@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { adminService, soalService, ujianMandiriService } from '../../services/api';
 import toast from 'react-hot-toast';
 
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+
 export default function ManageDuplicates() {
   const [duplicates, setDuplicates] = useState({ utbk: [], um: [] });
   const [loading, setLoading] = useState(true);
@@ -15,7 +17,7 @@ export default function ManageDuplicates() {
       // We'll call the custom duplicates API directly using fetch or axios config
       // Let's call /api/admin/questions/duplicates
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/questions/duplicates', {
+      const response = await fetch(`${API_BASE}/api/admin/questions/duplicates`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -45,7 +47,7 @@ export default function ManageDuplicates() {
       if (isUM) {
         // UM questions endpoint: DELETE /api/ujian-mandiri/questions/:id
         const token = localStorage.getItem('token');
-        const response = await fetch(`/api/ujian-mandiri/questions/${id}`, {
+        const response = await fetch(`${API_BASE}/api/ujian-mandiri/questions/${id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -105,7 +107,7 @@ export default function ManageDuplicates() {
       try {
         if (isUM) {
           const token = localStorage.getItem('token');
-          await fetch(`/api/ujian-mandiri/questions/${q.id}`, {
+          await fetch(`${API_BASE}/api/ujian-mandiri/questions/${q.id}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
