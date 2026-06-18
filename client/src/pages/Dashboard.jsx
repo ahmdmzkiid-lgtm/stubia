@@ -110,63 +110,35 @@ const Dashboard = () => {
     });
   };
 
-  const handleUpgrade = async (planName) => {
+  const handleUpgrade = (planName) => {
     const plan = plans.find(p => p.name === planName);
-    if (!plan) { toast.error('Paket tidak ditemukan'); return; }
-    if (plan.name === 'gratis') { toast('Kamu sudah menggunakan paket Gratis', { icon: 'ℹ️' }); return; }
-    setPaying(planName);
-    try {
-      const res = await subscriptionService.subscribe(plan.id);
-      const { token, order_id } = res.data.data;
-      await loadSnapScript();
-      // Preserve scroll position when Snap popup opens
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-
-      window.snap.pay(token, {
-        onSuccess: async () => {
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.width = '';
-          window.scrollTo(0, scrollY);
-          toast.success('Pembayaran berhasil! Mengaktifkan paket...');
-          try {
-            await subscriptionService.confirmPayment(order_id);
-          } catch (e) { console.warn('Confirm fallback:', e); }
-          await refreshUser();
-          setPaying(null);
-        },
-        onPending: () => {
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.width = '';
-          window.scrollTo(0, scrollY);
-          toast('Menunggu pembayaran...', { icon: '⏳' });
-          setPaying(null);
-        },
-        onError: () => {
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.width = '';
-          window.scrollTo(0, scrollY);
-          toast.error('Pembayaran gagal');
-          setPaying(null);
-        },
-        onClose: () => {
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.width = '';
-          window.scrollTo(0, scrollY);
-          setPaying(null);
-        },
-      });
-    } catch (err) {
-      console.error(err);
-      toast.error('Gagal memproses pembayaran');
-      setPaying(null);
+    if (!plan) {
+      toast.error('Paket tidak ditemukan');
+      return;
     }
+    if (plan.name === 'gratis') {
+      toast('Kamu sudah menggunakan paket Gratis', { icon: 'ℹ️' });
+      return;
+    }
+
+    let currentCart = [];
+    const storedCart = localStorage.getItem('stubia_cart');
+    if (storedCart) {
+      try {
+        currentCart = JSON.parse(storedCart);
+      } catch (e) {
+        currentCart = [];
+      }
+    }
+
+    const exists = currentCart.some(item => item.id === plan.id);
+    if (!exists) {
+      currentCart.push(plan);
+      localStorage.setItem('stubia_cart', JSON.stringify(currentCart));
+    }
+
+    toast.success(`${plan.display_name} ditambahkan ke keranjang`);
+    navigate('/cart');
   };
 
   const handleConfirmPending = async (orderId) => {

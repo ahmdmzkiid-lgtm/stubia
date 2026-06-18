@@ -111,7 +111,7 @@ export default function PricingPage() {
     });
   };
 
-  const handleSubscribe = async (plan) => {
+  const handleSubscribe = (plan) => {
     if (!user) {
       navigate('/login');
       return;
@@ -122,58 +122,24 @@ export default function PricingPage() {
       return;
     }
 
-    setPaying(plan.id);
-
-    try {
-      const res = await subscriptionService.subscribe(plan.id);
-      const { token, order_id } = res.data.data;
-
-      await loadSnapScript();
-
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-
-      const restoreScroll = () => {
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.width = '';
-        window.scrollTo(0, scrollY);
-      };
-
-      window.snap.pay(token, {
-        onSuccess: async () => {
-          restoreScroll();
-          toast.success('Pembayaran berhasil! Mengaktifkan paket...');
-          try {
-            await subscriptionService.confirmPayment(order_id);
-          } catch (e) { console.warn('Confirm fallback:', e); }
-          await refreshUser();
-          loadData();
-          setPaying(null);
-        },
-        onPending: () => {
-          restoreScroll();
-          toast('Menunggu pembayaran...', { icon: '⏳' });
-          loadData();
-          setPaying(null);
-        },
-        onError: () => {
-          restoreScroll();
-          toast.error('Pembayaran gagal');
-          setPaying(null);
-        },
-        onClose: () => {
-          restoreScroll();
-          loadData();
-          setPaying(null);
-        },
-      });
-    } catch (err) {
-      console.error(err);
-      setPaying(null);
+    let currentCart = [];
+    const storedCart = localStorage.getItem('stubia_cart');
+    if (storedCart) {
+      try {
+        currentCart = JSON.parse(storedCart);
+      } catch (e) {
+        currentCart = [];
+      }
     }
+
+    const exists = currentCart.some(item => item.id === plan.id);
+    if (!exists) {
+      currentCart.push(plan);
+      localStorage.setItem('stubia_cart', JSON.stringify(currentCart));
+    }
+
+    toast.success(`${plan.display_name} ditambahkan ke keranjang`);
+    navigate('/cart');
   };
 
   const handleConfirmPending = async (orderId) => {
