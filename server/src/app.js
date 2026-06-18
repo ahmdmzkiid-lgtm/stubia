@@ -15,9 +15,19 @@ const app = express();
 // Middleware CORS Manual & Otomatis (Anti-Block Hostinger)
 app.use((req, res, next) => {
   const allowedOrigins = ['https://stubia.id', 'https://www.stubia.id', 'http://localhost:5173'];
+  
+  if (process.env.CLIENT_URL) {
+    allowedOrigins.push(process.env.CLIENT_URL);
+    allowedOrigins.push(process.env.CLIENT_URL.replace(/\/$/, ''));
+  }
+  if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+    allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/$/, ''));
+  }
+
   const origin = req.headers.origin;
   
-  if (allowedOrigins.includes(origin)) {
+  if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   
