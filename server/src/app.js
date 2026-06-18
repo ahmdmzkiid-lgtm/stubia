@@ -12,18 +12,26 @@ const { populateQuestionHashes } = require('./utils/populateQuestionHashes');
 
 const app = express();
 
-// Helmet
-app.use(helmet({
-  contentSecurityPolicy: {policy: "same-origin-allow-popups "}, 
-  crossOriginEmbedderPolicy: {policy: "cross-origin"}
-}));
-// Middleware
-app.use(cors({
-  origin: ['https://stubia.id', 'https://www.stubia.id', 'http://localhost:5173'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+// Middleware CORS Manual & Otomatis (Anti-Block Hostinger)
+app.use((req, res, next) => {
+  const allowedOrigins = ['https://stubia.id', 'https://www.stubia.id', 'http://localhost:5173'];
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // Potong langsung request OPTIONS (Preflight) agar mengembalikan status 200 OK
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(morgan('dev'));
 
