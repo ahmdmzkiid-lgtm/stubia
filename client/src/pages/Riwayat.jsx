@@ -78,7 +78,7 @@ const Riwayat = () => {
       
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
       
-      <main className="max-w-[1200px] mx-auto px-4 md:px-16 py-12 mb-24 flex-grow w-full mt-16 sm:mt-20">
+      <main className="max-w-[1200px] mx-auto px-4 md:px-16 py-12 mb-24 flex-grow w-full">
         {/* Header Section */}
         <section className="mb-12">
           <h1 className="text-[40px] font-extrabold leading-[52px] tracking-tight text-[#0050cb] mb-2">Riwayat Belajar</h1>

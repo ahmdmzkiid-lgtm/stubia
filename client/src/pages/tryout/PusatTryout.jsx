@@ -21,6 +21,7 @@ const PusatTryout = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [riwayatData, setRiwayatData] = useState(null);
   const [activePlans, setActivePlans] = useState([]);
+  const [completedPackages, setCompletedPackages] = useState({});
   const [bannerConfig, setBannerConfig] = useState({
     image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1600&q=80',
     title: 'Tryout Nasional Akbar\nUTBK-SNBT 2026',
@@ -61,6 +62,28 @@ const PusatTryout = () => {
     }).catch(() => {});
   }, []);
 
+  const hasActiveUtbkPlan = () => activePlans.some(p => {
+    const name = p.name || p.plan_name;
+    if (name === 'gratis' || !name) return false;
+    if (p.target_type === 'utbk' && (p.plan_type === 'subscription' || p.plan_type === 'access')) return true;
+    if (p.target_type === 'utbk' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0) return true;
+    return false;
+  });
+
+  useEffect(() => {
+    if (packages.length === 0 || hasActiveUtbkPlan()) return;
+    Promise.all(
+      packages.map(async (pkg) => {
+        try {
+          const res = await tryoutService.getRegistrationStatus('utbk', pkg.id);
+          return [pkg.id, res.data?.data?.completed === true];
+        } catch {
+          return [pkg.id, false];
+        }
+      })
+    ).then((entries) => setCompletedPackages(Object.fromEntries(entries)));
+  }, [packages, activePlans]);
+
   const hasPlanAccess = (requiredPlan) => {
     if (!requiredPlan || requiredPlan === 'gratis') return true;
     for (const plan of activePlans) {
@@ -83,6 +106,10 @@ const PusatTryout = () => {
     }
     if (pkg.is_active === false) {
       toast.error('Tryout sedang non-aktif.');
+      return;
+    }
+    if (!hasActiveUtbkPlan() && completedPackages[pkg.id]) {
+      toast.error('Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali.');
       return;
     }
     navigate(`/tryout/select/${pkg.id}`);
@@ -123,7 +150,7 @@ const PusatTryout = () => {
     <div className="bg-[#faf8ff] text-[#191b24] min-h-screen flex flex-col font-sans">
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
       
-      <main className="flex-grow pt-16 sm:pt-20 px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto w-full pb-12">
+      <main className="flex-grow px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto w-full pb-12">
         {/* Header Section */}
         <header className="mb-8 sm:mb-12 mt-6 sm:mt-8">
           <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-bold text-[#0050cb] mb-2 leading-tight">Pusat Tryout</h1>
@@ -171,6 +198,7 @@ const PusatTryout = () => {
                 const reqPlan = pkg.required_plan || 'gratis';
                 const reqRank = PLAN_RANK[reqPlan] ?? 0;
                 const isLocked = reqRank > userRank;
+                const isFreeCompleted = !hasActiveUtbkPlan() && completedPackages[pkg.id];
                 const packageNumber = filteredPackages.length - idx;
 
                 const planLabel = reqPlan === 'sultan' ? 'Sultan' : reqPlan === 'premium' ? 'Premium' : 'Gratis';
@@ -231,7 +259,12 @@ const PusatTryout = () => {
                           </h3>
 
                           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            {isLocked ? (
+                            {isFreeCompleted ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-[12px] font-semibold rounded-full">
+                                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                Sudah Dikerjakan
+                              </span>
+                            ) : isLocked ? (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-500 text-[12px] font-semibold rounded-full">
                                 <span className="material-symbols-outlined text-[14px]">lock</span>
                                 Terkunci

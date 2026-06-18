@@ -104,7 +104,7 @@ export default function ManageSocialVerifications() {
     <div className="space-y-8 animate-in fade-in duration-300">
       <div>
         <h1 className="text-[32px] font-bold text-[#191b24] mb-2 leading-tight">Verifikasi Media Sosial Latihan</h1>
-        <p className="text-[#424656] text-[16px]">Tinjau dan verifikasi username IG/X yang dimasukkan oleh pengguna Free Plan untuk akses latihan soal.</p>
+        <p className="text-[#424656] text-[16px]">Tinjau bukti follow & tag 3 teman untuk akses latihan soal gratis.</p>
       </div>
 
       {/* Filters Tab Bar */}
@@ -155,8 +155,10 @@ export default function ManageSocialVerifications() {
                 <tr className="border-b border-[#c2c6d8]/20 bg-[#faf8ff] text-[#424656] font-bold text-xs uppercase tracking-wider">
                   <th className="px-6 py-4">Nama Pengguna</th>
                   <th className="px-6 py-4">Email</th>
-                  <th className="px-6 py-4">Username Instagram</th>
-                  <th className="px-6 py-4">Username X</th>
+                  <th className="px-6 py-4">Platform</th>
+                  <th className="px-6 py-4">Username</th>
+                  <th className="px-6 py-4">Link Komentar</th>
+                  <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Tanggal Diajukan</th>
                   <th className="px-6 py-4 text-right">Aksi</th>
@@ -167,12 +169,24 @@ export default function ManageSocialVerifications() {
                   <tr key={item.id} className="hover:bg-[#faf8ff]/40 transition-colors">
                     <td className="px-6 py-4 font-semibold text-[#191b24]">{item.user_name}</td>
                     <td className="px-6 py-4 text-[#424656]">{item.user_email}</td>
+                    <td className="px-6 py-4 text-[#424656] capitalize">{item.platform || (item.ig_username ? 'instagram' : item.x_username ? 'x' : '-')}</td>
                     <td className="px-6 py-4 font-mono text-[#0050cb]">
-                      {item.ig_username ? `@${item.ig_username.replace(/^@/, '')}` : '-'}
+                      {item.social_username
+                        ? `@${item.social_username.replace(/^@/, '')}`
+                        : item.ig_username
+                        ? `@${item.ig_username.replace(/^@/, '')}`
+                        : item.x_username
+                        ? `@${item.x_username.replace(/^@/, '')}`
+                        : '-'}
                     </td>
-                    <td className="px-6 py-4 font-mono text-[#0050cb]">
-                      {item.x_username ? `@${item.x_username.replace(/^@/, '')}` : '-'}
+                    <td className="px-6 py-4 text-[#424656] max-w-[180px] truncate">
+                      {item.comment_link ? (
+                        <a href={item.comment_link} target="_blank" rel="noopener noreferrer" className="text-[#0050cb] hover:underline">
+                          {item.comment_link}
+                        </a>
+                      ) : '-'}
                     </td>
+                    <td className="px-6 py-4 text-[#424656]">{item.contact_email || '-'}</td>
                     <td className="px-6 py-4">
                       <div>
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusBadgeClass(item.status)}`}>

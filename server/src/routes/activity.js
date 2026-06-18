@@ -3,6 +3,14 @@ const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken } = require('../middleware/auth');
 const { calculateIRTScore } = require('../services/irtScoringService');
+const {
+  checkLatihanAccess,
+  assertUtbkGratisContentAccess,
+  assertUmGratisContentAccess,
+  hasActiveUtbkSubscription,
+  hasActiveUmSubscription,
+  SOCIAL_VERIFY_MSG,
+} = require('../utils/latihanAccessUtil');
 
 // Submit latihan (practice) result with IRT scoring
 router.post('/latihan/submit', verifyToken, async (req, res, next) => {
@@ -12,6 +20,74 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
 
     if (!questions || !Array.isArray(questions) || questions.length === 0) {
       return res.status(400).json({ success: false, error: 'Questions data required' });
+    }
+
+    if (req.user.role !== 'admin') {
+      if (latihan_id) {
+        const hasUm = await hasActiveUmSubscription(userId);
+        if (!hasUm) {
+          const planBlock = await assertUmGratisContentAccess(latihan_id);
+          if (planBlock) return res.status(403).json({ success: false, ...planBlock });
+
+          const latihanCountRes = await pool.query(
+            'SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND latihan_id = $2 AND submitted_at IS NOT NULL',
+            [userId, latihan_id]
+          );
+          if (parseInt(latihanCountRes.rows[0].count, 10) >= 1) {
+            return res.status(403).json({
+              success: false,
+              error: 'Akun gratis hanya dapat mengerjakan setiap latihan soal sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
+              code: 'FREE_LIMIT_REACHED',
+            });
+          }
+
+          const access = await checkLatihanAccess(userId);
+          if (!access.allowed) {
+            return res.status(403).json({
+              success: false,
+              error: SOCIAL_VERIFY_MSG,
+              code: access.code || 'FREE_LIMIT_REQUIRE_SOCIAL',
+            });
+          }
+        }
+      } else {
+        const hasUtbk = await hasActiveUtbkSubscription(userId);
+        if (!hasUtbk) {
+          const planBlock = await assertUtbkGratisContentAccess(subject_id, topic_id);
+          if (planBlock) return res.status(403).json({ success: false, ...planBlock });
+
+          let completed = 0;
+          if (topic_id) {
+            const r = await pool.query(
+              'SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND topic_id = $2 AND submitted_at IS NOT NULL',
+              [userId, topic_id]
+            );
+            completed = parseInt(r.rows[0].count, 10);
+          } else if (subject_id) {
+            const r = await pool.query(
+              'SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND subject_id = $2 AND submitted_at IS NOT NULL',
+              [userId, subject_id]
+            );
+            completed = parseInt(r.rows[0].count, 10);
+          }
+          if (completed >= 1) {
+            return res.status(403).json({
+              success: false,
+              error: 'Akun gratis hanya dapat mengerjakan setiap latihan soal sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
+              code: 'FREE_LIMIT_REACHED',
+            });
+          }
+
+          const access = await checkLatihanAccess(userId);
+          if (!access.allowed) {
+            return res.status(403).json({
+              success: false,
+              error: SOCIAL_VERIFY_MSG,
+              code: access.code || 'FREE_LIMIT_REQUIRE_SOCIAL',
+            });
+          }
+        }
+      }
     }
 
     // Build IRT answer objects from client data

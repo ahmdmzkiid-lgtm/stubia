@@ -190,7 +190,7 @@ const LatihanSoalUMResult = () => {
 
       <main className="flex-grow">
         {/* Back Button */}
-        <div className="max-w-[1440px] mx-auto px-4 md:px-10 pt-8 -mb-4">
+        <div className="max-w-[1440px] mx-auto px-4 md:px-10 pt-4 pb-2">
           <button 
             onClick={() => navigate(`/ujian-mandiri/${ujianId}`)} 
             className="flex items-center gap-2 text-[#0050cb] hover:text-[#003fb2] font-semibold text-[14px] transition-colors"

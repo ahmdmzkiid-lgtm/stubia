@@ -227,7 +227,7 @@ const TryoutResult = () => {
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24]">
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
 
-      <main className="max-w-[1440px] mx-auto px-6 lg:px-10 py-12">
+      <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-12">
         {/* Back Button */}
         <div className="mb-6">
           <button 

@@ -72,6 +72,8 @@ export const tryoutService = {
   getLatihanLeaderboard: (subjectId, topicId, limit) => api.get(`/tryout/leaderboard/latihan/${subjectId}`, { params: { topic_id: topicId, limit } }),
   registerForTryout: (data) => api.post('/tryout/register', data),
   getRegistrationStatus: (packageType, packageId) => api.get(`/tryout/registration-status/${packageType}/${packageId}`),
+  completePackage: (packageType, packageId) => api.post('/tryout/complete-package', { package_type: packageType, package_id: packageId }),
+  getPackageCompletion: (packageType, packageId) => api.get(`/tryout/package-completion/${packageType}/${packageId}`),
   getMyTryoutUsage: () => api.get('/tryout/my-tryout-usage'),
 };
 

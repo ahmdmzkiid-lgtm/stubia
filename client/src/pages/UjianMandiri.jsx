@@ -58,7 +58,7 @@ export default function UjianMandiri() {
     <div className="bg-[#faf8ff] text-[#191b24] min-h-screen font-sans">
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
 
-      <main className="pt-20 sm:pt-24 px-4 sm:px-6 lg:px-10 max-w-[1280px] mx-auto pb-16">
+      <main className="px-4 sm:px-6 lg:px-10 max-w-[1280px] mx-auto pb-16">
         {/* ── Hero Section ── */}
         <section className="py-12 lg:py-20 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
           <div className="md:col-span-7">

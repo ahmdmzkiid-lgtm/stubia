@@ -7,18 +7,77 @@ const { verifyToken, verifyAdmin } = require('../middleware/auth');
 router.post('/verify', verifyToken, async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { ig_username, x_username } = req.body;
+    const { platform, social_username, comment_link, contact_email, ig_username, x_username } = req.body;
 
-    if (!ig_username && !x_username) {
-      return res.status(400).json({ success: false, error: 'Isi salah satu username IG atau X' });
+    const hasNewFormat = platform && social_username && comment_link && contact_email;
+    const hasLegacyFormat = ig_username || x_username;
+
+    if (!hasNewFormat && !hasLegacyFormat) {
+      return res.status(400).json({
+        success: false,
+        error: 'Data verifikasi tidak lengkap. Isi username, link komentar, pilih platform, dan isi email.',
+      });
     }
 
-    const result = await pool.query(
-      `INSERT INTO user_social_verifications (user_id, ig_username, x_username, status, context)
-       VALUES ($1, $2, $3, 'pending', 'latihan')
-       RETURNING *`,
-      [userId, ig_username || null, x_username || null]
+    if (hasNewFormat) {
+      if (!['instagram', 'x'].includes(platform)) {
+        return res.status(400).json({ success: false, error: 'Platform tidak valid. Pilih Instagram atau X.' });
+      }
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email);
+      if (!emailOk) {
+        return res.status(400).json({ success: false, error: 'Format email tidak valid.' });
+      }
+    }
+
+    const pendingRes = await pool.query(
+      `SELECT id FROM user_social_verifications
+       WHERE user_id = $1 AND context = 'latihan' AND status = 'pending'
+       LIMIT 1`,
+      [userId]
     );
+    if (pendingRes.rows.length > 0) {
+      return res.status(400).json({ success: false, error: 'Anda sudah mengajukan verifikasi dan sedang menunggu persetujuan admin.' });
+    }
+
+    const approvedRes = await pool.query(
+      `SELECT id FROM user_social_verifications
+       WHERE user_id = $1 AND context = 'latihan' AND status = 'approved'
+       LIMIT 1`,
+      [userId]
+    );
+    if (approvedRes.rows.length > 0) {
+      return res.status(400).json({ success: false, error: 'Verifikasi latihan Anda sudah disetujui.' });
+    }
+
+    const rejectedRes = await pool.query(
+      `SELECT id FROM user_social_verifications
+       WHERE user_id = $1 AND context = 'latihan' AND status = 'rejected'
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+    if (rejectedRes.rows.length > 0) {
+      await pool.query('DELETE FROM user_social_verifications WHERE id = $1', [rejectedRes.rows[0].id]);
+    }
+
+    let result;
+    if (hasNewFormat) {
+      const igUser = platform === 'instagram' ? social_username.trim() : null;
+      const xUser = platform === 'x' ? social_username.trim() : null;
+      result = await pool.query(
+        `INSERT INTO user_social_verifications
+         (user_id, ig_username, x_username, platform, social_username, comment_link, contact_email, status, context)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'latihan')
+         RETURNING *`,
+        [userId, igUser, xUser, platform, social_username.trim(), comment_link.trim(), contact_email.trim()]
+      );
+    } else {
+      result = await pool.query(
+        `INSERT INTO user_social_verifications (user_id, ig_username, x_username, status, context)
+         VALUES ($1, $2, $3, 'pending', 'latihan')
+         RETURNING *`,
+        [userId, ig_username || null, x_username || null]
+      );
+    }
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {

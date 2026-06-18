@@ -190,15 +190,21 @@ const TryoutSessionUM = () => {
         }
       } catch (err) {
         console.error('Failed to initialize UM tryout session:', err);
+        const code = err.response?.data?.code;
         const errMsg = err.response?.data?.error || err.message || 'Gagal memulai sesi tryout';
         toast.error(errMsg);
-        // Clear all session-related localStorage keys on failure to avoid infinite reload loop
         localStorage.removeItem(LS_SESSION);
         localStorage.removeItem(LS_ANSWERS);
         localStorage.removeItem(LS_FLAGGED);
         localStorage.removeItem(LS_TIMER);
         localStorage.removeItem(LS_NAV);
-        navigate(`/ujian-mandiri/${ujianId}`);
+        if (code === 'NOT_VERIFIED' || code === 'FREE_LIMIT_REACHED') {
+          navigate(`/ujian-mandiri/${ujianId}`, {
+            state: { showTryoutVerification: tryoutId, tryoutError: code },
+          });
+        } else {
+          navigate(`/ujian-mandiri/${ujianId}`);
+        }
       } finally {
         setLoading(false);
       }

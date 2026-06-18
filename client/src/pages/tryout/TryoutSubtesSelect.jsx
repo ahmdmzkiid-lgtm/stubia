@@ -28,6 +28,8 @@ const CATEGORY_MAP = {
   'penalaran matematika': 'Analitik',
 };
 
+const getTryoutConfirmedKey = (type, id) => `tryout_confirmed_${type}_${id}`;
+
 const TryoutSubtesSelect = () => {
   const { packageId } = useParams();
   const navigate = useNavigate();
@@ -41,6 +43,7 @@ const TryoutSubtesSelect = () => {
   const [completedSubtests, setCompletedSubtests] = useState(new Set());
 
   const [registrationStatus, setRegistrationStatus] = useState(null);
+  const [packageCompleted, setPackageCompleted] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [subtestToStart, setSubtestToStart] = useState(null);
   const [hasConfirmedStart, setHasConfirmedStart] = useState(false);
@@ -65,7 +68,9 @@ const TryoutSubtesSelect = () => {
     try {
       if (!hasActiveUtbkPlan()) {
         const regRes = await tryoutService.getRegistrationStatus('utbk', packageId);
-        setRegistrationStatus(regRes.data?.data);
+        const status = regRes.data?.data;
+        setRegistrationStatus(status);
+        setPackageCompleted(status?.completed === true);
       }
     } catch (err) {
       console.error('Error fetching registration status:', err);
@@ -114,7 +119,10 @@ const TryoutSubtesSelect = () => {
         // Fetch registration status if no active UTBK plan
         if (!hasActiveUtbkPlan()) {
           const regRes = await tryoutService.getRegistrationStatus('utbk', packageId);
-          setRegistrationStatus(regRes.data?.data);
+          const status = regRes.data?.data;
+          setRegistrationStatus(status);
+          setPackageCompleted(status?.completed === true);
+          setHasConfirmedStart(sessionStorage.getItem(getTryoutConfirmedKey('utbk', packageId)) === 'true');
         }
       } catch (err) {
         toast.error('Gagal memuat data paket');
@@ -138,15 +146,29 @@ const TryoutSubtesSelect = () => {
 
       navigate(`/tryout/${sessionId}`);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Gagal memulai subtes');
+      const code = err.response?.data?.code;
+      if (code === 'NOT_VERIFIED') {
+        setShowVerificationModal(true);
+      } else if (code === 'FREE_LIMIT_REACHED') {
+        setPackageCompleted(true);
+        toast.error('Paket tryout ini sudah pernah diselesaikan.');
+      } else {
+        toast.error(err.response?.data?.error || 'Gagal memulai subtes');
+      }
       setStartingSubtest(null);
     }
   };
 
   const handleStartSubtest = async (subtestName) => {
     if (!hasActiveUtbkPlan()) {
+      if (packageCompleted) {
+        toast.error('Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali.');
+        return;
+      }
       setSubtestToStart(subtestName);
-      if (!registrationStatus || registrationStatus.status !== 'approved' || !hasConfirmedStart) {
+      const confirmed = sessionStorage.getItem(getTryoutConfirmedKey('utbk', packageId)) === 'true';
+      setHasConfirmedStart(confirmed);
+      if (!registrationStatus || registrationStatus.status !== 'approved' || !confirmed) {
         setShowVerificationModal(true);
         return;
       }
@@ -157,12 +179,11 @@ const TryoutSubtesSelect = () => {
     setConfirmOpen(true);
   };
 
-  const handleSubmitTryout = () => {
+  const handleSubmitTryout = async () => {
     if (completedSubtests.size === 0) {
       toast.error('Kerjakan minimal 1 subtes sebelum submit');
       return;
     }
-    // Get stored session IDs for completed subtests
     const sessionsKey = `tryout_sessions_${packageId}`;
     const sessions = JSON.parse(localStorage.getItem(sessionsKey) || '{}');
     const sessionIds = Object.values(sessions);
@@ -172,13 +193,21 @@ const TryoutSubtesSelect = () => {
       return;
     }
 
-    // Navigate to result page with the last session (or first)
-    // Clean up localStorage
+    setSubmitting(true);
+    try {
+      if (!hasActiveUtbkPlan()) {
+        await tryoutService.completePackage('utbk', packageId);
+        setPackageCompleted(true);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal menandai paket selesai');
+      setSubmitting(false);
+      return;
+    }
+
     localStorage.removeItem(`tryout_completed_${packageId}`);
     localStorage.removeItem(`tryout_sessions_${packageId}`);
 
-    // If only one session, go to its result directly
-    // If multiple sessions, go to the first one (most comprehensive) or last
     const lastSessionId = sessionIds[sessionIds.length - 1];
     toast.success('Tryout selesai! Melihat hasil...');
     navigate(`/tryout/hasil/${lastSessionId}`, {
@@ -216,6 +245,13 @@ const TryoutSubtesSelect = () => {
           <span className="material-symbols-outlined text-[16px]">chevron_right</span>
           <span className="text-[14px] font-bold text-[#0050cb]">Pilih Subtes</span>
         </nav>
+
+        {packageCompleted && !hasActiveUtbkPlan() && (
+          <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
+            <span className="material-symbols-outlined text-[20px] shrink-0">lock</span>
+            <p>Paket tryout ini sudah diselesaikan. Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali.</p>
+          </div>
+        )}
 
         {/* Hero Section */}
         <div className="mb-10 sm:mb-16">
@@ -354,6 +390,7 @@ const TryoutSubtesSelect = () => {
           registrationStatus={registrationStatus}
           onSubmitSuccess={fetchStatus}
           onConfirmStart={() => {
+            sessionStorage.setItem(getTryoutConfirmedKey('utbk', packageId), 'true');
             setHasConfirmedStart(true);
             setShowVerificationModal(false);
             if (subtestToStart) {

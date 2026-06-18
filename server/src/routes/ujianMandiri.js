@@ -3,6 +3,13 @@ const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
 const { generateQuestionHash, updateQuestionHash } = require('../utils/questionHashUtil');
+const {
+  checkLatihanAccess,
+  assertUmGratisContentAccess,
+  hasActiveUmSubscription,
+  SOCIAL_VERIFY_MSG,
+} = require('../utils/latihanAccessUtil');
+const { isPackageCompleted, markPackageCompleted } = require('../utils/tryoutCompletionUtil');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -29,29 +36,6 @@ router.patch('/banner', [verifyToken, verifyAdmin], async (req, res, next) => {
 
 // ========== QUESTIONS (must be BEFORE /:id to avoid catch-all) ==========
 
-// Helper: check free plan gating for latihan (shared with UTBK logic)
-async function checkLatihanAccess(userId) {
-  const countRes = await pool.query(
-    'SELECT COUNT(*) AS count FROM latihan_sessions WHERE user_id = $1 AND submitted_at IS NOT NULL',
-    [userId]
-  );
-  const totalSessions = parseInt(countRes.rows[0]?.count || 0, 10);
-
-  const verRes = await pool.query(
-    `SELECT status FROM user_social_verifications 
-     WHERE user_id = $1 AND context = 'latihan'
-     ORDER BY created_at DESC LIMIT 1`,
-    [userId]
-  );
-  const verified = verRes.rows[0]?.status === 'approved';
-
-  if (verified) return { allowed: true, totalSessions, verified: true };
-  if (totalSessions >= 2) {
-    return { allowed: false, totalSessions, verified: false, code: 'FREE_LIMIT_REQUIRE_SOCIAL' };
-  }
-  return { allowed: true, totalSessions, verified: false };
-}
-
 // Get questions for a tryout package or latihan
 router.get('/questions', verifyToken, async (req, res, next) => {
   try {
@@ -59,19 +43,16 @@ router.get('/questions', verifyToken, async (req, res, next) => {
 
     // Free plan practice limit check (global, not per-latihan)
     if (!tryout_package_id && (latihan_id || parent_type === 'latihan_soal') && req.user.role !== 'admin') {
-      // Check if user has an active subscription/access plan for UM
-      const activeUmRes = await pool.query(
-        `SELECT 1 FROM subscriptions s
-         JOIN plans p ON p.id = s.plan_id
-         WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-           AND p.target_type = 'um' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
-         LIMIT 1`,
-        [req.user.id]
-      );
-      const hasUmUnlimited = activeUmRes.rows.length > 0;
+      const hasUmUnlimited = await hasActiveUmSubscription(req.user.id);
 
       if (!hasUmUnlimited) {
         const targetLatihanId = latihan_id || parent_id;
+
+        const planBlock = await assertUmGratisContentAccess(targetLatihanId);
+        if (planBlock) {
+          return res.status(403).json({ success: false, ...planBlock });
+        }
+
         if (targetLatihanId) {
           const latihanCountRes = await pool.query(
             'SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND latihan_id = $2 AND submitted_at IS NOT NULL',
@@ -91,7 +72,7 @@ router.get('/questions', verifyToken, async (req, res, next) => {
         if (!access.allowed) {
           return res.status(403).json({
             success: false,
-            error: 'Akun gratis perlu verifikasi follow/repost sebelum melanjutkan latihan.',
+            error: SOCIAL_VERIFY_MSG,
             code: access.code || 'FREE_LIMIT_REQUIRE_SOCIAL',
             total_sessions: access.totalSessions,
             verified: access.verified,
@@ -749,13 +730,20 @@ router.post('/tryout/start', verifyToken, async (req, res, next) => {
         );
       } else {
         // Check if this specific package has already been completed
-        const umCompleted = await client.query(
-          'SELECT COUNT(*) as count FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
-          [userId, tryout_package_id]
-        );
-        const totalCompleted = parseInt(umCompleted.rows[0].count);
+        const umCompleted = await isPackageCompleted(client, userId, 'um', tryout_package_id);
+        if (!umCompleted) {
+          const sessionCompleted = await client.query(
+            'SELECT 1 FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL LIMIT 1',
+            [userId, tryout_package_id]
+          );
+          if (sessionCompleted.rows.length > 0) {
+            await markPackageCompleted(client, userId, 'um', tryout_package_id);
+          }
+        }
 
-        if (totalCompleted >= 1) {
+        const packageDone = umCompleted || (await isPackageCompleted(client, userId, 'um', tryout_package_id));
+
+        if (packageDone) {
           await client.query('ROLLBACK');
           return res.status(403).json({
             success: false,
@@ -999,6 +987,15 @@ router.post('/tryout/submit-bulk', verifyToken, async (req, res, next) => {
        WHERE id = $3`,
       [score, JSON.stringify(scoreBreakdown), sessionId]
     );
+
+    const pkgIdRes = await client.query(
+      'SELECT package_id FROM um_tryout_sessions WHERE id = $1',
+      [sessionId]
+    );
+    const packageId = pkgIdRes.rows[0]?.package_id;
+    if (packageId) {
+      await markPackageCompleted(client, userId, 'um', packageId);
+    }
 
     await client.query('COMMIT');
 

@@ -175,7 +175,7 @@ const BattleLobby = () => {
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24]">
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
 
-      <main className="pt-20">
+      <main className="pt-0">
         {/* Hero */}
         <section className="px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto pt-10 sm:pt-16 pb-8">
           <h1 className="text-[32px] sm:text-[40px] lg:text-[56px] font-bold text-[#0050cb] mb-4 leading-tight tracking-tight">

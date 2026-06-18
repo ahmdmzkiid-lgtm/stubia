@@ -10,6 +10,15 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   const activePath = location.pathname;
 
   useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > (transparent ? 60 : 10));
     };
@@ -17,6 +26,10 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
     handleScroll(); // Initial check
     return () => window.removeEventListener('scroll', handleScroll);
   }, [transparent]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   // Determine active state for parent matching
   const isTryoutActive = activePath.startsWith('/tryout');
@@ -93,12 +106,12 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   return (
     <>
       <header className={`fixed top-0 z-[100] w-full transition-all duration-300 ${navBg}`}>
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 h-16 sm:h-20 flex items-center justify-between">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 h-16 sm:h-20 flex items-center justify-between gap-2 min-w-0">
           
           {/* Logo & Navigation */}
-          <div className="flex items-center gap-6 lg:gap-12">
-            <Link to="/dashboard" className="flex items-center">
-              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-10 md:h-12" />
+          <div className="flex items-center gap-3 sm:gap-6 lg:gap-12 min-w-0 flex-1">
+            <Link to="/dashboard" className="flex items-center shrink-0">
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-10 md:h-12 w-auto" />
             </Link>
             
             <nav className="hidden lg:flex items-center gap-1">
@@ -169,7 +182,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
           </div>
 
           {/* Right Side Tools & Profile */}
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <div className={`hidden sm:flex items-center gap-3 pl-4 border-l ${scrolled || !transparent ? 'border-[#c2c6d8]/30' : 'border-white/20'}`}>
               <div className="flex flex-col items-end justify-center">
                 <p className={`text-[14px] font-medium ${scrolled || !transparent ? 'text-[#191b24]' : 'text-white'}`}>
@@ -224,31 +237,27 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
         </div>
       </header>
 
+      {!transparent && <div className="h-16 sm:h-20 shrink-0" aria-hidden="true" />}
+
       {/* Mobile Navigation Drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[199] bg-black/50 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-b-[32px] shadow-2xl p-6 pt-20 animate-slide-down" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                <img src="/stubiabrandicon.png" alt="Stubia" className="h-8" />
-              </Link>
-              <button 
-                type="button" 
-                onClick={() => setMobileMenuOpen(false)} 
-                className="w-10 h-10 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656]"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            
-            <nav className="flex flex-col gap-2">
-              {/* Combine main and dropdown links for flat list on mobile */}
+        <div className="fixed inset-0 z-[90] lg:hidden">
+          <div
+            className="absolute top-16 left-0 right-0 bottom-0 bg-black/50"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute top-16 left-0 right-0 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-white border-b border-[#c2c6d8]/30 shadow-2xl rounded-b-[24px] animate-slide-down"
+            onClick={e => e.stopPropagation()}
+          >
+            <nav className="flex flex-col gap-1 p-4">
               {[...mainLinks, ...dropdownLinks].map(l => (
                 <Link 
                   key={l.to} 
                   to={l.to} 
                   onClick={() => setMobileMenuOpen(false)} 
-                  className={`px-5 py-4 rounded-2xl text-[16px] font-bold transition-colors ${
+                  className={`px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors ${
                     l.active 
                       ? 'bg-[#dae1ff] text-[#0050cb]' 
                       : 'text-[#424656] hover:bg-[#f2f3ff]'
@@ -261,36 +270,36 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
                 <Link 
                   to="/admin" 
                   onClick={() => setMobileMenuOpen(false)} 
-                  className="px-5 py-4 rounded-2xl text-[16px] font-bold text-[#a33200] hover:bg-[#f2f3ff]"
+                  className="px-4 py-3.5 rounded-xl text-[15px] font-bold text-[#a33200] hover:bg-[#f2f3ff]"
                 >
                   Admin Panel
                 </Link>
               )}
             </nav>
 
-            <hr className="my-6 border-[#c2c6d8]/30" />
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-lg">
-                  {user?.name?.charAt(0)?.toUpperCase()}
+            <div className="border-t border-[#c2c6d8]/30 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {user?.name?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-bold text-[#191b24] truncate">{user?.name?.split(' ')[0]}</p>
+                    <span className="text-[11px] font-bold uppercase text-[#727687]">
+                      {user?.current_plan === 'sultan' ? 'Sultan' : user?.current_plan === 'premium' ? 'Premium' : user?.current_plan === 'premium_um' ? 'Premium UM' : 'Gratis'}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[15px] font-bold text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                  <span className="text-[12px] font-bold uppercase text-[#727687]">
-                    {user?.current_plan === 'sultan' ? 'Sultan' : user?.current_plan === 'premium' ? 'Premium' : user?.current_plan === 'premium_um' ? 'Premium UM' : 'Gratis'}
-                  </span>
-                </div>
+                <button 
+                  type="button" 
+                  onClick={() => { setMobileMenuOpen(false); onLogout(); }} 
+                  className="px-4 py-2.5 rounded-xl text-[13px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-1.5 border border-red-100 shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                  Keluar
+                </button>
               </div>
-              <button 
-                type="button" 
-                onClick={() => { setMobileMenuOpen(false); onLogout(); }} 
-                className="px-6 py-3 rounded-xl text-[14px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 border border-red-100"
-              >
-                <span className="material-symbols-outlined text-[18px]">logout</span> Keluar
-              </button>
             </div>
-
           </div>
         </div>
       )}

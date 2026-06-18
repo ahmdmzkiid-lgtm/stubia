@@ -4,6 +4,7 @@ const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
 const { calculateScore } = require('../services/scoringService');
 const { calculateIRTScore, getStatusFromMastery } = require('../services/irtScoringService');
+const { isPackageCompleted, markPackageCompleted } = require('../utils/tryoutCompletionUtil');
 
 // --- Admin Package Management ---
 
@@ -181,22 +182,17 @@ router.post('/register', verifyToken, async (req, res, next) => {
     }
 
     // Check if user has already completed this specific tryout package (free plan limit)
-    let completedCount = 0;
-    if (package_type === 'utbk') {
-      const utbkCompleted = await pool.query(
-        'SELECT COUNT(*) as count FROM tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
+    const packageType = package_type;
+    let packageDone = await isPackageCompleted(pool, req.user.id, packageType, package_id);
+    if (!packageDone && package_type === 'um') {
+      const sessionCompleted = await pool.query(
+        'SELECT 1 FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL LIMIT 1',
         [req.user.id, package_id]
       );
-      completedCount = parseInt(utbkCompleted.rows[0].count);
-    } else {
-      const umCompleted = await pool.query(
-        'SELECT COUNT(*) as count FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
-        [req.user.id, package_id]
-      );
-      completedCount = parseInt(umCompleted.rows[0].count);
+      packageDone = sessionCompleted.rows.length > 0;
     }
-    
-    if (completedCount >= 1) {
+
+    if (packageDone) {
       return res.status(403).json({
         success: false,
         error: 'Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
@@ -246,14 +242,55 @@ router.get('/registration-status/:packageType/:packageId', verifyToken, async (r
       return res.status(400).json({ success: false, error: 'Tipe paket tidak valid.' });
     }
     const checkField = packageType === 'utbk' ? 'utbk_package_id' : 'um_package_id';
-    const result = await pool.query(
+    const regResult = await pool.query(
       `SELECT status, rejection_reason FROM tryout_registrations WHERE user_id = $1 AND ${checkField} = $2`,
       [req.user.id, packageId]
     );
-    if (result.rows.length === 0) {
-      return res.json({ success: true, data: null });
+    const completed = await isPackageCompleted(pool, req.user.id, packageType, packageId);
+    let isCompleted = completed;
+    if (!isCompleted && packageType === 'um') {
+      const sessionRes = await pool.query(
+        'SELECT 1 FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL LIMIT 1',
+        [req.user.id, packageId]
+      );
+      isCompleted = sessionRes.rows.length > 0;
     }
-    res.json({ success: true, data: result.rows[0] });
+    if (regResult.rows.length === 0) {
+      return res.json({ success: true, data: { status: null, completed: isCompleted } });
+    }
+    res.json({ success: true, data: { ...regResult.rows[0], completed: isCompleted } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Mark UTBK tryout package as completed (free users: 1 attempt per package)
+router.post('/complete-package', verifyToken, async (req, res, next) => {
+  try {
+    const { package_type, package_id } = req.body;
+    if (!package_type || !package_id) {
+      return res.status(400).json({ success: false, error: 'package_type dan package_id wajib diisi.' });
+    }
+    if (!['utbk', 'um'].includes(package_type)) {
+      return res.status(400).json({ success: false, error: 'Tipe paket tidak valid.' });
+    }
+
+    await markPackageCompleted(pool, req.user.id, package_type, package_id);
+    res.json({ success: true, message: 'Paket tryout ditandai selesai.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get package completion status
+router.get('/package-completion/:packageType/:packageId', verifyToken, async (req, res, next) => {
+  try {
+    const { packageType, packageId } = req.params;
+    if (!['utbk', 'um'].includes(packageType)) {
+      return res.status(400).json({ success: false, error: 'Tipe paket tidak valid.' });
+    }
+    const completed = await isPackageCompleted(pool, req.user.id, packageType, packageId);
+    res.json({ success: true, data: { completed } });
   } catch (error) {
     next(error);
   }
@@ -352,14 +389,10 @@ router.post('/start', verifyToken, async (req, res, next) => {
           [quota.id]
         );
       } else {
-        // Check if this specific package has already been completed
-        const utbkCompleted = await client.query(
-          'SELECT COUNT(*) as count FROM tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
-          [req.user.id, package_id]
-        );
-        const totalCompleted = parseInt(utbkCompleted.rows[0].count);
+        // Check if this specific package has already been completed (one attempt per package for free users)
+        let packageDone = await isPackageCompleted(client, req.user.id, 'utbk', package_id);
 
-        if (totalCompleted >= 1) {
+        if (packageDone) {
           await client.query('ROLLBACK');
           return res.status(403).json({
             success: false,

@@ -3,32 +3,12 @@ const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
 const { generateQuestionHash, updateQuestionHash } = require('../utils/questionHashUtil');
-
-// Helper: check free plan gating for latihan (UTBK)
-async function checkLatihanAccess(userId) {
-  // Count total submitted latihan sessions (UTBK + UM) for this user
-  const countRes = await pool.query(
-    'SELECT COUNT(*) AS count FROM latihan_sessions WHERE user_id = $1 AND submitted_at IS NOT NULL',
-    [userId]
-  );
-  const totalSessions = parseInt(countRes.rows[0]?.count || 0, 10);
-
-  // Check social verification status
-  const verRes = await pool.query(
-    `SELECT status FROM user_social_verifications 
-     WHERE user_id = $1 AND context = 'latihan'
-     ORDER BY created_at DESC LIMIT 1`,
-    [userId]
-  );
-  const verified = verRes.rows[0]?.status === 'approved';
-
-  if (verified) return { allowed: true, totalSessions, verified: true };
-  // Free users: allow first 2 sessions; block 3rd+ until verified
-  if (totalSessions >= 2) {
-    return { allowed: false, totalSessions, verified: false, code: 'FREE_LIMIT_REQUIRE_SOCIAL' };
-  }
-  return { allowed: true, totalSessions, verified: false };
-}
+const {
+  checkLatihanAccess,
+  assertUtbkGratisContentAccess,
+  hasActiveUtbkSubscription,
+  SOCIAL_VERIFY_MSG,
+} = require('../utils/latihanAccessUtil');
 
 // List Soal
 router.get('/', verifyToken, async (req, res, next) => {
@@ -37,18 +17,14 @@ router.get('/', verifyToken, async (req, res, next) => {
 
     // Free plan practice limit check
     if (!tryout_package_id && req.user.role !== 'admin') {
-      // Check if user has an active subscription/access plan for UTBK
-      const activeUtbkRes = await pool.query(
-        `SELECT 1 FROM subscriptions s
-         JOIN plans p ON p.id = s.plan_id
-         WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-           AND p.target_type = 'utbk' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
-         LIMIT 1`,
-        [req.user.id]
-      );
-      const hasUtbkUnlimited = activeUtbkRes.rows.length > 0;
+      const hasUtbkUnlimited = await hasActiveUtbkSubscription(req.user.id);
 
       if (!hasUtbkUnlimited) {
+        const planBlock = await assertUtbkGratisContentAccess(subject_id, topic_id);
+        if (planBlock) {
+          return res.status(403).json({ success: false, ...planBlock });
+        }
+
         // 1. One-time check per exercise: Free users cannot repeat completed topics/subjects
         let completed = 0;
         if (topic_id) {
@@ -88,7 +64,7 @@ router.get('/', verifyToken, async (req, res, next) => {
         if (!access.allowed) {
           return res.status(403).json({
             success: false,
-            error: 'Akun gratis perlu verifikasi follow/repost sebelum melanjutkan latihan.',
+            error: SOCIAL_VERIFY_MSG,
             code: access.code || 'FREE_LIMIT_REQUIRE_SOCIAL',
             total_sessions: access.totalSessions,
             verified: access.verified,

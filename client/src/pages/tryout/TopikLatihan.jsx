@@ -60,7 +60,7 @@ const TopikLatihan = () => {
     <div className="bg-[#faf8ff] text-[#191b24] min-h-screen flex flex-col font-sans overflow-x-hidden">
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
       
-      <main className="flex-grow pt-16 sm:pt-20">
+      <main className="flex-grow">
         <section className="px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto py-10 sm:py-16">
           
           {loading ? (

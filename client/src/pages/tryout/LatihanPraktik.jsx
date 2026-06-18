@@ -72,6 +72,8 @@ const LatihanPraktik = () => {
           setError('FREE_LIMIT_REQUIRE_SOCIAL');
         } else if (code === 'FREE_LIMIT_REACHED') {
           setError('FREE_LIMIT_REACHED');
+        } else if (code === 'PLAN_REQUIRED') {
+          setError('PLAN_REQUIRED');
         } else {
           setError(err.response?.data?.error || 'Gagal memuat latihan');
         }
@@ -222,7 +224,7 @@ const LatihanPraktik = () => {
             <span className="material-symbols-outlined text-[32px]">favorite</span>
           </div>
           <h2 className="text-2xl font-bold text-[#191b24] mb-2">Verifikasi Sosial Diperlukan</h2>
-          <p className="text-sm text-[#424656] mb-6">Follow & repost IG/X sekali saja. Setelah disetujui admin, akses latihan jadi bebas (latihan yang sudah dikerjakan tetap 1x).</p>
+          <p className="text-sm text-[#424656] mb-6">Follow akun Stubia dan tag 3 teman di komentar postingan. Setelah disetujui admin, kamu bisa mengakses latihan soal gratis (latihan premium tetap membutuhkan upgrade).</p>
           <div className="flex gap-3 justify-center">
             <button
               className="px-5 py-3 rounded-xl text-white font-semibold hover:shadow-lg active:scale-[0.99] transition"
@@ -249,6 +251,21 @@ const LatihanPraktik = () => {
           onClose={() => setShowSocialModal(false)}
           onVerified={handleVerified}
         />
+      </div>
+    );
+  }
+
+  if (error === 'PLAN_REQUIRED') {
+    return (
+      <div className="min-h-screen bg-[#faf8ff] flex items-center justify-center p-6">
+        <div className="max-w-xl w-full bg-white rounded-3xl p-8 border border-[#c2c6d8]/30 shadow-lg text-center">
+          <h2 className="text-2xl font-bold text-[#191b24] mb-2">Latihan Premium</h2>
+          <p className="text-sm text-[#424656] mb-6">Latihan ini khusus paket Premium atau Sultan. Upgrade paket untuk mengakses.</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={() => navigate('/pricing')} className="px-5 py-3 rounded-xl text-white font-semibold" style={{ background: 'linear-gradient(135deg, #0050cb, #3b82f6)' }}>Upgrade Paket</button>
+            <button onClick={() => navigate(`/latihan/${subjectId || ''}`)} className="px-5 py-3 rounded-xl border border-[#e5e7eb] text-[#424656] font-semibold">Kembali</button>
+          </div>
+        </div>
       </div>
     );
   }

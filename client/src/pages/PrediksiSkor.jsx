@@ -44,7 +44,7 @@ export default function PrediksiSkor() {
     <div className="bg-[#faf8ff] text-[#191b24] min-h-screen flex flex-col font-sans">
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
 
-      <main className="flex-grow pt-20 sm:pt-24 px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto w-full pb-16">
+      <main className="flex-grow px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto w-full pb-16">
 
         {/* ── Hero Section ── */}
         <div className="bg-[#0050cb] text-white rounded-3xl shadow-md overflow-hidden relative mb-12 mt-6">

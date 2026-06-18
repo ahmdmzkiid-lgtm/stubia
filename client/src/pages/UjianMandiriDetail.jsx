@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ujianMandiriService, tryoutService, subscriptionService } from '../services/api';
 import { getStatusConfig } from '../data/ujianMandiriData';
@@ -97,10 +97,13 @@ const getAttemptCounts = (attempt) => {
 
 
 
+const getTryoutConfirmedKey = (type, id) => `tryout_confirmed_${type}_${id}`;
+
 /* ─── Main Page ─── */
 export default function UjianMandiriDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAdmin, logout } = useAuth();
   const [ujian, setUjian] = useState(null);
   const [tryoutPackages, setTryoutPackages] = useState([]);
@@ -113,6 +116,7 @@ export default function UjianMandiriDetail() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(false);
   const [hasConfirmedStart, setHasConfirmedStart] = useState(false);
+  const [packageCompletions, setPackageCompletions] = useState({});
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmType, setConfirmType] = useState(null); // 'tryout' | 'latihan'
@@ -162,25 +166,28 @@ export default function UjianMandiriDetail() {
       return;
     }
 
-    // Only require social verification if user has NO active UM plan
-    const hasUmUnlimited = activePlans.some(p =>
-      (p.name || p.plan_name) !== 'gratis' && p.target_type === 'um' && (p.plan_type === 'subscription' || p.plan_type === 'access')
-    );
-    const hasUmQuota = activePlans.some(p =>
-      p.target_type === 'um' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0
-    );
-    const hasUmAccess = hasUmUnlimited || hasUmQuota;
+    const hasUmAccess = hasUmAccessForFreeCheck();
     if (!hasUmAccess) {
+      if (packageCompletions[pkg.id]) {
+        toast.error('Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali.');
+        return;
+      }
       setSelectedPkg(pkg);
       setCheckingRegistration(pkg.id);
+      const confirmed = sessionStorage.getItem(getTryoutConfirmedKey('um', pkg.id)) === 'true';
+      setHasConfirmedStart(confirmed);
       try {
         const regRes = await tryoutService.getRegistrationStatus('um', pkg.id);
         const status = regRes.data?.data;
         setRegistrationStatus(status);
-        if (!status || status.status !== 'approved' || !hasConfirmedStart) {
+        if (status?.completed) {
+          setPackageCompletions(prev => ({ ...prev, [pkg.id]: true }));
+          toast.error('Paket tryout ini sudah pernah diselesaikan.');
+          return;
+        }
+        if (!status || status.status !== 'approved' || !confirmed) {
           setShowVerificationModal(true);
         } else {
-          // If approved and confirmed, open confirmation modal
           setConfirmType('tryout');
           setConfirmData(pkg);
           setConfirmOpen(true);
@@ -216,6 +223,19 @@ export default function UjianMandiriDetail() {
         setTryoutPackages(pkgList);
         setLatihanSoal(latList);
         setActivePlans(activePlansRes.data?.data || []);
+
+        const completions = {};
+        await Promise.all(
+          pkgList.map(async (pkg) => {
+            try {
+              const regRes = await tryoutService.getRegistrationStatus('um', pkg.id);
+              completions[pkg.id] = regRes.data?.data?.completed === true;
+            } catch {
+              completions[pkg.id] = false;
+            }
+          })
+        );
+        setPackageCompletions(completions);
       } catch (err) {
         console.error('Failed to fetch ujian mandiri detail:', err);
         navigate('/ujian-mandiri');
@@ -225,6 +245,31 @@ export default function UjianMandiriDetail() {
     };
     fetchData();
   }, [id, navigate]);
+
+  useEffect(() => {
+    const state = location.state;
+    if (state?.showTryoutVerification && state?.tryoutId) {
+      const pkg = tryoutPackages.find(p => p.id === state.tryoutId);
+      if (pkg) {
+        setSelectedPkg(pkg);
+        setShowVerificationModal(true);
+        tryoutService.getRegistrationStatus('um', pkg.id).then(res => {
+          setRegistrationStatus(res.data?.data);
+        }).catch(() => {});
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, tryoutPackages, location.pathname, navigate]);
+
+  const hasUmAccessForFreeCheck = () => {
+    const hasUmUnlimited = activePlans.some(p =>
+      (p.name || p.plan_name) !== 'gratis' && p.target_type === 'um' && (p.plan_type === 'subscription' || p.plan_type === 'access')
+    );
+    const hasUmQuota = activePlans.some(p =>
+      p.target_type === 'um' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0
+    );
+    return hasUmUnlimited || hasUmQuota;
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -596,6 +641,7 @@ export default function UjianMandiriDetail() {
                 const lastAttempt = pkg.user_history?.[0];
                 const lastScore = lastAttempt?.score;
                 const lastCounts = getAttemptCounts(lastAttempt);
+                const isFreeCompleted = !hasUmAccessForFreeCheck() && packageCompletions[pkg.id];
                 const inactive = pkg.is_active === false;
                 const locked = !hasPlanAccess(reqPlan);
 
@@ -716,17 +762,17 @@ export default function UjianMandiriDetail() {
                           <button
                             type="button"
                             onClick={() => handleStartTryout(pkg)}
-                            disabled={inactive || locked || checkingRegistration !== false}
+                            disabled={inactive || locked || checkingRegistration !== false || isFreeCompleted}
                             className={`flex-1 py-2.5 rounded-xl font-bold text-[12px] flex items-center justify-center gap-1.5 transition-all duration-300 ${
-                              inactive || locked || checkingRegistration !== false
+                              inactive || locked || checkingRegistration !== false || isFreeCompleted
                                 ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'
                                 : 'bg-gradient-to-r from-[#0050cb] to-[#3b82f6] text-white hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.97]'
                             }`}
                           >
                             <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                              {checkingRegistration === pkg.id ? 'progress_activity' : locked ? 'lock' : 'play_arrow'}
+                              {checkingRegistration === pkg.id ? 'progress_activity' : locked || isFreeCompleted ? 'lock' : 'play_arrow'}
                             </span>
-                            {checkingRegistration === pkg.id ? 'Memeriksa...' : (lastScore ? 'Ulangi' : 'Mulai')}
+                            {checkingRegistration === pkg.id ? 'Memeriksa...' : isFreeCompleted ? 'Sudah Dikerjakan' : (lastScore && hasUmAccessForFreeCheck() ? 'Ulangi' : 'Mulai')}
                           </button>
                           <button
                             type="button"
@@ -841,6 +887,9 @@ export default function UjianMandiriDetail() {
           registrationStatus={registrationStatus}
           onSubmitSuccess={fetchStatus}
           onConfirmStart={() => {
+            if (selectedPkg) {
+              sessionStorage.setItem(getTryoutConfirmedKey('um', selectedPkg.id), 'true');
+            }
             setHasConfirmedStart(true);
             setShowVerificationModal(false);
             if (selectedPkg) {
