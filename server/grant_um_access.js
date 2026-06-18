@@ -1,7 +1,12 @@
 const { Client } = require('pg');
 require('dotenv').config();
 
-const dbUrl = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_nZyNj0oOY8us@ep-odd-heart-ao3cui14-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const dbUrl = process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  console.error("❌ Error: DATABASE_URL environment variable is not set.");
+  process.exit(1);
+}
 
 const emails = [
   'imam43826@gmail.com',
