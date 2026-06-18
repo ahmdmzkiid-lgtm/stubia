@@ -5,7 +5,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
+//const helmet = require('helmet');
 const morgan = require('morgan');
 const { initializeDatabase } = require('./config/db');
 const { populateQuestionHashes } = require('./utils/populateQuestionHashes');
