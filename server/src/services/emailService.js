@@ -157,15 +157,15 @@ async function sendEmail({ toEmail, toName, subject, html }) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendWelcomeEmail(userEmail, userName) {
   const firstName = userName.split(" ")[0];
-  const subject = `Halo ${firstName}, akun Stubia-mu sudah siap! 🚀`;
+  const subject = `Halo ${firstName}, akun Stubia-mu sudah siap!`;
   const html = baseTemplate({
     preheader: `Selamat bergabung di Stubia, ${firstName}! Akun kamu sudah aktif dan siap digunakan.`,
     body: `
       <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#191b24;line-height:1.2;">
-        Selamat datang, <span style="color:#0050cb;">${firstName}!</span> 🎉
+        Selamat datang, <span style="color:#0050cb;">${firstName}!</span>
       </h1>
       <p style="margin:0 0 20px;font-size:15px;color:#424656;line-height:1.7;">
-        Akun Stubia-mu sudah berhasil dibuat. Kini kamu sudah bisa mulai mempersiapkan UTBK
+        Akun Stubia-mu sudah berhasil dibuat. Kini kamu sudah bisa mulai mempersiapkan UTBK / Ujian Mandiri
         dengan ribuan soal latihan, tryout simulasi, dan pembahasan berbasis AI — semuanya
         dalam satu platform.
       </p>
@@ -176,7 +176,7 @@ async function sendWelcomeEmail(userEmail, userName) {
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td style="padding:8px 0;font-size:14px;color:#424656;">
-            📚 &nbsp;<strong>Latihan Soal</strong> — ribuan soal per bab, dari Easy sampai HOTS
+            📚 &nbsp;<strong>Latihan Soal</strong> — ribuan soal, dari Mudah sampai HOTS
           </td>
         </tr>
         <tr>
@@ -234,12 +234,12 @@ async function sendPremiumPlanActivatedEmail(
     planName.toLowerCase().includes("um");
   const accentColor = isSultan ? "#1a1a2e" : isUM ? "#0d9488" : "#0050cb";
 
-  const subject = `Yeay! Paket ${planName}-mu sudah aktif, ${firstName}! 🎉`;
+  const subject = `Yeay! Paket ${planName}-mu sudah aktif, ${firstName}!`;
   const html = baseTemplate({
     preheader: `Pembayaran ${planName} berhasil! Akses premium kamu sudah terbuka penuh.`,
     body: `
       <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#191b24;line-height:1.2;">
-        Selamat, <span style="color:${accentColor};">${firstName}!</span> 🎊
+        Selamat, <span style="color:${accentColor};">${firstName}!</span>
       </h1>
       <p style="margin:0 0 20px;font-size:15px;color:#424656;line-height:1.7;">
         Pembayaran paket <strong>${planName}</strong> kamu sudah berhasil dikonfirmasi.
@@ -366,12 +366,12 @@ async function sendTryoutRegistrationApprovedEmail(
   const firstName = userName.split(" ")[0];
   const typeLabel = packageType === "um" ? "Ujian Mandiri" : "UTBK";
   const linkPath = packageType === "um" ? "/ujian-mandiri" : "/tryout/packages";
-  const subject = `Verifikasi disetujui! Tryout ${packageTitle} sudah bisa kamu mulai 🎯`;
+  const subject = `Verifikasi disetujui! Tryout ${packageTitle} sudah bisa kamu mulai!`;
   const html = baseTemplate({
     preheader: `Kabar baik! Pendaftaran tryout ${packageTitle}-mu sudah disetujui oleh admin Stubia.`,
     body: `
       <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#191b24;line-height:1.2;">
-        Verifikasi berhasil, <span style="color:#10b981;">${firstName}!</span> 🎯
+        Verifikasi berhasil, <span style="color:#10b981;">${firstName}!</span>
       </h1>
       <p style="margin:0 0 20px;font-size:15px;color:#424656;line-height:1.7;">
         Kabar gembira! Admin Stubia telah <strong>menyetujui</strong> bukti verifikasi sosial media kamu.
@@ -396,13 +396,13 @@ async function sendTryoutRegistrationApprovedEmail(
         Pastikan kamu sudah siap dan berada di tempat yang nyaman sebelum memulai, ya!
       </p>
       <p style="margin:0;font-size:14px;color:#424656;line-height:1.7;">
-        Ingin akses tryout tanpa batas? Upgrade ke paket Premium atau Sultan kapan saja. 🚀
+        Ingin akses tryout tanpa batas? Upgrade ke paket Premium atau Sultan kapan saja.
       </p>
 
       ${ctaButton({ href: `https://stubia.id${linkPath}`, label: "Kerjakan Tryout Sekarang →", color: "#10b981" })}
 
       <p style="margin:24px 0 0;font-size:13px;color:#8b95b0;text-align:center;line-height:1.6;">
-        Semangat, ${firstName}! Tim Stubia percaya kamu bisa meraih PTN impianmu. 💪
+        Semangat, ${firstName}! Tim Stubia percaya kamu bisa meraih PTN impianmu.
       </p>
     `,
   });
@@ -426,7 +426,7 @@ async function sendTryoutRegistrationRejectedEmail(
     preheader: `Sayangnya verifikasi tryout ${packageTitle}-mu belum disetujui. Kamu bisa mendaftar ulang!`,
     body: `
       <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#191b24;line-height:1.2;">
-        Oops, belum berhasil nih, <span style="color:#ef4444;">${firstName}</span> 😔
+        Oops, belum berhasil nih, <span style="color:#ef4444;">${firstName}</span>
       </h1>
       <p style="margin:0 0 20px;font-size:15px;color:#424656;line-height:1.7;">
         Mohon maaf, admin Stubia belum bisa menyetujui pendaftaran verifikasi sosial media kamu
@@ -483,12 +483,12 @@ async function sendLatihanVerificationApprovedEmail(
 ) {
   const firstName = userName.split(" ")[0];
   const platformLabel = platform === "x" ? "X (Twitter)" : "Instagram";
-  const subject = `Akses latihan soal gratis-mu sudah terbuka, ${firstName}! 📚`;
+  const subject = `Akses latihan soal gratis-mu sudah terbuka, ${firstName}!`;
   const html = baseTemplate({
     preheader: `Verifikasi sosial media kamu disetujui! Latihan soal gratis sudah bisa diakses penuh.`,
     body: `
       <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#191b24;line-height:1.2;">
-        Akses terbuka, <span style="color:#0050cb;">${firstName}!</span> 📚
+        Akses terbuka, <span style="color:#0050cb;">${firstName}!</span>
       </h1>
       <p style="margin:0 0 20px;font-size:15px;color:#424656;line-height:1.7;">
         Selamat! Admin Stubia sudah memverifikasi bukti follow & komentar ${platformLabel}-mu.
