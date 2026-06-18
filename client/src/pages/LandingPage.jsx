@@ -110,14 +110,18 @@ const LandingPage = () => {
                   <p className="pricing-desc">Tingkatkan persiapan UTBK-mu</p>
                 </div>
                 <div className="pricing-price">
-                  <span className="pricing-amount">Rp35.000</span>
+                  <span className="pricing-amount">Rp70.000</span>
                   <span className="pricing-period">/6 bulan</span>
                 </div>
                 <hr className="pricing-divider pricing-divider-blue" />
                 <ul className="pricing-features">
                   <li>
                     <span className="material-symbols-outlined pricing-check check-blue">verified</span>
-                    <span className="pricing-feat-bold">Akses semua latihan soal</span>
+                    <span className="pricing-feat-bold">Akses penuh latihan soal UTBK</span>
+                  </li>
+                  <li>
+                    <span className="material-symbols-outlined pricing-check check-blue">verified</span>
+                    <span>Akses penuh tryout UTBK</span>
                   </li>
                   <li>
                     <span className="material-symbols-outlined pricing-check check-blue">verified</span>
@@ -126,10 +130,6 @@ const LandingPage = () => {
                   <li>
                     <span className="material-symbols-outlined pricing-check check-blue">verified</span>
                     <span>Analisis performa IRT</span>
-                  </li>
-                  <li>
-                    <span className="material-symbols-outlined pricing-check check-blue">verified</span>
-                    <span>10x Tryout beserta pembahasannya</span>
                   </li>
                 </ul>
                 <button className="pricing-btn pricing-btn-primary" onClick={handleUpgradeClick}>

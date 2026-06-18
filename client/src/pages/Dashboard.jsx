@@ -349,14 +349,18 @@ const Dashboard = () => {
                 <p className="text-[#424656] text-[14px] leading-5 font-medium">Tingkatkan persiapan UTBK-mu</p>
               </div>
               <div className="my-4 flex items-baseline">
-                <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#191b24]">Rp35.000</span>
+                <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#191b24]">Rp70.000</span>
                 <span className="text-[#424656] text-[14px] sm:text-[16px] leading-6 ml-1">/6 bulan</span>
               </div>
               <hr className="border-[#0066ff]/20 my-4" />
               <ul className="flex-grow space-y-4 mb-10">
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
-                  <span className="text-[16px] leading-6 text-[#191b24] font-semibold">Akses semua latihan soal</span>
+                  <span className="text-[16px] leading-6 text-[#191b24] font-semibold">Akses penuh latihan soal UTBK</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
+                  <span className="text-[16px] leading-6 text-[#191b24]">Akses penuh tryout UTBK</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
@@ -365,10 +369,6 @@ const Dashboard = () => {
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
                   <span className="text-[16px] leading-6 text-[#191b24]">Analisis performa IRT</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
-                  <span className="text-[16px] leading-6 text-[#191b24]">10x Tryout beserta pembahasannya</span>
                 </li>
               </ul>
               <button
