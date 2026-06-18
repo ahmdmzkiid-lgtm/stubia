@@ -12,6 +12,11 @@ const { populateQuestionHashes } = require('./utils/populateQuestionHashes');
 
 const app = express();
 
+// Helmet
+app.use(helmet({
+  contentSecurityPolicy: {policy: "same-origin-allow-popups "}, 
+  crossOriginEmbedderPolicy: {policy: "cross-origin"}
+}));
 // Middleware
 app.use(cors({
   origin: ['https://stubia.id', 'https://www.stubia.id', 'http://localhost:5173'],
