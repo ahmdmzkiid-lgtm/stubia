@@ -4,8 +4,8 @@ const InstitutPtnData = [
     nama: 'Institut Pertanian Bogor',
     singkatan: 'IPB',
     lokasi: 'Bogor, Jawa Barat',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036915/eduzet/ptn/j2lelceiiyuhfgbkavt0.png',
-    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036915/eduzet/ptn/j2lelceiiyuhfgbkavt0.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036915/stubia/ptn/j2lelceiiyuhfgbkavt0.png',
+    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036915/stubia/ptn/j2lelceiiyuhfgbkavt0.png',
     prodi: [
       // S1
       { nama: 'Agribisnis', jenjang: 'S1', skor: 672, daya_tampung: 45, subtes: ['Penalaran Matematika', 'Literasi Bahasa Indonesia', 'Pengetahuan & Pemahaman Umum'] },
@@ -84,8 +84,8 @@ const InstitutPtnData = [
     nama: 'Institut Teknologi Sumatera',
     singkatan: 'ITERA',
     lokasi: 'Lampung Selatan, Lampung',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036920/eduzet/ptn/u1nhoknjntzkdauul6ue.png',
-    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036920/eduzet/ptn/u1nhoknjntzkdauul6ue.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036920/stubia/ptn/u1nhoknjntzkdauul6ue.png',
+    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036920/stubia/ptn/u1nhoknjntzkdauul6ue.png',
     prodi: [
       { nama: 'Teknik Geomatika', jenjang: 'S1', skor: 645, daya_tampung: 99, subtes: ['Penalaran Matematika', 'Literasi Bahasa Inggris', 'Pengetahuan Kuantitatif'] },
       { nama: 'Teknik Elektro', jenjang: 'S1', skor: 652, daya_tampung: 121, subtes: ['Penalaran Matematika', 'Literasi Bahasa Inggris', 'Pengetahuan Kuantitatif'] },
@@ -135,8 +135,8 @@ const InstitutPtnData = [
     nama: 'Institut Teknologi Sepuluh Nopember',
     singkatan: 'ITS',
     lokasi: 'Surabaya, Jawa Timur',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036919/eduzet/ptn/jejuqr21bhwlde4oc1jm.png',
-    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036919/eduzet/ptn/jejuqr21bhwlde4oc1jm.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036919/stubia/ptn/jejuqr21bhwlde4oc1jm.png',
+    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036919/stubia/ptn/jejuqr21bhwlde4oc1jm.png',
     prodi: [
       // S1
       { nama: 'Fisika', jenjang: 'S1', skor: 665, daya_tampung: 69, subtes: ['Penalaran Matematika', 'Literasi Bahasa Inggris', 'Pengetahuan Kuantitatif'] },
@@ -204,8 +204,8 @@ const InstitutPtnData = [
     nama: 'Institut Teknologi Kalimantan',
     singkatan: 'ITK',
     lokasi: 'Balikpapan, Kalimantan Timur',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036918/eduzet/ptn/mzojrkzdqajgrvvpx0rc.png',
-    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036918/eduzet/ptn/mzojrkzdqajgrvvpx0rc.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036918/stubia/ptn/mzojrkzdqajgrvvpx0rc.png',
+    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036918/stubia/ptn/mzojrkzdqajgrvvpx0rc.png',
     prodi: [
       { nama: 'Fisika', jenjang: 'S1', skor: 620, daya_tampung: 45, subtes: ['Penalaran Matematika', 'Literasi Bahasa Inggris', 'Pengetahuan Kuantitatif'] },
       { nama: 'Matematika', jenjang: 'S1', skor: 618, daya_tampung: 40, subtes: ['Penalaran Matematika', 'Literasi Bahasa Inggris', 'Pengetahuan Kuantitatif'] },
@@ -239,8 +239,8 @@ const InstitutPtnData = [
     nama: 'Institut Teknologi Bacharuddin Jusuf Habibie',
     singkatan: 'IT BJ Habibie',
     lokasi: 'Parepare, Sulawesi Selatan',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036917/eduzet/ptn/d6kgml8r74ztadpk9bgq.jpg',
-    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036917/eduzet/ptn/d6kgml8r74ztadpk9bgq.jpg',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036917/stubia/ptn/d6kgml8r74ztadpk9bgq.jpg',
+    image: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036917/stubia/ptn/d6kgml8r74ztadpk9bgq.jpg',
     prodi: [
       { nama: 'Ilmu Komputer', jenjang: 'S1', skor: 622, daya_tampung: 71, subtes: ['Penalaran Matematika', 'Literasi Bahasa Inggris', 'Pengetahuan Kuantitatif'] },
       { nama: 'Sistem Informasi', jenjang: 'S1', skor: 618, daya_tampung: 65, subtes: ['Penalaran Matematika', 'Literasi Bahasa Inggris', 'Pengetahuan Kuantitatif'] },

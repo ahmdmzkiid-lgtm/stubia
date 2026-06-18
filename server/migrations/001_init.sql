@@ -1,4 +1,4 @@
--- Eduzet UTBK Database Schema
+-- Stubia UTBK Database Schema
 -- Auto-executed on server startup
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS site_settings (
 INSERT INTO site_settings (key, value) VALUES
   ('banner_image_url', 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=80'),
   ('banner_title', 'Raih Skor UTBK Terbaikmu'),
-  ('banner_subtitle', 'Bergabung dengan 50.000+ pelajar yang telah mempersiapkan UTBK bersama Eduzet. Latihan soal, tryout simulasi, dan pembahasan lengkap.')
+  ('banner_subtitle', 'Bergabung dengan 50.000+ pelajar yang telah mempersiapkan UTBK bersama Stubia. Latihan soal, tryout simulasi, dan pembahasan lengkap.')
 ON CONFLICT (key) DO NOTHING;
 
 -- Default schedule (JSON array)

@@ -47,7 +47,7 @@ export const soalService = {
   list: (params) => api.get('/soal', { params }),
   create: (data) => api.post('/soal', data),
   delete: (id) => api.delete(`/soal/${id}`),
-  deleteAllBySubject: (subjectId) => api.delete(`/soal/all/by-subject/${subjectId}`),
+  deleteAllBySubject: (subjectId, params) => api.delete(`/soal/all/by-subject/${subjectId}`, { params }),
   shuffleChoices: (questionId) => api.post(`/soal/shuffle/${questionId}`),
   update: (id, data) => api.patch(`/soal/${id}`, data),
   reorderQuestions: (questionIds) => api.patch('/soal/reorder/batch', { questionIds }),
@@ -115,16 +115,6 @@ export const settingsService = {
   update: (data) => api.patch('/settings', data),
 };
 
-export const notificationService = {
-  getAll: () => api.get('/notifications'),
-  getUnshown: () => api.get('/notifications/unshown'),
-  markModalShown: (id) => api.patch(`/notifications/${id}/modal-shown`),
-  markRead: (id) => api.patch(`/notifications/${id}/read`),
-  markAllRead: () => api.post('/notifications/read-all'),
-  send: (data) => api.post('/notifications/send', data), // Admin only
-  getHistory: () => api.get('/notifications/admin/history'), // Admin only
-};
-
 export const activityService = {
   getRecent: () => api.get('/activity'),
   getRiwayat: () => api.get('/activity/riwayat'),
@@ -153,6 +143,15 @@ export const subscriptionService = {
   confirmPayment: (orderId) => api.post('/subscription/confirm', { order_id: orderId }),
   getClientKey: () => api.get('/subscription/midtrans-client-key'),
   getTransactions: () => api.get('/subscription/transactions'),
+  checkout: (planIds, voucherCode) => api.post('/subscription/checkout', { planIds, voucherCode }),
+  getActivePlans: () => api.get('/subscription/active-plans'),
+};
+
+export const voucherService = {
+  validate: (code, planIds) => api.post('/vouchers/validate', { code, planIds }),
+  list: () => api.get('/vouchers'),
+  create: (data) => api.post('/vouchers', data),
+  delete: (id) => api.delete(`/vouchers/${id}`),
 };
 
 export const battleService = {
@@ -224,6 +223,13 @@ export const teamService = {
   create: (data) => api.post('/admin/team', data),
   update: (id, data) => api.patch(`/admin/team/${id}`, data),
   delete: (id) => api.delete(`/admin/team/${id}`),
+};
+
+export const todoService = {
+  list: () => api.get('/admin/todos'),
+  create: (data) => api.post('/admin/todos', data),
+  update: (id, data) => api.patch(`/admin/todos/${id}`, data),
+  delete: (id) => api.delete(`/admin/todos/${id}`),
 };
 
 export default api;

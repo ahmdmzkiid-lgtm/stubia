@@ -41,6 +41,13 @@ const emptyTryoutPackage = {
 };
 
 const emptyLatihan = {
+  package_name: '',
+  description: '',
+  is_active: true,
+  required_plan: 'gratis',
+};
+
+const emptyExercise = {
   title: '',
   category: '',
   description: '',
@@ -53,7 +60,7 @@ const emptyLatihan = {
   points_unanswered: 0,
   is_active: true,
   required_plan: 'gratis',
-  package_name: 'Paket 1',
+  package_name: '',
 };
 
 const ICON_OPTIONS = [
@@ -85,6 +92,11 @@ export default function ManageUjianMandiri() {
   const [editingLatihan, setEditingLatihan] = useState(null);
   const [tryoutForm, setTryoutForm] = useState(emptyTryoutPackage);
   const [latihanForm, setLatihanForm] = useState(emptyLatihan);
+
+  // Exercise states
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [editingExercise, setEditingExercise] = useState(null);
+  const [exerciseForm, setExerciseForm] = useState(emptyExercise);
 
   // Kelola Soal states
   const [managingItem, setManagingItem] = useState(null);
@@ -281,22 +293,27 @@ export default function ManageUjianMandiri() {
 
   const handleLatihanSubmit = async (e) => {
     e.preventDefault();
-    if (!latihanForm.title.trim()) {
-      toast.error('Judul latihan wajib diisi');
+    if (!latihanForm.package_name || !latihanForm.package_name.trim()) {
+      toast.error('Nama paket wajib diisi');
       return;
     }
+    const payload = {
+      ...latihanForm,
+      title: latihanForm.package_name,
+      category: 'package_placeholder',
+    };
     try {
       if (editingLatihan) {
-        await ujianMandiriService.updateLatihan(editingLatihan.id, latihanForm);
-        toast.success('Latihan soal berhasil diupdate');
+        await ujianMandiriService.updateLatihan(editingLatihan.id, payload);
+        toast.success('Paket latihan berhasil diupdate');
       } else {
-        await ujianMandiriService.createLatihan(selectedUjianId, latihanForm);
-        toast.success('Latihan soal berhasil ditambahkan');
+        await ujianMandiriService.createLatihan(selectedUjianId, payload);
+        toast.success('Paket latihan berhasil ditambahkan');
       }
       await fetchLatihanSoal(selectedUjianId);
       setShowLatihanModal(false);
     } catch (err) {
-      toast.error('Gagal menyimpan latihan soal: ' + (err.response?.data?.error || err.message));
+      toast.error('Gagal menyimpan paket latihan: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -308,6 +325,52 @@ export default function ManageUjianMandiri() {
       await fetchLatihanSoal(ujianId);
     } catch (err) {
       toast.error('Gagal menghapus latihan soal');
+    }
+  };
+
+  const handleDeletePackage = async (ujianId, pkgName, items) => {
+    if (!confirm(`Hapus paket "${pkgName}" beserta seluruh ${items.length} latihan didalamnya?`)) return;
+    try {
+      for (const item of items) {
+        await ujianMandiriService.deleteLatihan(item.id);
+      }
+      toast.success(`Paket "${pkgName}" berhasil dihapus`);
+      await fetchLatihanSoal(ujianId);
+    } catch (err) {
+      toast.error('Gagal menghapus paket latihan');
+    }
+  };
+
+  const openExerciseModal = (ujianId, pkgName, exercise = null) => {
+    setSelectedUjianId(ujianId);
+    if (exercise) {
+      setEditingExercise(exercise);
+      setExerciseForm({ ...emptyExercise, ...exercise });
+    } else {
+      setEditingExercise(null);
+      setExerciseForm({ ...emptyExercise, package_name: pkgName });
+    }
+    setShowExerciseModal(true);
+  };
+
+  const handleExerciseSubmit = async (e) => {
+    e.preventDefault();
+    if (!exerciseForm.title.trim()) {
+      toast.error('Judul latihan wajib diisi');
+      return;
+    }
+    try {
+      if (editingExercise) {
+        await ujianMandiriService.updateLatihan(editingExercise.id, exerciseForm);
+        toast.success('Latihan soal berhasil diupdate');
+      } else {
+        await ujianMandiriService.createLatihan(selectedUjianId, exerciseForm);
+        toast.success('Latihan soal berhasil ditambahkan');
+      }
+      await fetchLatihanSoal(selectedUjianId);
+      setShowExerciseModal(false);
+    } catch (err) {
+      toast.error('Gagal menyimpan latihan soal: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -694,7 +757,7 @@ export default function ManageUjianMandiri() {
                     </div>
                     <div>
                       <h3 className="font-bold text-[16px] text-[#191b24]">{ujian.universitas}</h3>
-                      <p className="text-[12px] text-[#424656]">{ujian.nama_ujian} • {latihans.length} latihan • {packageNames.length} paket</p>
+                      <p className="text-[12px] text-[#424656]">{ujian.nama_ujian} • {latihans.filter(l => l.category !== 'package_placeholder').length} latihan • {packageNames.length} paket</p>
                     </div>
                   </div>
                   <button
@@ -705,73 +768,124 @@ export default function ManageUjianMandiri() {
                     Tambah Latihan
                   </button>
                 </div>
-                <div className="p-4">
-                  {latihans.length > 0 ? (
+                <div className="p-6 space-y-6">
+                  {packageNames.length > 0 ? (
                     <div className="space-y-6">
-                      {packageNames.map(pkgName => (
-                        <div key={pkgName}>
-                          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#c2c6d8]/20">
-                            <span className="material-symbols-outlined text-[18px] text-[#0050cb]">inventory_2</span>
-                            <h4 className="font-bold text-[14px] text-[#191b24]">{pkgName}</h4>
-                            <span className="text-[11px] text-[#727687] bg-[#f2f3ff] px-2 py-0.5 rounded-full">{packageGroups[pkgName].length} latihan</span>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {packageGroups[pkgName].map(lat => (
-                              <div key={lat.id} className="flex items-center gap-4 p-4 bg-[#f6f3f4] rounded-xl">
-                                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${lat.icon_bg_color || '#0050cb'}15` }}>
-                                  <span className="material-symbols-outlined text-[24px]" style={{ color: lat.icon_bg_color || '#0050cb' }}>{lat.icon}</span>
+                      {packageNames.map(pkgName => {
+                        const placeholder = packageGroups[pkgName].find(lat => lat.category === 'package_placeholder');
+                        const exercises = packageGroups[pkgName].filter(lat => lat.category !== 'package_placeholder');
+                        const pkgDescription = placeholder?.description || 'Paket latihan soal mandiri.';
+                        const pkgPlan = placeholder?.required_plan || 'gratis';
+                        const pkgActive = placeholder?.is_active ?? true;
+
+                        return (
+                          <div key={pkgName} className="bg-[#fcfcff] border-2 border-[#dae1ff] rounded-2xl p-6 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#c2c6d8]/20">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[#0050cb] text-[20px]">inventory_2</span>
+                                  <h4 className="font-bold text-[16px] text-[#191b24]">{pkgName}</h4>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                    pkgPlan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
+                                    pkgPlan === 'premium' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-green-100 text-green-700'
+                                  }`}>{pkgPlan.toUpperCase()}</span>
+                                  {!pkgActive && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700">NON-AKTIF</span>
+                                  )}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: lat.category_color || '#0050cb' }}>{lat.category}</span>
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                      lat.required_plan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
-                                      lat.required_plan === 'premium' ? 'bg-blue-100 text-blue-700' :
-                                      'bg-green-100 text-green-700'
-                                    }`}>{(lat.required_plan || 'gratis').toUpperCase()}</span>
-                                  </div>
-                                  <h4 className="font-bold text-[14px] text-[#191b24] truncate">{lat.title}</h4>
-                                  <p className="text-[12px] text-[#424656] truncate">{lat.description}</p>
-                                  <div className="flex gap-2 mt-1">
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">✓ {lat.points_correct ?? 4}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">✗ {lat.points_incorrect ?? -1}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-bold">— {lat.points_unanswered ?? 0}</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => openManageSoal('latihan', ujian.id, lat)}
-                                    className="w-9 h-9 rounded-xl bg-[#0050cb]/10 text-[#0050cb] hover:bg-[#0050cb] hover:text-white flex items-center justify-center transition-all shadow-sm shadow-[#0050cb]/5"
-                                    title="Kelola Soal"
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => openLatihanModal(ujian.id, lat)}
-                                    className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
-                                    title="Edit Latihan"
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">edit</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteLatihan(ujian.id, lat.id)}
-                                    className="w-9 h-9 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
-                                    title="Hapus Latihan"
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                                  </button>
-                                </div>
+                                <p className="text-[13px] text-[#424656]">{pkgDescription}</p>
                               </div>
-                            ))}
+                              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => openExerciseModal(ujian.id, pkgName)}
+                                  className="bg-[#0050cb] text-white px-3.5 py-2 rounded-xl font-bold text-[12px] hover:bg-[#003fa4] transition-all flex items-center gap-1.5"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">add</span>
+                                  Tambah Latihan Soal
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openLatihanModal(ujian.id, placeholder || { package_name: pkgName, description: pkgDescription, required_plan: pkgPlan, is_active: pkgActive })}
+                                  className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
+                                  title="Edit Paket"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePackage(ujian.id, pkgName, packageGroups[pkgName])}
+                                  className="w-9 h-9 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
+                                  title="Hapus Paket"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {exercises.length > 0 ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {exercises.map(lat => (
+                                  <div key={lat.id} className="flex items-center gap-4 p-4 bg-white border border-[#c2c6d8]/20 rounded-xl hover:shadow-sm transition-all">
+                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${lat.icon_bg_color || '#0050cb'}15` }}>
+                                      <span className="material-symbols-outlined text-[24px]" style={{ color: lat.icon_bg_color || '#0050cb' }}>{lat.icon}</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: lat.category_color || '#0050cb' }}>{lat.category}</span>
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                          lat.required_plan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
+                                          lat.required_plan === 'premium' ? 'bg-blue-100 text-blue-700' :
+                                          'bg-green-100 text-green-700'
+                                        }`}>{(lat.required_plan || 'gratis').toUpperCase()}</span>
+                                      </div>
+                                      <h4 className="font-bold text-[14px] text-[#191b24] truncate">{lat.title}</h4>
+                                      <p className="text-[12px] text-[#424656] truncate">{lat.description}</p>
+                                      <div className="flex gap-2 mt-1">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">✓ {lat.points_correct ?? 4}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">✗ {lat.points_incorrect ?? -1}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-bold">— {lat.points_unanswered ?? 0}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => openManageSoal('latihan', ujian.id, lat)}
+                                        className="w-9 h-9 rounded-xl bg-[#0050cb]/10 text-[#0050cb] hover:bg-[#0050cb] hover:text-white flex items-center justify-center transition-all shadow-sm shadow-[#0050cb]/5"
+                                        title="Kelola Soal"
+                                      >
+                                        <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => openExerciseModal(ujian.id, pkgName, lat)}
+                                        className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
+                                        title="Edit Latihan"
+                                      >
+                                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteLatihan(ujian.id, lat.id)}
+                                        className="w-9 h-9 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
+                                        title="Hapus Latihan"
+                                      >
+                                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-center py-6 text-[#727687] text-[13px] border border-dashed border-[#c2c6d8]/30 rounded-xl bg-white">Belum ada latihan soal di dalam paket ini. Klik "Tambah Latihan Soal".</p>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
-                    <p className="text-center py-8 text-[#727687] text-[14px]">Belum ada latihan soal</p>
+                    <p className="text-center py-8 text-[#727687] text-[14px]">Belum ada paket latihan. Klik "Tambah Latihan".</p>
                   )}
                 </div>
               </div>
@@ -1054,13 +1168,13 @@ export default function ManageUjianMandiri() {
         </div>
       )}
 
-      {/* Modal Latihan Soal */}
+      {/* Modal Paket Latihan */}
       {showLatihanModal && (
         <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowLatihanModal(false)}>
           <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-[20px] font-bold text-[#191b24]">
-                {editingLatihan ? 'Edit Latihan Soal' : 'Tambah Latihan Soal'}
+                {editingLatihan ? 'Edit Paket Latihan' : 'Tambah Paket Latihan'}
               </h3>
               <button type="button" onClick={() => setShowLatihanModal(false)} className="w-9 h-9 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656] hover:bg-[#e6e7f4]">
                 <span className="material-symbols-outlined text-[18px]">close</span>
@@ -1069,30 +1183,21 @@ export default function ManageUjianMandiri() {
 
             <form onSubmit={handleLatihanSubmit} className="space-y-4">
               <div>
-                <label className={labelCls}>Nama Paket</label>
-                <input className={inputCls} value={latihanForm.package_name || 'Paket 1'} onChange={(e) => setLatihanForm({ ...latihanForm, package_name: e.target.value })} placeholder="e.g. Paket 1, Paket 2, Paket 3" />
-                <p className="text-[11px] text-[#727687] mt-1">Latihan akan dikelompokkan berdasarkan nama paket ini.</p>
-              </div>
-              <div>
-                <label className={labelCls}>Judul Latihan *</label>
-                <input className={inputCls} value={latihanForm.title} onChange={(e) => setLatihanForm({ ...latihanForm, title: e.target.value })} placeholder="e.g. Kemampuan Dasar" required />
-              </div>
-              <div>
-                <label className={labelCls}>Kategori</label>
-                <input className={inputCls} value={latihanForm.category} onChange={(e) => setLatihanForm({ ...latihanForm, category: e.target.value })} placeholder="e.g. CORE MODULE, SAINTEK, SOSHUM" />
+                <label className={labelCls}>Nama Paket *</label>
+                <input className={inputCls} value={latihanForm.package_name || ''} onChange={(e) => setLatihanForm({ ...latihanForm, package_name: e.target.value })} placeholder="e.g. Paket 1, Paket 2, Paket 3" required />
               </div>
               <div>
                 <label className={labelCls}>Deskripsi</label>
-                <textarea className={inputCls + ' min-h-[80px] resize-y'} value={latihanForm.description} onChange={(e) => setLatihanForm({ ...latihanForm, description: e.target.value })} placeholder="Matematika Dasar, Bahasa Indonesia, & Bahasa Inggris foundation." />
+                <textarea className={inputCls + ' min-h-[80px] resize-y'} value={latihanForm.description || ''} onChange={(e) => setLatihanForm({ ...latihanForm, description: e.target.value })} placeholder="Deskripsi paket latihan ini." />
               </div>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   className="w-5 h-5 rounded border-[#c2c6d8] text-[#0050cb]"
-                  checked={!!latihanForm.is_active}
+                  checked={latihanForm.is_active !== false}
                   onChange={(e) => setLatihanForm({ ...latihanForm, is_active: e.target.checked })}
                 />
-                <span className="text-[14px] font-bold text-[#191b24]">Aktifkan latihan</span>
+                <span className="text-[14px] font-bold text-[#191b24]">Aktifkan paket</span>
               </label>
               <div>
                 <label className={labelCls}>Akses Minimum</label>
@@ -1103,7 +1208,77 @@ export default function ManageUjianMandiri() {
                       type="button"
                       onClick={() => setLatihanForm({ ...latihanForm, required_plan: opt.value })}
                       className={`flex-1 min-w-[120px] py-3 rounded-xl font-bold text-[13px] border-2 transition-all flex items-center justify-center gap-2 ${
-                        latihanForm.required_plan === opt.value
+                        (latihanForm.required_plan || 'gratis') === opt.value
+                          ? 'border-[#0050cb] bg-[#dae1ff] text-[#0050cb]'
+                          : 'border-[#c2c6d8]/30 bg-[#f2f3ff] text-[#727687] hover:border-[#c2c6d8]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">{opt.icon}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-[#c2c6d8]/20">
+                <button type="submit" className="bg-[#0050cb] text-white px-6 py-3 rounded-xl font-bold text-[14px] hover:bg-[#003fa4] transition-all flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">save</span>
+                  {editingLatihan ? 'Update' : 'Simpan'}
+                </button>
+                <button type="button" onClick={() => setShowLatihanModal(false)} className="border border-[#c2c6d8]/40 text-[#424656] px-5 py-3 rounded-xl font-bold text-[14px] hover:bg-[#f2f3ff] transition-all">
+                  Batal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Latihan Soal */}
+      {showExerciseModal && (
+        <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowExerciseModal(false)}>
+          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[20px] font-bold text-[#191b24]">
+                {editingExercise ? 'Edit Latihan Soal' : `Tambah Latihan Soal - ${exerciseForm.package_name}`}
+              </h3>
+              <button type="button" onClick={() => setShowExerciseModal(false)} className="w-9 h-9 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656] hover:bg-[#e6e7f4]">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleExerciseSubmit} className="space-y-4">
+              <div>
+                <label className={labelCls}>Judul Latihan Soal *</label>
+                <input className={inputCls} value={exerciseForm.title || ''} onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })} placeholder="e.g. Penalaran Umum" required />
+              </div>
+              <div>
+                <label className={labelCls}>Kategori / Subtest</label>
+                <input className={inputCls} value={exerciseForm.category || ''} onChange={(e) => setExerciseForm({ ...exerciseForm, category: e.target.value })} placeholder="e.g. Penalaran Umum, Pengetahuan Kuantitatif" />
+              </div>
+              <div>
+                <label className={labelCls}>Deskripsi</label>
+                <textarea className={inputCls + ' min-h-[80px] resize-y'} value={exerciseForm.description || ''} onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })} placeholder="Deskripsi latihan soal ini." />
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 rounded border-[#c2c6d8] text-[#0050cb]"
+                  checked={exerciseForm.is_active !== false}
+                  onChange={(e) => setExerciseForm({ ...exerciseForm, is_active: e.target.checked })}
+                />
+                <span className="text-[14px] font-bold text-[#191b24]">Aktifkan latihan</span>
+              </label>
+              <div>
+                <label className={labelCls}>Akses Minimum</label>
+                <div className="flex gap-3 flex-wrap">
+                  {PLAN_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setExerciseForm({ ...exerciseForm, required_plan: opt.value })}
+                      className={`flex-1 min-w-[120px] py-3 rounded-xl font-bold text-[13px] border-2 transition-all flex items-center justify-center gap-2 ${
+                        (exerciseForm.required_plan || 'gratis') === opt.value
                           ? 'border-[#0050cb] bg-[#dae1ff] text-[#0050cb]'
                           : 'border-[#c2c6d8]/30 bg-[#f2f3ff] text-[#727687] hover:border-[#c2c6d8]'
                       }`}
@@ -1117,7 +1292,7 @@ export default function ManageUjianMandiri() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>Icon</label>
-                  <select className={inputCls + ' cursor-pointer'} value={latihanForm.icon} onChange={(e) => setLatihanForm({ ...latihanForm, icon: e.target.value })}>
+                  <select className={inputCls + ' cursor-pointer'} value={exerciseForm.icon || 'auto_stories'} onChange={(e) => setExerciseForm({ ...exerciseForm, icon: e.target.value })}>
                     {ICON_OPTIONS.map(icon => (
                       <option key={icon} value={icon}>{icon}</option>
                     ))}
@@ -1125,12 +1300,12 @@ export default function ManageUjianMandiri() {
                 </div>
                 <div>
                   <label className={labelCls}>Warna Icon</label>
-                  <input type="color" className="w-full h-[46px] rounded-xl border border-[#c2c6d8]/40 cursor-pointer" value={latihanForm.icon_bg_color || '#0050cb'} onChange={(e) => setLatihanForm({ ...latihanForm, icon_bg_color: e.target.value, category_color: e.target.value })} />
+                  <input type="color" className="w-full h-[46px] rounded-xl border border-[#c2c6d8]/40 cursor-pointer" value={exerciseForm.icon_bg_color || '#0050cb'} onChange={(e) => setExerciseForm({ ...exerciseForm, icon_bg_color: e.target.value, category_color: e.target.value })} />
                 </div>
               </div>
               <div>
                 <label className={labelCls}>Style Tombol</label>
-                <select className={inputCls + ' cursor-pointer'} value={latihanForm.button_style || 'filled'} onChange={(e) => setLatihanForm({ ...latihanForm, button_style: e.target.value })}>
+                <select className={inputCls + ' cursor-pointer'} value={exerciseForm.button_style || 'filled'} onChange={(e) => setExerciseForm({ ...exerciseForm, button_style: e.target.value })}>
                   <option value="filled">Filled (Biru)</option>
                   <option value="outline">Outline</option>
                 </select>
@@ -1142,26 +1317,25 @@ export default function ManageUjianMandiri() {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-green-700 mb-1">Benar (+)</label>
-                    <input type="number" className={inputCls} value={latihanForm.points_correct ?? 4} onChange={(e) => setLatihanForm({ ...latihanForm, points_correct: parseInt(e.target.value) || 0 })} />
+                    <input type="number" className={inputCls} value={exerciseForm.points_correct ?? 4} onChange={(e) => setExerciseForm({ ...exerciseForm, points_correct: parseInt(e.target.value) || 0 })} />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-red-700 mb-1">Salah (−)</label>
-                    <input type="number" className={inputCls} value={latihanForm.points_incorrect ?? -1} onChange={(e) => setLatihanForm({ ...latihanForm, points_incorrect: parseInt(e.target.value) })} />
+                    <input type="number" className={inputCls} value={exerciseForm.points_incorrect ?? -1} onChange={(e) => setExerciseForm({ ...exerciseForm, points_incorrect: parseInt(e.target.value) })} />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">Kosong</label>
-                    <input type="number" className={inputCls} value={latihanForm.points_unanswered ?? 0} onChange={(e) => setLatihanForm({ ...latihanForm, points_unanswered: parseInt(e.target.value) || 0 })} />
+                    <input type="number" className={inputCls} value={exerciseForm.points_unanswered ?? 0} onChange={(e) => setExerciseForm({ ...exerciseForm, points_unanswered: parseInt(e.target.value) || 0 })} />
                   </div>
                 </div>
-                <p className="text-[11px] text-[#727687]">Contoh: 10 benar, 5 salah, 5 kosong = {((latihanForm.points_correct ?? 4) * 10) + ((latihanForm.points_incorrect ?? -1) * 5) + ((latihanForm.points_unanswered ?? 0) * 5)} poin</p>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-[#c2c6d8]/20">
                 <button type="submit" className="bg-[#0050cb] text-white px-6 py-3 rounded-xl font-bold text-[14px] hover:bg-[#003fa4] transition-all flex items-center gap-2">
                   <span className="material-symbols-outlined text-[18px]">save</span>
-                  {editingLatihan ? 'Update' : 'Simpan'}
+                  {editingExercise ? 'Update' : 'Simpan'}
                 </button>
-                <button type="button" onClick={() => setShowLatihanModal(false)} className="border border-[#c2c6d8]/40 text-[#424656] px-5 py-3 rounded-xl font-bold text-[14px] hover:bg-[#f2f3ff] transition-all">
+                <button type="button" onClick={() => setShowExerciseModal(false)} className="border border-[#c2c6d8]/40 text-[#424656] px-5 py-3 rounded-xl font-bold text-[14px] hover:bg-[#f2f3ff] transition-all">
                   Batal
                 </button>
               </div>

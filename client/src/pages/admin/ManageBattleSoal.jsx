@@ -37,7 +37,23 @@ const ManageBattleSoal = () => {
     setLoading(true);
     try {
       const res = await subjectService.list();
-      setSubjects(res.data?.data || []);
+      const rawSubjects = res.data?.data || [];
+      
+      const UTBK_ORDER = [
+        "Penalaran Umum",
+        "Pengetahuan dan Pemahaman Umum",
+        "Pemahaman Bacaan dan Tulisan",
+        "Pengetahuan Kuantitatif",
+        "Literasi Bahasa Indonesia",
+        "Literasi Bahasa Inggris",
+        "Penalaran Matematika"
+      ];
+      
+      const filteredSorted = rawSubjects
+        .filter(s => UTBK_ORDER.includes(s.name))
+        .sort((a, b) => UTBK_ORDER.indexOf(a.name) - UTBK_ORDER.indexOf(b.name));
+        
+      setSubjects(filteredSorted);
     } catch (err) {
       console.error(err);
       toast.error('Gagal memuat daftar subtes');
@@ -80,6 +96,17 @@ const ManageBattleSoal = () => {
       fetchQuestions(selectedSubject.id, questionsPagination.page);
     } catch (err) {
       toast.error('Gagal menghapus soal');
+    }
+  };
+
+  const handleDeleteAllQuestions = async () => {
+    if (!window.confirm('Peringatan: Anda akan menghapus SEMUA soal battle di subtes ini. Tindakan ini tidak dapat dibatalkan. Lanjutkan?')) return;
+    try {
+      const res = await soalService.deleteAllBySubject(selectedSubject.id, { source: 'battle' });
+      toast.success(res.data?.message || 'Semua soal battle berhasil dihapus');
+      fetchQuestions(selectedSubject.id, 1);
+    } catch (err) {
+      toast.error('Gagal menghapus semua soal');
     }
   };
 
@@ -324,6 +351,13 @@ const ManageBattleSoal = () => {
               <>
                 <div className="flex justify-between items-center mb-4 px-2">
                   <h3 className="font-bold text-[#191b24] text-[18px]">Total {questions.length} Soal Battle</h3>
+                  <button
+                    onClick={handleDeleteAllQuestions}
+                    className="text-[13px] font-bold text-[#ba1a1a] bg-[#ffdad6] hover:bg-[#ffb4ab] px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                    Hapus Semua Soal
+                  </button>
                 </div>
                 <div className="space-y-4">
                   {questions.map((q, idx) => (
@@ -442,9 +476,9 @@ const ManageBattleSoal = () => {
                   </div>
                   
                   <h3 className="text-[20px] font-bold text-[#191b24] mb-2 leading-tight">
-                    {s.title}
+                    {s.title || s.name}
                   </h3>
-                  <p className="text-[13px] text-[#727687] mb-6 line-clamp-2">{s.description}</p>
+                  <p className="text-[13px] text-[#727687] mb-6 line-clamp-2">{s.description || 'Kelola bank soal untuk subtes ini.'}</p>
                   
                   <div className="mt-auto pt-6 border-t border-[#c2c6d8]/20 flex gap-2">
                     <button 

@@ -67,14 +67,14 @@ const Register = () => {
       {/* Desktop Left Panel - hidden on mobile */}
       <div className="register-left">
         <div className="auth-side-nav">
-          <Link to="/" className="register-logo"><img src="/eduzet-brand-light.svg" alt="Eduzet" /></Link>
+          <Link to="/" className="register-logo"><img src="/stubiabrandicon.png" alt="Stubia" /></Link>
         </div>
         <div className="register-left-content">
-          <h1>Persiapkan UTBK bersama <span>Eduzet</span></h1>
+          <h1>Persiapkan UTBK bersama <span>Stubia</span></h1>
           <p>Bergabung dengan 50.000+ siswa di seluruh Indonesia dan mulai persiapan UTBK-mu dengan soal latihan, tryout simulasi, dan pembahasan lengkap.</p>
           <div className="register-hero-img">
             <img
-              src="/landingpage-hero.svg"
+              src="/landingpage-hero.webp"
               alt="Students collaborating"
             />
           </div>
@@ -85,7 +85,7 @@ const Register = () => {
       <div className="register-right">
         <div className="register-form-card">
           {/* Mobile logo */}
-          <Link to="/" className="register-mobile-logo"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
+          <Link to="/" className="register-mobile-logo"><img src="/stubiabrandicon.png" alt="Stubia" className="h-8" /></Link>
 
           <div className="register-form-header">
             <h2>Buat Akun</h2>

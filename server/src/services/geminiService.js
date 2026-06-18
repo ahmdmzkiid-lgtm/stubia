@@ -42,7 +42,7 @@ const executeWithRetry = async (operation, maxRetries = 3) => {
           continue;
         } else {
           // No more keys or max retries reached
-          throw new Error('Maaf ya, Kak Z sedang banyak yang nanya nih (semua API key mencapai batas). Coba lagi beberapa saat ya! 🙏');
+          throw new Error('Maaf ya, sistem sedang sibuk (semua API key mencapai batas). Coba lagi beberapa saat ya! 🙏');
         }
       } else {
         // Non-rate-limit error, don't retry
@@ -60,10 +60,10 @@ const chatWithKakZ = async (message, history = []) => {
     const genAI = initGemini();
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
-    const systemPrompt = `Kamu adalah Kak Z, customer service yang ramah untuk platform Eduzet.
+    const systemPrompt = `Kamu adalah Stu, customer service yang ramah untuk platform Stubia.
 
-TENTANG EDUZET:
-Eduzet adalah platform latihan soal dan tryout UTBK/SNBT. Fitur yang tersedia HANYA:
+TENTANG STUBIA:
+Stubia adalah platform latihan soal dan tryout UTBK/SNBT. Fitur yang tersedia HANYA:
 - Latihan soal (7 subtes)
 - Tryout UTBK/SNBT
 - Ujian Mandiri PTN
@@ -71,7 +71,7 @@ Eduzet adalah platform latihan soal dan tryout UTBK/SNBT. Fitur yang tersedia HA
 Paket: Gratis (latihan terbatas), Premium Rp35.000/6 bulan (semua latihan + 10 tryout), Premium Ujian Mandiri Rp. 15.000/2 bulan (akses semua latihan soal dan tryout ujian mandiri), Sultan Rp60.000/tahun (semua latihan + semua tryout + konsultasi AI).
 
 TUGASMU:
-- Bantu siswa tentang fitur Eduzet, cara pakai, paket belajar, dan kendala teknis
+- Bantu siswa tentang fitur Stubia, cara pakai, paket belajar, dan kendala teknis
 - Beri semangat belajar
 
 FORMAT JAWABAN (WAJIB DIPATUHI):
@@ -82,15 +82,15 @@ FORMAT JAWABAN (WAJIB DIPATUHI):
 - Boleh pakai emoji secukupnya
 
 ATURAN KETAT:
-1. TOLAK pertanyaan di luar konteks Eduzet atau UTBK/SNBT
+1. TOLAK pertanyaan di luar konteks Stubia atau UTBK/SNBT
 2. JANGAN mengarang info (harga, fitur, janji yang tidak ada)
-3. Jika tidak tahu, sarankan email ke eduzetsupport@gmail.com
+3. Jika tidak tahu, sarankan email ke stubiasupport@gmail.com
 4. JANGAN menjawab soal akademik, pembahasan materi, rekomendasi belajar, atau info PTN (itu bukan tugasmu sebagai CS)`;
 
     const chat = model.startChat({
       history: [
         { role: 'user', parts: [{ text: systemPrompt }] },
-        { role: 'model', parts: [{ text: 'Halo! Aku Kak Z dari tim Eduzet. Ada yang bisa Kak Z bantu hari ini? Semangat terus ya belajarnya! ✨' }] },
+        { role: 'model', parts: [{ text: 'Halo! Aku Stu dari tim Stubia. Ada yang bisa Stu bantu hari ini? Semangat terus ya belajarnya! ✨' }] },
         ...history.map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.text }]
@@ -103,10 +103,10 @@ ATURAN KETAT:
     return response.text();
   }).catch(error => {
     console.error('Gemini chat error:', error);
-    if (error.message && error.message.includes('Kak Z sedang banyak yang nanya')) {
+    if (error.message && error.message.includes('sistem sedang sibuk')) {
       throw error; // Already formatted by executeWithRetry
     }
-    throw new Error('Gagal menghubungi Kak Z. Ada gangguan teknis sebentar.');
+    throw new Error('Gagal menghubungi Stu. Ada gangguan teknis sebentar.');
   });
 };
 
@@ -119,7 +119,7 @@ const chatDiscussQuestion = async (message, questionContext, history = []) => {
       .map(c => `${c.label}. ${c.content}${c.is_correct ? ' ✓ (jawaban benar)' : ''}`)
       .join('\n');
 
-    const systemPrompt = `Kamu adalah Kak Z, tutor AI dari platform Eduzet yang membahas soal UTBK/SNBT.
+    const systemPrompt = `Kamu adalah Bia, tutor AI dari platform Stubia yang membahas soal UTBK/SNBT.
 
 KONTEKS SOAL YANG SEDANG DIBAHAS:
 Soal: ${questionContext.content}
@@ -151,7 +151,7 @@ ATURAN KETAT:
     const chat = model.startChat({
       history: [
         { role: 'user', parts: [{ text: systemPrompt }] },
-        { role: 'model', parts: [{ text: `Hai! Aku Kak Z 👋 Aku udah baca soalnya nih. ${questionContext.isCorrect ? 'Wah kamu udah jawab benar ya, keren! 🎉' : 'Tenang aja, yuk kita bahas bareng biar kamu paham!'} Ada yang mau kamu tanyakan tentang soal ini?` }] },
+        { role: 'model', parts: [{ text: `Hai! Aku Bia 👋 Aku udah baca soalnya nih. ${questionContext.isCorrect ? 'Wah kamu udah jawab benar ya, keren! 🎉' : 'Tenang aja, yuk kita bahas bareng biar kamu paham!'} Ada yang mau kamu tanyakan tentang soal ini?` }] },
         ...history.map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.text }]
@@ -164,10 +164,10 @@ ATURAN KETAT:
     return response.text();
   }).catch(error => {
     console.error('Gemini discussion error:', error);
-    if (error.message && error.message.includes('Kak Z sedang banyak yang nanya')) {
+    if (error.message && error.message.includes('sistem sedang sibuk')) {
       throw error; // Already formatted by executeWithRetry
     }
-    throw new Error('Gagal menghubungi Kak Z. Ada gangguan teknis sebentar.');
+    throw new Error('Gagal menghubungi Bia. Ada gangguan teknis sebentar.');
   });
 };
 
@@ -176,10 +176,10 @@ const chatKonsultasi = async (message, history = []) => {
     const genAI = initGemini();
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
-    const systemPrompt = `Kamu adalah Kak Z, konsultan belajar dari platform Eduzet yang ahli persiapan UTBK/SNBT dan info PTN.
+    const systemPrompt = `Kamu adalah Bia, konsultan belajar dari platform Stubia yang ahli persiapan UTBK/SNBT dan info PTN.
 Gunakan bahasa Indonesia yang santai dan sopan (gunakan 'aku' dan 'kamu').
 
-TENTANG EDUZET:
+TENTANG STUBIA:
 Platform latihan soal dan tryout UTBK/SNBT dengan 7 subtes:
 Penalaran Umum (PU), Pengetahuan dan Pemahaman Umum (PPU), Pemahaman Bacaan dan Tulisan (PBM), Pengetahuan Kuantitatif (PK), Literasi Bahasa Indonesia (LBI), Literasi Bahasa Inggris (LBE), Penalaran Matematika (PM).
 
@@ -234,14 +234,14 @@ FORMAT JAWABAN (WAJIB DIPATUHI):
 ATURAN KETAT:
 1. JANGAN mengarang data statistik, passing grade, kuota, atau biaya kuliah
 2. TOLAK pertanyaan di luar konteks UTBK/SNBT/PTN/belajar
-3. Jika tidak tahu, bilang jujur dan sarankan cek website resmi atau email eduzetsupport@gmail.com
+3. Jika tidak tahu, bilang jujur dan sarankan cek website resmi atau email stubiasupport@gmail.com
 4. Selalu tanya dulu sebelum memberi saran panjang
 5. Beri semangat di akhir jawaban`;
 
     const chat = model.startChat({
       history: [
         { role: 'user', parts: [{ text: systemPrompt }] },
-        { role: 'model', parts: [{ text: 'Halo! 👋 Aku Kak Z, konsultan belajarmu di Eduzet.\n\nAku bisa bantu kamu untuk:\n• 📚 Rekomendasi strategi belajar UTBK\n• 🏫 Info Perguruan Tinggi Negeri & jurusan\n• 📊 Analisis peluang masuk PTN\n• 💡 Tips & trik persiapan UTBK\n\nMau konsultasi tentang apa nih? Cerita aja, Kak Z siap bantu! 😊' }] },
+        { role: 'model', parts: [{ text: 'Halo! 👋 Aku Bia, konsultan belajarmu di Stubia.\n\nAku bisa bantu kamu untuk:\n• 📚 Rekomendasi strategi belajar UTBK\n• 🏫 Info Perguruan Tinggi Negeri & jurusan\n• 📊 Analisis peluang masuk PTN\n• 💡 Tips & trik persiapan UTBK\n\nMau konsultasi tentang apa nih? Cerita aja, Bia siap bantu! 😊' }] },
         ...history.map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.text }]
@@ -254,10 +254,10 @@ ATURAN KETAT:
     return response.text();
   }).catch(error => {
     console.error('Gemini konsultasi error:', error);
-    if (error.message && error.message.includes('Kak Z sedang banyak yang nanya')) {
+    if (error.message && error.message.includes('sistem sedang sibuk')) {
       throw error; // Already formatted by executeWithRetry
     }
-    throw new Error('Gagal menghubungi Kak Z. Ada gangguan teknis sebentar.');
+    throw new Error('Gagal menghubungi Bia. Ada gangguan teknis sebentar.');
   });
 };
 

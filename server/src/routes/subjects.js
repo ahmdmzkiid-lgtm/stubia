@@ -8,7 +8,7 @@ const { verifyToken, verifyAdmin } = require('../middleware/auth');
 // List all subjects
 router.get('/', verifyToken, async (req, res, next) => {
   try {
-    const result = await pool.query('SELECT * FROM subjects ORDER BY display_order ASC, title ASC');
+    const result = await pool.query('SELECT * FROM subjects ORDER BY name ASC');
     res.json({ success: true, data: result.rows });
   } catch (error) {
     next(error);
@@ -48,12 +48,58 @@ router.patch('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
 // Delete subject
 router.delete('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    const result = await pool.query('DELETE FROM subjects WHERE id = $1 RETURNING *', [id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Subject not found' });
-    res.json({ success: true, message: 'Subject deleted' });
+    await client.query('BEGIN');
+
+    // 1. Delete bookmarks referencing questions in this subject
+    await client.query(
+      `DELETE FROM bookmarks WHERE question_id IN (SELECT id FROM questions WHERE subject_id = $1)`,
+      [id]
+    );
+
+    // 2. Delete user_answers referencing questions in this subject
+    await client.query(
+      `DELETE FROM user_answers WHERE question_id IN (SELECT id FROM questions WHERE subject_id = $1)`,
+      [id]
+    );
+
+    // 3. Delete user_answers referencing choices of questions in this subject
+    await client.query(
+      `DELETE FROM user_answers WHERE chosen_choice_id IN (
+        SELECT ac.id FROM answer_choices ac
+        JOIN questions q ON ac.question_id = q.id
+        WHERE q.subject_id = $1
+      )`,
+      [id]
+    );
+
+    // 4. Delete answer choices for questions in this subject
+    await client.query(
+      `DELETE FROM answer_choices WHERE question_id IN (SELECT id FROM questions WHERE subject_id = $1)`,
+      [id]
+    );
+
+    // 5. Delete questions under this subject
+    await client.query(
+      `DELETE FROM questions WHERE subject_id = $1`,
+      [id]
+    );
+
+    // 6. Delete the subject itself
+    const result = await client.query('DELETE FROM subjects WHERE id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Subject not found' });
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Subject and its questions deleted successfully' });
   } catch (error) {
+    await client.query('ROLLBACK');
     next(error);
+  } finally {
+    client.release();
   }
 });
 

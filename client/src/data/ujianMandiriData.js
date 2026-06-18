@@ -1,14 +1,14 @@
 // Data Ujian Mandiri dengan localStorage persistence
-const STORAGE_KEY = 'eduzet_ujian_mandiri';
-const BANNER_KEY = 'eduzet_ujian_mandiri_banner';
-const TRYOUT_KEY = 'eduzet_ujian_mandiri_tryout';
-const LATIHAN_KEY = 'eduzet_ujian_mandiri_latihan';
+const STORAGE_KEY = 'stubia_ujian_mandiri';
+const BANNER_KEY = 'stubia_ujian_mandiri_banner';
+const TRYOUT_KEY = 'stubia_ujian_mandiri_tryout';
+const LATIHAN_KEY = 'stubia_ujian_mandiri_latihan';
 
 export const DEFAULT_BANNER = {
   badge: 'AKADEMIK 2026',
   title: 'Eksplorasi Ujian Mandiri 2026',
   description:
-    'Temukan peluang pendidikan terbaik di institusi pendidikan tinggi terkemuka Indonesia. Portal EduZET menyediakan informasi komprehensif, jadwal krusial, dan panduan pendaftaran terpusat untuk membantu ambisi akademik Anda mencapai puncak prestasinya.',
+    'Temukan peluang pendidikan terbaik di institusi pendidikan tinggi terkemuka Indonesia. Portal Stubia menyediakan informasi komprehensif, jadwal krusial, dan panduan pendaftaran terpusat untuk membantu ambisi akademik Anda mencapai puncak prestasinya.',
   primaryButtonText: 'Mulai Registrasi',
   primaryButtonLink: '',
   secondaryButtonText: 'Unduh Panduan (PDF)',
@@ -33,7 +33,7 @@ export const DEFAULT_UJIAN_MANDIRI = [
     deadline: '15 Juli 2026',
     lokasi: 'Depok, Jawa Barat',
     image: 'https://images.unsplash.com/photo-1562774053-701939374585?w=800',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780037007/eduzet/ptn/wzentledpuv6d7gj5rns.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780037007/stubia/ptn/wzentledpuv6d7gj5rns.png',
     detailLink: 'https://simak.ui.ac.id',
   },
   {
@@ -44,7 +44,7 @@ export const DEFAULT_UJIAN_MANDIRI = [
     deadline: 'Estimasi: Agustus 2026',
     lokasi: 'Bandung, Jawa Barat',
     image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036916/eduzet/ptn/b0gk1iazymxyjfy0omz9.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036916/stubia/ptn/b0gk1iazymxyjfy0omz9.png',
     detailLink: 'https://usm.itb.ac.id',
   },
   {
@@ -55,7 +55,7 @@ export const DEFAULT_UJIAN_MANDIRI = [
     deadline: '20 Juni 2026',
     lokasi: 'Sleman, Yogyakarta',
     image: 'https://images.unsplash.com/photo-1607237138185-eedd9c632b0b?w=800',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780037006/eduzet/ptn/m0cbjil4dxxztzdkl2fx.jpg',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780037006/stubia/ptn/m0cbjil4dxxztzdkl2fx.jpg',
     detailLink: 'https://um.ugm.ac.id',
   },
   {
@@ -66,7 +66,7 @@ export const DEFAULT_UJIAN_MANDIRI = [
     deadline: '30 Juni 2026',
     lokasi: 'Bogor, Jawa Barat',
     image: 'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=800',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036915/eduzet/ptn/j2lelceiiyuhfgbkavt0.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036915/stubia/ptn/j2lelceiiyuhfgbkavt0.png',
     detailLink: 'https://admisi.ipb.ac.id',
   },
   {
@@ -77,7 +77,7 @@ export const DEFAULT_UJIAN_MANDIRI = [
     deadline: '10 Juli 2026',
     lokasi: 'Surabaya, Jawa Timur',
     image: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800',
-    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036919/eduzet/ptn/jejuqr21bhwlde4oc1jm.png',
+    logo: 'https://res.cloudinary.com/dcnkhhxz8/image/upload/v1780036919/stubia/ptn/jejuqr21bhwlde4oc1jm.png',
     detailLink: 'https://smits.its.ac.id',
   },
   {

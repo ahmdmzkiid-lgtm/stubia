@@ -183,7 +183,11 @@ function calculateIRTScore(answers) {
     const difficulty = ans.difficulty || 'medium';
     const irtParams = ans.irtParams || DEFAULT_IRT_PARAMS[difficulty] || DEFAULT_IRT_PARAMS.medium;
 
-    if (!ans.chosen_choice_id) {
+    const isAnswered = ans.question_type === 'short_answer'
+      ? (ans.answer_text !== null && ans.answer_text !== undefined && String(ans.answer_text).trim() !== '')
+      : (ans.chosen_choice_id !== null && ans.chosen_choice_id !== undefined);
+
+    if (!isAnswered) {
       kosong++;
     } else if (ans.is_correct) {
       benar++;
@@ -192,7 +196,7 @@ function calculateIRTScore(answers) {
     }
 
     return {
-      isCorrect: ans.chosen_choice_id ? ans.is_correct : false,
+      isCorrect: isAnswered ? ans.is_correct : false,
       difficulty,
       irtParams,
       questionId: ans.question_id,
@@ -211,7 +215,11 @@ function calculateIRTScore(answers) {
     const difficulty = ans.difficulty || 'medium';
     const weight = WEIGHTS[difficulty] || 3;
 
-    if (ans.chosen_choice_id) {
+    const isAnswered = ans.question_type === 'short_answer'
+      ? (ans.answer_text !== null && ans.answer_text !== undefined && String(ans.answer_text).trim() !== '')
+      : (ans.chosen_choice_id !== null && ans.chosen_choice_id !== undefined);
+
+    if (isAnswered) {
       if (ans.is_correct) {
         rawScore += weight * 4;
       } else {

@@ -10,6 +10,7 @@ import SocialFollowModal from '../components/SocialFollowModal';
 import LatihanPreRequirementModal from '../components/LatihanPreRequirementModal';
 import MathText from '../components/MathText';
 import ZoomableImage from '../components/ui/ZoomableImage';
+import ExitConfirmModal from '../components/ExitConfirmModal';
 
 const LatihanSoalUM = () => {
   const navigate = useNavigate();
@@ -30,6 +31,8 @@ const LatihanSoalUM = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showPreModal, setShowPreModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [pendingExitPath, setPendingExitPath] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -334,9 +337,9 @@ const LatihanSoalUM = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8ff]/95 backdrop-blur-md border-b border-[#e0e2f0] shadow-sm">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="flex items-center">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-9" />
-            </Link>
+            <button onClick={() => { setPendingExitPath('/dashboard'); setShowExitModal(true); }} className="flex items-center">
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-9 cursor-pointer" />
+            </button>
             <div className="hidden sm:flex items-center gap-1.5 text-[13px] font-semibold text-[#0050cb] bg-[#e8eeff] px-3 py-1 rounded-lg">
               <span className="material-symbols-outlined text-[16px]">school</span>
               {ujian?.namaUjian || 'Ujian Mandiri'}
@@ -552,6 +555,14 @@ const LatihanSoalUM = () => {
           />
         </>
       )}
+
+      <ExitConfirmModal
+        open={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        onConfirm={() => { setShowExitModal(false); navigate(pendingExitPath || '/dashboard'); }}
+        title="Yakin ingin keluar dari latihan?"
+        message="Jawaban yang sudah dikerjakan akan tetap tersimpan."
+      />
     </div>
   );
 };

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { generateQuestionHash, updateQuestionHash } = require('../utils/questionHashUtil');
 
 // Helper: check free plan gating for latihan (UTBK)
 async function checkLatihanAccess(userId) {
@@ -32,14 +33,22 @@ async function checkLatihanAccess(userId) {
 // List Soal
 router.get('/', verifyToken, async (req, res, next) => {
   try {
-    const { subject_id, topic_id, subject_name, difficulty, tryout_package_id, source, page = 1, limit = 100 } = req.query;
+    const { subject_id, topic_id, subject_name, difficulty, tryout_package_id, source, exclude_completed, page = 1, limit = 100 } = req.query;
 
     // Free plan practice limit check
     if (!tryout_package_id) {
-      const userRes = await pool.query('SELECT current_plan FROM users WHERE id = $1', [req.user.id]);
-      const currentPlan = userRes.rows[0]?.current_plan || 'gratis';
+      // Check if user has an active subscription/access plan for UTBK
+      const activeUtbkRes = await pool.query(
+        `SELECT 1 FROM subscriptions s
+         JOIN plans p ON p.id = s.plan_id
+         WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+           AND p.target_type = 'utbk' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+         LIMIT 1`,
+        [req.user.id]
+      );
+      const hasUtbkUnlimited = activeUtbkRes.rows.length > 0;
 
-      if (currentPlan === 'gratis' || currentPlan === 'premium_um') {
+      if (!hasUtbkUnlimited) {
         // 1. One-time check per exercise: Free users cannot repeat completed topics/subjects
         let completed = 0;
         if (topic_id) {
@@ -90,6 +99,33 @@ router.get('/', verifyToken, async (req, res, next) => {
 
     let query = 'SELECT id, subject_id, topic_id, content, image_url, image_position, difficulty, source, display_order, tryout_package_id, question_type, created_at FROM questions WHERE 1=1';
     const values = [];
+
+    // Filter out completed questions by content_hash if exclude_completed is true
+    if (exclude_completed === 'true') {
+      const userId = req.user.id;
+      // Get all content_hashes of questions completed by this user (UTBK Tryouts + Latihan)
+      const completedRes = await pool.query(
+        `WITH completed_hashes AS (
+          SELECT q.content_hash FROM user_answers ua 
+          JOIN tryout_sessions ts ON ua.session_id = ts.id 
+          JOIN questions q ON ua.question_id = q.id 
+          WHERE ts.user_id = $1 AND q.content_hash IS NOT NULL
+          UNION
+          SELECT q.content_hash FROM latihan_sessions ls,
+          jsonb_array_elements(ls.score_breakdown->'itemAnalysis') AS item
+          JOIN questions q ON (item->>'questionId')::uuid = q.id
+          WHERE ls.user_id = $1 AND q.content_hash IS NOT NULL
+        )
+        SELECT content_hash FROM completed_hashes WHERE content_hash IS NOT NULL`,
+        [userId]
+      );
+      
+      const completedHashes = completedRes.rows.map(r => r.content_hash);
+      if (completedHashes.length > 0) {
+        values.push(completedHashes);
+        query += ` AND (content_hash IS NULL OR NOT (content_hash = ANY($${values.length}::varchar[])))`;
+      }
+    }
 
     if (subject_id) {
       values.push(subject_id);
@@ -173,6 +209,19 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
     await client.query('BEGIN');
     const { subject_id, content, difficulty, choices, image_url, image_position, question_type, correct_answer_text } = req.body;
     const qType = question_type || 'multiple_choice';
+
+    // Calculate content hash and check for duplicates
+    const hash = generateQuestionHash(content, choices, image_url);
+    const existingRes = await client.query(
+      `SELECT q.id, s.name as subject_name FROM questions q 
+       LEFT JOIN subjects s ON q.subject_id = s.id 
+       WHERE q.content_hash = $1 LIMIT 1`,
+      [hash]
+    );
+    let duplicateWarning = null;
+    if (existingRes.rows.length > 0) {
+      duplicateWarning = `Soal ini terdeteksi duplikat dengan soal ID ${existingRes.rows[0].id} di subtes ${existingRes.rows[0].subject_name || 'tidak diketahui'}`;
+    }
     
     // Get max display_order for this subject
     const maxOrderRes = await client.query(
@@ -182,8 +231,8 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
     const nextDisplayOrder = (maxOrderRes.rows[0]?.max_order || 0) + 1;
     
     const qRes = await client.query(
-      'INSERT INTO questions (subject_id, content, difficulty, display_order, image_url, image_position, question_type) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [subject_id, content, difficulty || 'medium', nextDisplayOrder, image_url || null, image_position || 'after', qType]
+      'INSERT INTO questions (subject_id, content, difficulty, display_order, image_url, image_position, question_type, content_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [subject_id, content, difficulty || 'medium', nextDisplayOrder, image_url || null, image_position || 'after', qType, hash]
     );
     const question = qRes.rows[0];
     
@@ -206,7 +255,7 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
     }
     await client.query('COMMIT');
     
-    res.status(201).json({ success: true, data: question, message: 'Question created' });
+    res.status(201).json({ success: true, data: question, duplicateWarning, message: 'Question created' });
   } catch (error) {
     await client.query('ROLLBACK');
     next(error);
@@ -269,18 +318,26 @@ router.post('/shuffle/:questionId', verifyToken, verifyAdmin, async (req, res, n
 // Delete all questions by subject (Admin Only)
 router.delete('/all/by-subject/:subjectId', verifyToken, verifyAdmin, async (req, res, next) => {
   const { subjectId } = req.params;
+  const { source } = req.query;
 
   if (!subjectId) {
     return res.status(400).json({ success: false, error: 'subjectId diperlukan' });
   }
 
   try {
+    let sourceFilter = '';
+    const values = [subjectId];
+    if (source) {
+      values.push(source);
+      sourceFilter = ` AND source = $2`;
+    }
+
     // 1. Delete user_answers that reference questions in this subject (via question_id)
     await pool.query(
       `DELETE FROM user_answers WHERE question_id IN (
-        SELECT id FROM questions WHERE subject_id = $1
+        SELECT id FROM questions WHERE subject_id = $1${sourceFilter}
       )`,
-      [subjectId]
+      values
     );
 
     // 2. Delete user_answers that reference answer_choices of questions in this subject (via chosen_choice_id)
@@ -288,23 +345,23 @@ router.delete('/all/by-subject/:subjectId', verifyToken, verifyAdmin, async (req
       `DELETE FROM user_answers WHERE chosen_choice_id IN (
         SELECT ac.id FROM answer_choices ac
         JOIN questions q ON ac.question_id = q.id
-        WHERE q.subject_id = $1
+        WHERE q.subject_id = $1${sourceFilter}
       )`,
-      [subjectId]
+      values
     );
 
     // 3. Delete all answer_choices for questions in this subject
     await pool.query(
       `DELETE FROM answer_choices WHERE question_id IN (
-        SELECT id FROM questions WHERE subject_id = $1
+        SELECT id FROM questions WHERE subject_id = $1${sourceFilter}
       )`,
-      [subjectId]
+      values
     );
 
     // 4. Delete all questions
     const deleteResult = await pool.query(
-      'DELETE FROM questions WHERE subject_id = $1',
-      [subjectId]
+      `DELETE FROM questions WHERE subject_id = $1${sourceFilter}`,
+      values
     );
 
     res.json({
@@ -405,7 +462,11 @@ router.patch('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Soal tidak ditemukan' });
     }
 
-    res.json({ success: true, data: result.rows[0], message: 'Soal berhasil diperbarui' });
+    // Recalculate content hash
+    await updateQuestionHash(pool, id, false);
+    const updatedRes = await pool.query('SELECT * FROM questions WHERE id = $1', [id]);
+
+    res.json({ success: true, data: updatedRes.rows[0], message: 'Soal berhasil diperbarui' });
   } catch (error) {
     next(error);
   }

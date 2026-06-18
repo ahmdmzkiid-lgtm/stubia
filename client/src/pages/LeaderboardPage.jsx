@@ -76,7 +76,7 @@ const LeaderboardPage = () => {
         <div className="flex justify-between items-center w-full px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto">
           <div className="flex items-center gap-6 lg:gap-12">
             <Link to="/dashboard" className="flex items-center">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-10 md:h-12" />
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-10 md:h-12" />
             </Link>
           </div>
           <div className="flex items-center gap-3">

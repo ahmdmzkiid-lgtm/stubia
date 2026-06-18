@@ -4,9 +4,9 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import stripMarkdown from '../utils/stripMarkdown';
 
-const CONSULT_STORAGE_KEY = 'eduzet_konsultasi_history';
+const CONSULT_STORAGE_KEY = 'stubia_konsultasi_history';
 
-const KAK_Z_AVATAR = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDAsqbf_KDYhD6F9rgrq4_CKAREtY02eG-4OoAn62g1bnUU4sjfufTpgm0JHNPQw4Bh2v0IPCpJMB-Ga1EdovaWU_-d49yffNN259JGRoG3Gli1eeK4nXykeW8VklOAzOv_JbLk3QqdC5L35gXNySI7rHNrxz_nEE96kCJSVQHSIbL17gtFvhAphaZlD2xTiulhEfcYCQsXl_e1OI6XFzInZd24Q0aByIblmS8S0buT_5uQqK2JcEnECQz1HuKrvu77l0CIyScdgvg';
+const KAK_Z_AVATAR = '/mentorkonsultasi.webp';
 
 const getStoredMessages = () => {
   try {
@@ -26,15 +26,15 @@ const saveMessages = (msgs) => {
 
 const DEFAULT_MESSAGE = {
   role: 'model',
-  text: 'Halo! 👋 Aku Kak Z, konsultan belajarmu di Eduzet.\n\nAku bisa bantu kamu untuk:\n• 📚 Rekomendasi strategi belajar UTBK\n• 🏫 Info Perguruan Tinggi Negeri & jurusan\n• 📊 Analisis peluang masuk PTN\n• 💡 Tips & trik persiapan UTBK\n\nSilakan tanya apa saja ya!',
+  text: 'Halo! 👋 Aku Bia, konsultan belajarmu di Stubia.\n\nAku bisa bantu kamu untuk:\n• 📚 Rekomendasi strategi belajar UTBK\n• 🏫 Info Perguruan Tinggi Negeri & jurusan\n• 📊 Analisis peluang masuk PTN\n• 💡 Tips & trik persiapan UTBK\n\nSilakan tanya apa saja ya!',
   time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
 const QUICK_PROMPTS = [
-  { label: 'Strategi Belajar', icon: 'school', message: 'Kak Z, aku mau minta rekomendasi strategi belajar UTBK yang cocok buat aku' },
-  { label: 'Info PTN & Jurusan', icon: 'apartment', message: 'Kak Z, aku mau tanya info tentang Perguruan Tinggi Negeri dan jurusannya' },
-  { label: 'Peluang Masuk PTN', icon: 'analytics', message: 'Kak Z, aku mau analisis peluang masuk PTN berdasarkan skor tryout aku' },
-  { label: 'Tips & Trik UTBK', icon: 'lightbulb', message: 'Kak Z, aku butuh tips dan trik untuk mengerjakan soal UTBK' },
+  { label: 'Strategi Belajar', icon: 'school', message: 'Bia, aku mau minta rekomendasi strategi belajar UTBK yang cocok buat aku' },
+  { label: 'Info PTN & Jurusan', icon: 'apartment', message: 'Bia, aku mau tanya info tentang Perguruan Tinggi Negeri dan jurusannya' },
+  { label: 'Peluang Masuk PTN', icon: 'analytics', message: 'Bia, aku mau analisis peluang masuk PTN berdasarkan skor tryout aku' },
+  { label: 'Tips & Trik UTBK', icon: 'lightbulb', message: 'Bia, aku butuh tips dan trik untuk mengerjakan soal UTBK' },
 ];
 
 const KonsultasiKakZ = () => {
@@ -82,7 +82,7 @@ const KonsultasiKakZ = () => {
     } catch (error) {
       console.error('Chat error:', error);
       const errorTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setMessages([...newMessages, { role: 'model', text: 'Maaf ya, Kak Z lagi ada gangguan teknis nih. Coba lagi nanti ya! 🙏', time: errorTime }]);
+      setMessages([...newMessages, { role: 'model', text: 'Maaf ya, Bia lagi ada gangguan teknis nih. Coba lagi nanti ya! 🙏', time: errorTime }]);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
@@ -106,16 +106,16 @@ const KonsultasiKakZ = () => {
         <div className="max-w-[960px] mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="flex items-center">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-9" />
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-9" />
             </Link>
             <div className="hidden sm:block h-6 w-px bg-[#e0e2f0]"></div>
             <div className="hidden sm:flex items-center gap-2">
               <div className="relative w-8 h-8">
-                <img className="w-full h-full object-cover rounded-full border border-[#c2c6d8]" alt="Kak Z" src={KAK_Z_AVATAR} />
+                <img className="w-full h-full object-cover rounded-full border border-[#c2c6d8]" alt="Bia" src={KAK_Z_AVATAR} />
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#22c55e] border-2 border-[#faf8ff] rounded-full"></span>
               </div>
               <div>
-                <p className="text-[14px] font-bold text-[#191b24] leading-tight">Kak Z</p>
+                <p className="text-[14px] font-bold text-[#191b24] leading-tight">Bia</p>
                 <p className="text-[10px] font-semibold text-[#22c55e] uppercase tracking-wider">Online</p>
               </div>
             </div>
@@ -169,13 +169,13 @@ const KonsultasiKakZ = () => {
               return (
                 <div key={idx} className="flex justify-start items-start gap-3">
                   <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden border-2 border-[#e0e2f0] mt-1 hidden sm:block">
-                    <img className="w-full h-full object-cover" alt="Kak Z" src={KAK_Z_AVATAR} />
+                    <img className="w-full h-full object-cover" alt="Bia" src={KAK_Z_AVATAR} />
                   </div>
                   <div className="max-w-[85%] sm:max-w-[70%]">
                     <div className="bg-white text-[#191b24] px-5 py-4 rounded-2xl rounded-tl-md border border-[#e0e2f0] shadow-sm">
                       <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{stripMarkdown(msg.text)}</p>
                     </div>
-                    <p className="text-[11px] text-[#727687] mt-1.5 font-medium">Kak Z · {msg.time}</p>
+                    <p className="text-[11px] text-[#727687] mt-1.5 font-medium">Bia · {msg.time}</p>
                   </div>
                 </div>
               );
@@ -184,14 +184,14 @@ const KonsultasiKakZ = () => {
             {isLoading && (
               <div className="flex justify-start items-start gap-3">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden border-2 border-[#e0e2f0] hidden sm:block">
-                  <img className="w-full h-full object-cover" alt="Kak Z" src={KAK_Z_AVATAR} />
+                  <img className="w-full h-full object-cover" alt="Bia" src={KAK_Z_AVATAR} />
                 </div>
                 <div className="bg-white px-5 py-4 rounded-2xl rounded-tl-md border border-[#e0e2f0] shadow-sm">
                   <div className="flex gap-1.5 items-center">
                     <span className="w-2 h-2 bg-[#0050cb] rounded-full animate-bounce"></span>
                     <span className="w-2 h-2 bg-[#0050cb] rounded-full animate-bounce [animation-delay:0.15s]"></span>
                     <span className="w-2 h-2 bg-[#0050cb] rounded-full animate-bounce [animation-delay:0.3s]"></span>
-                    <span className="ml-2 text-[13px] text-[#727687]">Kak Z sedang mengetik...</span>
+                    <span className="ml-2 text-[13px] text-[#727687]">Bia sedang mengetik...</span>
                   </div>
                 </div>
               </div>
@@ -233,7 +233,7 @@ const KonsultasiKakZ = () => {
                   }
                 }}
                 className="w-full bg-transparent border-none focus:ring-0 text-[15px] text-[#191b24] placeholder:text-[#727687] py-3.5 px-4 outline-none resize-none"
-                placeholder="Tanya Kak Z tentang strategi belajar, PTN, jurusan..."
+                placeholder="Tanya Bia tentang strategi belajar, PTN, jurusan..."
                 disabled={isLoading}
                 rows={1}
                 style={{ minHeight: '48px', maxHeight: '120px' }}
@@ -247,7 +247,7 @@ const KonsultasiKakZ = () => {
               <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
             </button>
           </form>
-          <p className="text-center mt-2 text-[10px] text-[#727687] font-semibold uppercase tracking-wider">Powered by Eduzet AI · Riwayat tersimpan selama sesi</p>
+          <p className="text-center mt-2 text-[10px] text-[#727687] font-semibold uppercase tracking-wider">Powered by Stubia AI · Riwayat tersimpan selama sesi</p>
         </div>
       </div>
     </div>

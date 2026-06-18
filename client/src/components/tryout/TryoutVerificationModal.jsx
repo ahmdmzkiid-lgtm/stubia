@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { tryoutService, uploadService } from '../../services/api';
+import { useState, useEffect } from 'react';
+import { tryoutService } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const TryoutVerificationModal = ({
@@ -12,18 +12,11 @@ const TryoutVerificationModal = ({
   onSubmitSuccess,
   onConfirmStart,
 }) => {
-  const [selectedPlatform, setSelectedPlatform] = useState('instagram'); // 'instagram' | 'x'
-  const [followFile, setFollowFile] = useState(null);
-  const [followPreview, setFollowPreview] = useState(null);
-  const [repostFile, setRepostFile] = useState(null);
-  const [repostPreview, setRepostPreview] = useState(null);
+  const [selectedPlatform, setSelectedPlatform] = useState('instagram');
+  const [socialUsername, setSocialUsername] = useState('');
+  const [commentLink, setCommentLink] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [isDraggingFollow, setIsDraggingFollow] = useState(false);
-  const [isDraggingRepost, setIsDraggingRepost] = useState(false);
-  const followInputRef = useRef(null);
-  const repostInputRef = useRef(null);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -39,94 +32,29 @@ const TryoutVerificationModal = ({
   useEffect(() => {
     if (open && !registrationStatus) {
       setSelectedPlatform('instagram');
-      setFollowFile(null);
-      setFollowPreview(null);
-      setRepostFile(null);
-      setRepostPreview(null);
+      setSocialUsername('');
+      setCommentLink('');
       setContactEmail('');
     }
   }, [open, registrationStatus]);
-
-  const validateFile = (file) => {
-    if (!file) return false;
-    
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
-    const fileExtension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-
-    if (!allowedMimeTypes.includes(file.type) || !allowedExtensions.includes(fileExtension)) {
-      toast.error('Hanya format JPG, JPEG, PNG, dan WEBP yang diizinkan');
-      return false;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Ukuran file maksimal 2MB');
-      return false;
-    }
-    return true;
-  };
-
-  const handleFollowFileSelect = (file) => {
-    if (!validateFile(file)) return;
-    setFollowFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setFollowPreview(reader.result);
-    reader.readAsDataURL(file);
-  };
-
-  const handleRepostFileSelect = (file) => {
-    if (!validateFile(file)) return;
-    setRepostFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setRepostPreview(reader.result);
-    reader.readAsDataURL(file);
-  };
-
-  const handleDragOver = (e, setter) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setter(true);
-  };
-
-  const handleDragLeave = (e, setter) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setter(false);
-  };
-
-  const handleDropFollow = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingFollow(false);
-    const file = e.dataTransfer.files?.[0];
-    handleFollowFileSelect(file);
-  };
-
-  const handleDropRepost = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingRepost(false);
-    const file = e.dataTransfer.files?.[0];
-    handleRepostFileSelect(file);
-  };
 
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleOpenSocialMedia = () => {
     const socialMediaLinks = {
-      instagram: 'https://instagram.com/eduzet.my.id',
-      x: 'https://twitter.com/eduzet.my.id',
+      instagram: 'https://instagram.com/stubia.my.id',
+      x: 'https://twitter.com/stubia',
     };
     window.open(socialMediaLinks[selectedPlatform], '_blank');
   };
 
   const handleSubmit = async () => {
-    if (!followFile) {
-      toast.error('Upload screenshot bukti follow terlebih dahulu');
+    if (!socialUsername.trim()) {
+      toast.error('Masukkan username IG atau X kamu');
       return;
     }
-    if (!repostFile) {
-      toast.error('Upload screenshot bukti repost terlebih dahulu');
+    if (!commentLink.trim()) {
+      toast.error('Masukkan link komentar kamu');
       return;
     }
     if (!contactEmail.trim()) {
@@ -139,23 +67,12 @@ const TryoutVerificationModal = ({
     }
 
     try {
-      setUploading(true);
-
-      // Upload both screenshots
-      const [followUploadRes, repostUploadRes] = await Promise.all([
-        uploadService.uploadImage(followFile, 'verification'),
-        uploadService.uploadImage(repostFile, 'verification'),
-      ]);
-      const screenshotFollowUrl = followUploadRes.data.data.url;
-      const screenshotRepostUrl = repostUploadRes.data.data.url;
-      setUploading(false);
-
       setSubmitting(true);
       await tryoutService.registerForTryout({
         package_type: packageType,
         package_id: packageId,
-        screenshot_follow_url: screenshotFollowUrl,
-        screenshot_repost_url: screenshotRepostUrl,
+        social_username: socialUsername.trim(),
+        comment_link: commentLink.trim(),
         platform: selectedPlatform,
         contact_email: contactEmail,
       });
@@ -165,80 +82,15 @@ const TryoutVerificationModal = ({
     } catch (err) {
       // Error toast handled by axios interceptor
     } finally {
-      setUploading(false);
       setSubmitting(false);
     }
   };
 
   if (!open) return null;
 
-  const isLoading = uploading || submitting;
   const status = registrationStatus?.status;
   const showForm = !status || status === 'rejected';
-
   const platformLabel = selectedPlatform === 'instagram' ? 'Instagram' : 'X (Twitter)';
-
-  // ── Upload zone render helper ──
-  const renderUploadZone = ({ label, icon, file, preview, isDragging, setIsDragging: setDrag, onFileSelect, onDrop, inputRef, onClear }) => (
-    <div className="flex-1 min-w-0">
-      <p className="text-xs font-semibold mb-2 flex items-center gap-1.5" style={{ color: '#191b24' }}>
-        <span className="material-symbols-outlined text-[16px]" style={{ color: '#0050cb' }}>{icon}</span>
-        {label}
-      </p>
-      {!preview ? (
-        <div
-          className="relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all"
-          style={{
-            borderColor: isDragging ? '#0050cb' : '#c2c6d8',
-            backgroundColor: isDragging ? 'rgba(0,80,203,0.04)' : '#faf8ff',
-          }}
-          onDragOver={(e) => handleDragOver(e, setDrag)}
-          onDragLeave={(e) => handleDragLeave(e, setDrag)}
-          onDrop={onDrop}
-          onClick={() => inputRef.current?.click()}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg, image/png, image/webp"
-            className="hidden"
-            onChange={(e) => onFileSelect(e.target.files?.[0])}
-          />
-          <div className="w-10 h-10 mx-auto mb-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(0,80,203,0.08)' }}>
-            <span className="material-symbols-outlined text-[22px]" style={{ color: '#0050cb' }}>cloud_upload</span>
-          </div>
-          <p className="text-xs font-medium mb-0.5" style={{ color: '#191b24' }}>
-            {isDragging ? 'Lepaskan di sini' : 'Klik atau drag'}
-          </p>
-          <p className="text-[10px]" style={{ color: '#727687' }}>PNG, JPG, WEBP • Max 2MB</p>
-        </div>
-      ) : (
-        <div className="relative rounded-xl overflow-hidden border" style={{ borderColor: '#c2c6d8' }}>
-          <img
-            src={preview}
-            alt={label}
-            className="w-full h-28 object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
-            className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-all"
-            disabled={isLoading}
-          >
-            <span className="material-symbols-outlined text-[14px]">close</span>
-          </button>
-          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px]">
-            <span className="material-symbols-outlined text-[12px]">check_circle</span>
-            {file?.name?.length > 12 ? file.name.slice(0, 12) + '…' : file?.name}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div
@@ -370,7 +222,7 @@ const TryoutVerificationModal = ({
                         : '#faf8ff',
                       boxShadow: selectedPlatform === 'instagram' ? '0 0 0 3px rgba(225,48,108,0.12)' : 'none',
                     }}
-                    disabled={isLoading}
+                    disabled={submitting}
                   >
                     {selectedPlatform === 'instagram' && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: '#E1306C' }}>
@@ -383,7 +235,7 @@ const TryoutVerificationModal = ({
                       </svg>
                     </div>
                     <p className="text-sm font-bold" style={{ color: '#191b24' }}>Instagram</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: '#727687' }}>Follow & repost story</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: '#727687' }}>Follow & tag 3 teman</p>
                   </button>
 
                   {/* X / Twitter Option */}
@@ -398,7 +250,7 @@ const TryoutVerificationModal = ({
                         : '#faf8ff',
                       boxShadow: selectedPlatform === 'x' ? '0 0 0 3px rgba(0,0,0,0.08)' : 'none',
                     }}
-                    disabled={isLoading}
+                    disabled={submitting}
                   >
                     {selectedPlatform === 'x' && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: '#000' }}>
@@ -411,17 +263,17 @@ const TryoutVerificationModal = ({
                       </svg>
                     </div>
                     <p className="text-sm font-bold" style={{ color: '#191b24' }}>X (Twitter)</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: '#727687' }}>Follow & repost post</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: '#727687' }}>Follow & tag 3 teman</p>
                   </button>
                 </div>
               </div>
 
-              {/* Step 2: Social Media Tasks Info */}
+              {/* Step 2: Follow & Tag Instructions */}
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: '#0050cb' }}>2</span>
                   <h4 className="text-sm font-semibold" style={{ color: '#191b24' }}>
-                    Ikuti & Repost di {platformLabel}
+                    Follow & Tag 3 Teman di {platformLabel}
                   </h4>
                 </div>
 
@@ -443,7 +295,7 @@ const TryoutVerificationModal = ({
                       <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
                         style={{ backgroundColor: selectedPlatform === 'instagram' ? '#E1306C' : '#000' }}>✓</div>
                       <p className="text-sm" style={{ color: '#191b24' }}>
-                        <strong>Repost</strong> {selectedPlatform === 'instagram' ? 'story terbaru' : 'postingan terbaru'} kami
+                        <strong>Tag 3 teman</strong> di kolom komentar postingan tryout ini
                       </p>
                     </div>
                   </div>
@@ -452,7 +304,7 @@ const TryoutVerificationModal = ({
                 <button
                   type="button"
                   onClick={handleOpenSocialMedia}
-                  disabled={isLoading}
+                  disabled={submitting}
                   className="w-full mt-3 py-2.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   style={{
                     background: selectedPlatform === 'instagram'
@@ -465,10 +317,79 @@ const TryoutVerificationModal = ({
                 </button>
               </div>
 
-              {/* Step 3: Email */}
+              {/* Step 3: Username & Comment Link */}
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: '#0050cb' }}>3</span>
+                  <h4 className="text-sm font-semibold" style={{ color: '#191b24' }}>Username & Link Komentar</h4>
+                </div>
+
+                {/* Username Input */}
+                <div className="mb-3">
+                  <label className="text-xs font-semibold text-[#424656] mb-1.5 block">Username {platformLabel}</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px]" style={{ color: '#727687' }}>person</span>
+                    <input
+                      type="text"
+                      value={socialUsername}
+                      onChange={(e) => setSocialUsername(e.target.value)}
+                      placeholder="@username"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
+                      style={{
+                        borderColor: '#c2c6d8',
+                        color: '#191b24',
+                        backgroundColor: '#faf8ff',
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#0050cb';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(0,80,203,0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#c2c6d8';
+                        e.target.style.boxShadow = 'none';
+                      }}
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+
+                {/* Comment Link Input */}
+                <div>
+                  <label className="text-xs font-semibold text-[#424656] mb-1.5 block">Link Komentar</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px]" style={{ color: '#727687' }}>link</span>
+                    <input
+                      type="url"
+                      value={commentLink}
+                      onChange={(e) => setCommentLink(e.target.value)}
+                      placeholder={selectedPlatform === 'instagram' ? 'https://www.instagram.com/p/...' : 'https://x.com/.../status/...'}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
+                      style={{
+                        borderColor: '#c2c6d8',
+                        color: '#191b24',
+                        backgroundColor: '#faf8ff',
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#0050cb';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(0,80,203,0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#c2c6d8';
+                        e.target.style.boxShadow = 'none';
+                      }}
+                      disabled={submitting}
+                    />
+                  </div>
+                  <p className="text-xs mt-1.5" style={{ color: '#727687' }}>
+                    Salin link postingan tryout tempat kamu berkomentar dan tag 3 teman
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 4: Email */}
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: '#0050cb' }}>4</span>
                   <h4 className="text-sm font-semibold" style={{ color: '#191b24' }}>Email Kontak</h4>
                 </div>
                 <div className="relative">
@@ -492,7 +413,7 @@ const TryoutVerificationModal = ({
                       e.target.style.borderColor = '#c2c6d8';
                       e.target.style.boxShadow = 'none';
                     }}
-                    disabled={isLoading}
+                    disabled={submitting}
                   />
                 </div>
                 <p className="text-xs mt-1.5" style={{ color: '#727687' }}>
@@ -500,60 +421,25 @@ const TryoutVerificationModal = ({
                 </p>
               </div>
 
-              {/* Step 4: Upload 2 Screenshots */}
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: '#0050cb' }}>4</span>
-                  <h4 className="text-sm font-semibold" style={{ color: '#191b24' }}>Upload 2 Screenshot Bukti</h4>
-                </div>
-
-                <div className="flex gap-3">
-                  {renderUploadZone({
-                    label: 'Screenshot Follow',
-                    icon: 'person_add',
-                    file: followFile,
-                    preview: followPreview,
-                    isDragging: isDraggingFollow,
-                    setIsDragging: setIsDraggingFollow,
-                    onFileSelect: handleFollowFileSelect,
-                    onDrop: handleDropFollow,
-                    inputRef: followInputRef,
-                    onClear: () => { setFollowFile(null); setFollowPreview(null); },
-                  })}
-                  {renderUploadZone({
-                    label: 'Screenshot Repost',
-                    icon: 'repeat',
-                    file: repostFile,
-                    preview: repostPreview,
-                    isDragging: isDraggingRepost,
-                    setIsDragging: setIsDraggingRepost,
-                    onFileSelect: handleRepostFileSelect,
-                    onDrop: handleDropRepost,
-                    inputRef: repostInputRef,
-                    onClear: () => { setRepostFile(null); setRepostPreview(null); },
-                  })}
-                </div>
-              </div>
-
               {/* Submit Button */}
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isLoading || !followFile || !repostFile || !contactEmail.trim()}
+                disabled={submitting || !socialUsername.trim() || !commentLink.trim() || !contactEmail.trim()}
                 className="w-full py-3.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:active:scale-100 flex items-center justify-center gap-2"
                 style={{
-                  background: isLoading || !followFile || !repostFile || !contactEmail.trim()
+                  background: submitting || !socialUsername.trim() || !commentLink.trim() || !contactEmail.trim()
                     ? '#94a3b8'
                     : 'linear-gradient(135deg, #0050cb, #3b82f6)',
                 }}
               >
-                {isLoading ? (
+                {submitting ? (
                   <>
                     <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <span>{uploading ? 'Mengupload 2 file...' : 'Mengirim...'}</span>
+                    <span>Mengirim...</span>
                   </>
                 ) : (
                   <>
@@ -564,7 +450,7 @@ const TryoutVerificationModal = ({
               </button>
 
               <p className="text-xs text-center mt-3" style={{ color: '#727687' }}>
-                Dengan mengirim, kamu menyetujui bahwa screenshot yang diunggah adalah asli
+                Dengan mengirim, kamu menyatakan telah follow dan tag 3 teman di kolom komentar
               </p>
             </>
           )}

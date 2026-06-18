@@ -81,7 +81,7 @@ export default function SocialFollowModal({ open, onClose, onVerified }) {
           <h2 className="text-2xl font-bold text-[#191b24] mb-3">Permintaan Terkirim! 🚀</h2>
           <p className="text-sm text-[#424656] leading-relaxed mb-6">
             Data Instagram/X kamu berhasil diajukan ke admin. Kami akan segera memverifikasinya dalam waktu kurang dari 24 jam.<br/><br/>
-            Terima kasih banyak telah berpartisipasi dan membantu platform Eduzet terus bertumbuh! 🌟
+            Terima kasih banyak telah berpartisipasi dan membantu platform Stubia terus bertumbuh! 🌟
           </p>
           <button
             className="w-full py-3.5 rounded-xl text-white font-bold text-sm transition-all hover:shadow-lg hover:shadow-blue-500/15 active:scale-[0.98]"
@@ -125,7 +125,7 @@ export default function SocialFollowModal({ open, onClose, onVerified }) {
         <div className="px-6 py-5 space-y-4">
           <div className="flex gap-3">
             <a
-              href="https://www.instagram.com/eduzet.my.id?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+              href="https://www.instagram.com/stubia.my.id?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold shadow-md hover:shadow-lg transition"
@@ -134,7 +134,7 @@ export default function SocialFollowModal({ open, onClose, onVerified }) {
               Buka Instagram
             </a>
             <a
-              href="https://x.com/eduzet?s=20"
+              href="https://x.com/stubia?s=20"
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-black text-white font-semibold shadow-md hover:shadow-lg transition"

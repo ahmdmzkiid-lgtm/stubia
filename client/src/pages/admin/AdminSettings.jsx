@@ -179,7 +179,7 @@ const AdminSettings = () => {
             <div className="absolute inset-0 bg-gradient-to-r from-[#191b24]/90 via-[#191b24]/50 to-transparent" />
             <div className="absolute inset-0 flex items-center p-10">
               <div className="max-w-md">
-                <span className="inline-block py-1 px-3 rounded-full bg-[#0050cb]/20 text-[#dae1ff] border border-[#0050cb]/30 text-xs font-bold uppercase tracking-widest mb-4">Eduzet UTBK</span>
+                <span className="inline-block py-1 px-3 rounded-full bg-[#0050cb]/20 text-[#dae1ff] border border-[#0050cb]/30 text-xs font-bold uppercase tracking-widest mb-4">Stubia UTBK</span>
                 <h2 className="text-3xl font-bold text-white mb-3 leading-tight">{bannerTitle || 'Judul Banner'}</h2>
                 <p className="text-sm text-white/80 leading-relaxed line-clamp-3">{bannerSubtitle || 'Subtitle banner...'}</p>
               </div>

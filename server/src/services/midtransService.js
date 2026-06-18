@@ -15,18 +15,18 @@ const snap = new midtransClient.Snap({
  * @param {Object} params.user - { id, name, email }
  * @returns {Promise<{ token: string, redirect_url: string }>}
  */
-async function createTransaction({ orderId, grossAmount, planName, user }) {
+async function createTransaction({ orderId, grossAmount, planName, user, itemDetails }) {
   const parameter = {
     transaction_details: {
       order_id: orderId,
       gross_amount: grossAmount,
     },
-    item_details: [
+    item_details: itemDetails || [
       {
         id: orderId,
         price: grossAmount,
         quantity: 1,
-        name: `Eduzet ${planName} Plan`,
+        name: `Stubia ${planName} Plan`,
       },
     ],
     customer_details: {

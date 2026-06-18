@@ -62,15 +62,21 @@ router.get('/packages/:id/stats', verifyToken, verifyAdmin, async (req, res, nex
 // Create package
 router.post('/packages', [verifyToken, verifyAdmin], async (req, res, next) => {
   const { title, subject_config, scheduled_at, is_public, is_active, required_plan } = req.body;
+  if (!title || !title.trim()) {
+    return res.status(400).json({ success: false, error: 'Judul tryout wajib diisi.' });
+  }
   try {
     const configJson = typeof subject_config === 'string' ? subject_config : JSON.stringify(subject_config || []);
     const scheduledValue = scheduled_at && scheduled_at !== '' ? scheduled_at : null;
     const result = await pool.query(
       'INSERT INTO tryout_packages (title, subject_config, scheduled_at, is_public, is_active, required_plan) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [title, configJson, scheduledValue, is_public ?? true, is_active ?? true, required_plan || 'gratis']
+      [title.trim(), configJson, scheduledValue, is_public ?? true, is_active ?? true, required_plan || 'gratis']
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
+    if (error.code === '23505' && error.constraint === 'tryout_packages_title_key') {
+      return res.status(409).json({ success: false, error: `Judul "${title}" sudah digunakan. Gunakan judul yang berbeda.` });
+    }
     next(error);
   }
 });
@@ -79,16 +85,22 @@ router.post('/packages', [verifyToken, verifyAdmin], async (req, res, next) => {
 router.patch('/packages/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
   const { id } = req.params;
   const { title, subject_config, scheduled_at, is_public, is_active, required_plan } = req.body;
+  if (!title || !title.trim()) {
+    return res.status(400).json({ success: false, error: 'Judul tryout wajib diisi.' });
+  }
   try {
     const configJson = typeof subject_config === 'string' ? subject_config : JSON.stringify(subject_config || []);
     const scheduledValue = scheduled_at && scheduled_at !== '' ? scheduled_at : null;
     const result = await pool.query(
       'UPDATE tryout_packages SET title = $1, subject_config = $2, scheduled_at = $3, is_public = $4, is_active = COALESCE($5, is_active), required_plan = $6 WHERE id = $7 RETURNING *',
-      [title, configJson, scheduledValue, is_public, is_active, required_plan || 'gratis', id]
+      [title.trim(), configJson, scheduledValue, is_public, is_active, required_plan || 'gratis', id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Package not found' });
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
+    if (error.code === '23505' && error.constraint === 'tryout_packages_title_key') {
+      return res.status(409).json({ success: false, error: `Judul "${title}" sudah digunakan. Gunakan judul yang berbeda.` });
+    }
     next(error);
   }
 });
@@ -106,7 +118,25 @@ router.delete('/packages/:id', [verifyToken, verifyAdmin], async (req, res, next
     // 2. Delete tryout sessions referencing this package (cascades to user_answers)
     await client.query('DELETE FROM tryout_sessions WHERE package_id = $1', [id]);
 
-    // 3. Delete the package itself
+    // 3. Delete bookmarks referencing questions in this package
+    await client.query(
+      `DELETE FROM bookmarks WHERE question_id IN (SELECT id FROM questions WHERE tryout_package_id = $1)`,
+      [id]
+    );
+
+    // 4. Delete user_answers referencing questions in this package (in case session cascade missed it)
+    await client.query(
+      `DELETE FROM user_answers WHERE question_id IN (SELECT id FROM questions WHERE tryout_package_id = $1)`,
+      [id]
+    );
+
+    // 5. Delete questions under this package (this will cascade delete answer_choices)
+    await client.query(
+      `DELETE FROM questions WHERE tryout_package_id = $1`,
+      [id]
+    );
+
+    // 6. Delete the package itself
     const result = await client.query('DELETE FROM tryout_packages WHERE id = $1 RETURNING *', [id]);
     
     if (result.rows.length === 0) {
@@ -115,7 +145,7 @@ router.delete('/packages/:id', [verifyToken, verifyAdmin], async (req, res, next
     }
 
     await client.query('COMMIT');
-    res.json({ success: true, message: 'Package deleted successfully' });
+    res.json({ success: true, message: 'Package and its questions deleted successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
     next(error);
@@ -129,10 +159,10 @@ router.delete('/packages/:id', [verifyToken, verifyAdmin], async (req, res, next
 // Submit social media verification proof
 router.post('/register', verifyToken, async (req, res, next) => {
   try {
-    const { package_type, package_id, screenshot_follow_url, screenshot_repost_url, platform, contact_email } = req.body;
+    const { package_type, package_id, social_username, comment_link, platform, contact_email } = req.body;
 
-    if (!package_type || !package_id || !screenshot_follow_url || !screenshot_repost_url || !platform || !contact_email) {
-      return res.status(400).json({ success: false, error: 'Data pendaftaran tidak lengkap. Kirim 2 screenshot (follow & repost), pilih platform, dan isi email.' });
+    if (!package_type || !package_id || !social_username || !comment_link || !platform || !contact_email) {
+      return res.status(400).json({ success: false, error: 'Data pendaftaran tidak lengkap. Isi username, link komentar, pilih platform, dan isi email.' });
     }
 
     if (!['utbk', 'um'].includes(package_type)) {
@@ -197,9 +227,9 @@ router.post('/register', verifyToken, async (req, res, next) => {
     const umPackageId = package_type === 'um' ? package_id : null;
 
     const result = await pool.query(
-      `INSERT INTO tryout_registrations (user_id, contact_email, package_type, utbk_package_id, um_package_id, screenshot_url, screenshot_follow_url, screenshot_repost_url, platform, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending') RETURNING *`,
-      [req.user.id, contact_email, package_type, utbkPackageId, umPackageId, screenshot_follow_url, screenshot_follow_url, screenshot_repost_url, platform]
+      `INSERT INTO tryout_registrations (user_id, contact_email, package_type, utbk_package_id, um_package_id, social_username, comment_link, platform, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending') RETURNING *`,
+      [req.user.id, contact_email, package_type, utbkPackageId, umPackageId, social_username, comment_link, platform]
     );
 
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -269,40 +299,89 @@ router.post('/start', verifyToken, async (req, res, next) => {
     await client.query('BEGIN');
     const { package_id, selected_subjects } = req.body;
 
-    // Get user plan and perform free plan restrictions
-    const userRes = await client.query('SELECT current_plan FROM users WHERE id = $1', [req.user.id]);
-    const currentPlan = userRes.rows[0]?.current_plan || 'gratis';
+    // ── Resume existing active session if available (prevents duplicate quota deduction) ──
+    const existingSession = await client.query(
+      `SELECT ts.id, ts.started_at, COUNT(ua.id) as total_questions
+       FROM tryout_sessions ts
+       LEFT JOIN user_answers ua ON ua.session_id = ts.id
+       WHERE ts.user_id = $1 AND ts.package_id = $2 AND ts.submitted_at IS NULL
+       GROUP BY ts.id
+       ORDER BY ts.started_at DESC LIMIT 1`,
+      [req.user.id, package_id]
+    );
+    if (existingSession.rows.length > 0 && parseInt(existingSession.rows[0].total_questions) > 0) {
+      await client.query('COMMIT');
+      return res.json({
+        success: true,
+        data: {
+          session_id: existingSession.rows[0].id,
+          total_questions: parseInt(existingSession.rows[0].total_questions),
+          resumed: true
+        },
+        message: 'Resumed existing session'
+      });
+    }
 
-    if (currentPlan === 'gratis' || currentPlan === 'premium_um') {
-      // Check if this specific package has already been completed
-      const utbkCompleted = await client.query(
-        'SELECT COUNT(*) as count FROM tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
-        [req.user.id, package_id]
+    // Check if user has an active subscription/access plan for UTBK (unlimited access)
+    const activeUtbkRes = await client.query(
+      `SELECT 1 FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+         AND p.target_type = 'utbk' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+       LIMIT 1`,
+      [req.user.id]
+    );
+    const hasUtbkUnlimited = activeUtbkRes.rows.length > 0;
+
+    if (!hasUtbkUnlimited) {
+      // Check if user has active tryout quota for UTBK
+      const quotaRes = await client.query(
+        `SELECT s.id, s.quota_remaining FROM subscriptions s
+         JOIN plans p ON p.id = s.plan_id
+         WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+           AND p.plan_type = 'quota' AND p.target_type = 'utbk' AND s.quota_remaining > 0
+         ORDER BY s.expires_at ASC LIMIT 1`,
+        [req.user.id]
       );
-      const totalCompleted = parseInt(utbkCompleted.rows[0].count);
 
-      if (totalCompleted >= 1) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({
-          success: false,
-          error: 'Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
-          code: 'FREE_LIMIT_REACHED'
-        });
-      }
+      if (quotaRes.rows.length > 0) {
+        // Deduct 1 tryout quota credit
+        const quota = quotaRes.rows[0];
+        await client.query(
+          `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1`,
+          [quota.id]
+        );
+      } else {
+        // Check if this specific package has already been completed
+        const utbkCompleted = await client.query(
+          'SELECT COUNT(*) as count FROM tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
+          [req.user.id, package_id]
+        );
+        const totalCompleted = parseInt(utbkCompleted.rows[0].count);
 
-      // Check if registration exists and is approved for this package
-      const regRes = await client.query(
-        "SELECT status FROM tryout_registrations WHERE user_id = $1 AND utbk_package_id = $2 AND status = 'approved'",
-        [req.user.id, package_id]
-      );
+        if (totalCompleted >= 1) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            success: false,
+            error: 'Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
+            code: 'FREE_LIMIT_REACHED'
+          });
+        }
 
-      if (regRes.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({
-          success: false,
-          error: 'Pendaftaran tryout belum diverifikasi admin.',
-          code: 'NOT_VERIFIED'
-        });
+        // Check if registration exists and is approved for this package
+        const regRes = await client.query(
+          "SELECT status FROM tryout_registrations WHERE user_id = $1 AND utbk_package_id = $2 AND status = 'approved'",
+          [req.user.id, package_id]
+        );
+
+        if (regRes.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            success: false,
+            error: 'Pendaftaran tryout belum diverifikasi admin.',
+            code: 'NOT_VERIFIED'
+          });
+        }
       }
     }
 
@@ -414,7 +493,7 @@ router.get('/session/:sessionId/questions', verifyToken, async (req, res, next) 
 
     // Check if session exists and belongs to user
     const sessionCheck = await pool.query(
-      'SELECT id FROM tryout_sessions WHERE id = $1 AND user_id = $2',
+      'SELECT id, started_at FROM tryout_sessions WHERE id = $1 AND user_id = $2',
       [sessionId, req.user.id]
     );
 
@@ -424,7 +503,7 @@ router.get('/session/:sessionId/questions', verifyToken, async (req, res, next) 
 
     // Get subject_config from session to know the subject order
     const sessionData = await pool.query(
-      `SELECT ts.package_id, tp.subject_config
+      `SELECT ts.package_id, ts.started_at, tp.subject_config
        FROM tryout_sessions ts
        JOIN tryout_packages tp ON ts.package_id = tp.id
        WHERE ts.id = $1`,
@@ -442,9 +521,11 @@ router.get('/session/:sessionId/questions', verifyToken, async (req, res, next) 
     }
 
     // Get all questions for this session, ordered by position to preserve question order
+    // Include saved user answers for state restoration (handles localStorage loss)
     const result = await pool.query(`
       SELECT q.id, q.content, q.image_url, q.difficulty, q.question_type,
-             s.name as subject_name, s.id as subject_id, ua.position
+             s.name as subject_name, s.id as subject_id, ua.position,
+             ua.chosen_choice_id, ua.is_flagged, ua.answer_text
       FROM user_answers ua
       JOIN questions q ON ua.question_id = q.id
       LEFT JOIN subjects s ON q.subject_id = s.id
@@ -502,7 +583,8 @@ router.get('/session/:sessionId/questions', verifyToken, async (req, res, next) 
 
     res.json({
       success: true,
-      data: subjectsWithQuestions
+      data: subjectsWithQuestions,
+      started_at: sessionData.rows[0]?.started_at || null
     });
   } catch (error) {
     console.error('Error getting questions:', error);
@@ -516,10 +598,10 @@ router.post('/answer', verifyToken, async (req, res, next) => {
     const { session_id, question_id, chosen_choice_id, is_flagged, time_spent_sec, answer_text } = req.body;
     await pool.query(
       `UPDATE user_answers 
-       SET chosen_choice_id = COALESCE($1, chosen_choice_id), 
+       SET chosen_choice_id = $1, 
            is_flagged = COALESCE($2, is_flagged), 
            time_spent_sec = time_spent_sec + COALESCE($3, 0),
-           answer_text = COALESCE($6, answer_text)
+           answer_text = $6
        WHERE session_id = $4 AND question_id = $5`,
       [chosen_choice_id, is_flagged, time_spent_sec, session_id, question_id, answer_text || null]
     );
@@ -543,12 +625,12 @@ router.post('/answer-batch', verifyToken, async (req, res, next) => {
       if (!question_id) continue;
       await client.query(
         `UPDATE user_answers
-         SET chosen_choice_id = COALESCE($1, chosen_choice_id),
+         SET chosen_choice_id = $1,
              is_flagged = COALESCE($2, is_flagged),
              time_spent_sec = time_spent_sec + COALESCE($3, 0),
-             answer_text = COALESCE($6, answer_text)
+             answer_text = $6
          WHERE session_id = $4 AND question_id = $5`,
-        [chosen_choice_id || null, is_flagged || false, time_spent_sec || 0, session_id, question_id, answer_text || null]
+        [chosen_choice_id ?? null, is_flagged ?? false, time_spent_sec || 0, session_id, question_id, answer_text ?? null]
       );
     }
     await client.query('COMMIT');
@@ -756,10 +838,12 @@ router.get('/result/:sessionId', verifyToken, async (req, res, next) => {
       const rawAnswersRes = await pool.query(`
         SELECT
           ua.chosen_choice_id,
+          ua.answer_text,
           COALESCE(ac.is_correct, false) as is_correct,
           ua.question_id,
           COALESCE(ua.time_spent_sec, 0) as time_spent_sec,
           COALESCE(q.difficulty, 'medium') as difficulty,
+          COALESCE(q.question_type, 'multiple_choice') as question_type,
           COALESCE(s.name, 'Unknown') as subject_name
         FROM user_answers ua
         LEFT JOIN answer_choices ac ON ua.chosen_choice_id = ac.id
@@ -768,6 +852,18 @@ router.get('/result/:sessionId', verifyToken, async (req, res, next) => {
         WHERE ua.session_id = $1
       `, [sessionId]);
 
+      for (const ans of rawAnswersRes.rows) {
+        if (ans.question_type === 'short_answer' && ans.answer_text) {
+          const correctRes = await pool.query(
+            `SELECT content FROM answer_choices WHERE question_id = $1 AND is_correct = true LIMIT 1`,
+            [ans.question_id]
+          );
+          if (correctRes.rows.length > 0) {
+            ans.is_correct = correctRes.rows[0].content.trim().toLowerCase() === ans.answer_text.trim().toLowerCase();
+          }
+        }
+      }
+
       const irtAnswers = rawAnswersRes.rows.map(ans => ({
         chosen_choice_id: ans.chosen_choice_id,
         is_correct: ans.is_correct === true,
@@ -775,6 +871,8 @@ router.get('/result/:sessionId', verifyToken, async (req, res, next) => {
         difficulty: ans.difficulty || 'medium',
         subject_name: ans.subject_name,
         time_spent_sec: ans.time_spent_sec || 0,
+        question_type: ans.question_type,
+        answer_text: ans.answer_text,
       }));
       liveIRT = calculateIRTScore(irtAnswers);
     } catch (irtErr) {
@@ -1059,10 +1157,12 @@ router.post('/result/combined', verifyToken, async (req, res, next) => {
       const rawAnswersRes = await pool.query(`
         SELECT
           ua.chosen_choice_id,
+          ua.answer_text,
           COALESCE(ac.is_correct, false) as is_correct,
           ua.question_id,
           COALESCE(ua.time_spent_sec, 0) as time_spent_sec,
           COALESCE(q.difficulty, 'medium') as difficulty,
+          COALESCE(q.question_type, 'multiple_choice') as question_type,
           COALESCE(s.name, 'Unknown') as subject_name
         FROM user_answers ua
         LEFT JOIN answer_choices ac ON ua.chosen_choice_id = ac.id
@@ -1071,6 +1171,18 @@ router.post('/result/combined', verifyToken, async (req, res, next) => {
         WHERE ua.session_id = ANY($1)
       `, [validSessionIds]);
 
+      for (const ans of rawAnswersRes.rows) {
+        if (ans.question_type === 'short_answer' && ans.answer_text) {
+          const correctRes = await pool.query(
+            `SELECT content FROM answer_choices WHERE question_id = $1 AND is_correct = true LIMIT 1`,
+            [ans.question_id]
+          );
+          if (correctRes.rows.length > 0) {
+            ans.is_correct = correctRes.rows[0].content.trim().toLowerCase() === ans.answer_text.trim().toLowerCase();
+          }
+        }
+      }
+
       const irtAnswers = rawAnswersRes.rows.map(ans => ({
         chosen_choice_id: ans.chosen_choice_id,
         is_correct: ans.is_correct === true,
@@ -1078,6 +1190,8 @@ router.post('/result/combined', verifyToken, async (req, res, next) => {
         difficulty: ans.difficulty || 'medium',
         subject_name: ans.subject_name,
         time_spent_sec: ans.time_spent_sec || 0,
+        question_type: ans.question_type,
+        answer_text: ans.answer_text,
       }));
       liveIRT = calculateIRTScore(irtAnswers);
     } catch (irtErr) {
@@ -1269,7 +1383,9 @@ router.post('/submit', verifyToken, async (req, res, next) => {
       question_id: ans.question_id,
       difficulty: ans.difficulty || 'medium',
       subject_name: ans.subject_name,
-      time_spent_sec: ans.time_spent_sec || 0
+      time_spent_sec: ans.time_spent_sec || 0,
+      question_type: ans.question_type,
+      answer_text: ans.answer_text
     }));
 
     // Calculate IRT score
@@ -1365,34 +1481,34 @@ router.post('/submit-bulk', verifyToken, async (req, res, next) => {
       return res.status(500).json({ success: false, error: 'Error fetching session' });
     }
 
-    // ===== BULK INSERT ANSWERS =====
+    // ===== BULK UPDATE ANSWERS =====
+    const client = await pool.connect();
     try {
-      // Delete existing answers if any
-      await pool.query('DELETE FROM user_answers WHERE session_id = $1', [sessionId]);
-
-      // Prepare bulk insert (with answer_text for short answer questions)
-      const values = [];
-      let paramIndex = 1;
-      let insertQuery = 'INSERT INTO user_answers (session_id, question_id, chosen_choice_id, time_spent_sec, answer_text) VALUES ';
-
-      const queryParts = answers.map((answer) => {
-        values.push(sessionId, answer.questionId, answer.choiceId, answer.timeSpent || 0, answer.answerText || null);
-        const part = `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4})`;
-        paramIndex += 5;
-        return part;
-      });
-
-      insertQuery += queryParts.join(',');
-
-      await pool.query(insertQuery, values);
-
-      console.log(`[SUBMIT-BULK] Inserted ${answers.length} answers into database`);
+      await client.query('BEGIN');
+      for (const answer of answers) {
+        const { questionId, choiceId, flagged, timeSpent, answerText } = answer;
+        if (!questionId) continue;
+        await client.query(
+          `UPDATE user_answers
+           SET chosen_choice_id = $1,
+               is_flagged = $2,
+               time_spent_sec = COALESCE($3, time_spent_sec),
+               answer_text = $4
+           WHERE session_id = $5 AND question_id = $6`,
+          [choiceId || null, flagged || false, timeSpent || 0, answerText || null, sessionId, questionId]
+        );
+      }
+      await client.query('COMMIT');
+      console.log(`[SUBMIT-BULK] Updated ${answers.length} answers in database`);
     } catch (err) {
-      console.error('[SUBMIT-BULK] Error inserting answers:', err);
+      await client.query('ROLLBACK');
+      console.error('[SUBMIT-BULK] Error updating answers:', err);
       return res.status(500).json({
         success: false,
         error: 'Error saving answers: ' + err.message,
       });
+    } finally {
+      client.release();
     }
 
     // ===== CALCULATE SCORES =====
@@ -1436,6 +1552,8 @@ router.post('/submit-bulk', verifyToken, async (req, res, next) => {
         difficulty: ans.difficulty || 'medium',
         subject_name: ans.subject_name,
         time_spent_sec: ans.time_spent_sec || 0,
+        question_type: ans.question_type,
+        answer_text: ans.answer_text,
       }));
 
       // Calculate IRT score

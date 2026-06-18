@@ -5,7 +5,7 @@ import { subjectService } from '../services/api';
 import toast from 'react-hot-toast';
 import ChatWidget from '../components/ChatWidget';
 import Footer from '../components/Footer';
-import NotificationDropdown from '../components/NotificationDropdown';
+import StudentNavbar from '../components/layout/StudentNavbar';
 
 const SUBJECT_ORDER = [
   'penalaran umum',
@@ -22,17 +22,11 @@ const PLAN_RANK = { gratis: 0, premium_um: 0, premium: 1, sultan: 2 };
 export default function LatihanSoal() {
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [subjects, setSubjects] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+
 
   useEffect(() => {
     fetchData();
@@ -65,102 +59,11 @@ export default function LatihanSoal() {
     return 'Baru saja';
   }
 
-  const headerClass = scrolled
-    ? 'bg-[#faf8ff]/90 shadow-sm border-b border-[#c2c6d8]/30 backdrop-blur-md fixed top-0 z-[100] w-full transition-all duration-300'
-    : 'bg-[#faf8ff] border-b border-transparent backdrop-blur-md fixed top-0 z-[100] w-full transition-all duration-300';
+
 
   return (
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24]">
-      {/* Navbar */}
-      <header className={headerClass}>
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-6 lg:gap-12">
-            <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-10 md:h-12" /></Link>
-            <nav className="hidden lg:flex items-center gap-8 text-[14px] font-medium">
-              <Link to="/dashboard" className="text-[#424656] hover:text-[#0050cb]">Dashboard</Link>
-              <Link to="/latihan" className="text-[#0050cb] border-b-2 border-[#0050cb] pb-1">Latihan</Link>
-              <Link to="/tryout/packages" className="text-[#424656] hover:text-[#0050cb]">Tryout</Link>
-              <Link to="/battle" className="text-[#424656] hover:text-[#0050cb]">Battle</Link>
-              <Link to="/riwayat" className="text-[#424656] hover:text-[#0050cb]">Riwayat</Link>
-              <Link to="/prediksi-skor" className="text-[#424656] hover:text-[#0050cb]">Prediksi Skor</Link>
-              <Link to="/ujian-mandiri" className="text-[#424656] hover:text-[#0050cb]">Ujian Mandiri</Link>
-              {isAdmin && <Link to="/admin" className="text-[#a33200] hover:text-[#0050cb]">Admin</Link>}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-[14px] font-medium text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                  user?.current_plan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
-                  user?.current_plan === 'premium' ? 'bg-blue-100 text-blue-600' :
-                  'bg-gray-100 text-gray-500'
-                }`}>
-                  <span className="material-symbols-outlined text-[10px]">
-                    {user?.current_plan === 'sultan' ? 'star' : user?.current_plan === 'premium' ? 'diamond' : 'person'}
-                  </span>
-                  {user?.current_plan === 'sultan' ? 'Sultan' : user?.current_plan === 'premium' ? 'Premium' : 'Gratis'}
-                </span>
-              </div>
-              <div className={`relative w-10 h-10 rounded-full bg-[#dae1ff] flex items-center justify-center text-[#0050cb] font-bold text-sm border-2 ${
-                user?.current_plan === 'sultan' ? 'border-yellow-400' : user?.current_plan === 'premium' ? 'border-blue-400' : 'border-transparent'
-              }`}>
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                {(user?.current_plan === 'premium' || user?.current_plan === 'sultan') && (
-                  <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ${
-                    user?.current_plan === 'sultan' ? 'bg-yellow-400 text-yellow-900' : 'bg-blue-500 text-white'
-                  }`}>
-                    <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      {user?.current_plan === 'sultan' ? 'star' : 'diamond'}
-                    </span>
-                  </span>
-                )}
-              </div>
-              <NotificationDropdown />
-            </div>
-            <button onClick={handleLogout} className="hidden sm:flex text-[#424656] hover:text-[#ba1a1a]">
-              <span className="material-symbols-outlined text-[20px]">logout</span>
-            </button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full text-[#424656]">
-              <span className="material-symbols-outlined text-[24px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
-            </button>
-          </div>
-        </div>
-      </header>
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[99] bg-black/50 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-b-[32px] shadow-2xl p-6 pt-20 animate-slide-down" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
-              <button onClick={() => setMobileMenuOpen(false)} className="w-10 h-10 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <nav className="flex flex-col gap-2">
-              {[{to:'/dashboard',label:'Dashboard'},{to:'/latihan',label:'Latihan',active:true},{to:'/tryout/packages',label:'Tryout'},{to:'/battle',label:'Battle'},{to:'/riwayat',label:'Riwayat'},{to:'/prediksi-skor',label:'Prediksi Skor'},{to:'/ujian-mandiri',label:'Ujian Mandiri'}].map(l => (
-                <Link key={l.to} to={l.to} onClick={() => setMobileMenuOpen(false)} className={`px-5 py-4 rounded-2xl text-[16px] font-bold transition-colors ${l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'}`}>{l.label}</Link>
-              ))}
-              {isAdmin && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="px-5 py-4 rounded-2xl text-[16px] font-bold text-[#a33200] hover:bg-[#f2f3ff]">Admin</Link>}
-            </nav>
-            <hr className="my-6 border-[#c2c6d8]/30" />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-lg">
-                  {user?.name?.charAt(0)?.toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-[15px] font-bold text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                  <span className="text-[12px] font-bold uppercase text-[#727687]">{user?.current_plan || 'Gratis'}</span>
-                </div>
-              </div>
-              <button onClick={() => { setMobileMenuOpen(false); handleLogout(); }} className="px-6 py-3 rounded-xl text-[14px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 border border-red-100">
-                <span className="material-symbols-outlined text-[18px]">logout</span> Keluar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
 
       <main className="pt-20">
         {/* Hero */}
@@ -307,49 +210,49 @@ function SubjectGrid({ subjects, user, navigate }) {
       <div
         key={subject.id}
         onClick={() => handleClick(subject)}
-        className={`relative bg-white border rounded-[24px] p-6 transition-all duration-300 flex flex-col justify-between ${
+        className={`relative bg-white border rounded-[16px] p-4 transition-all duration-200 flex flex-col justify-between ${
           isLocked
             ? 'border-[#c2c6d8]/50 opacity-75 cursor-not-allowed'
-            : 'border-[#c2c6d8]/30 hover:shadow-xl cursor-pointer group'
+            : 'border-[#c2c6d8]/30 hover:shadow-lg cursor-pointer group'
         }`}
       >
         {isLocked && (
-          <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-gray-100 px-3 py-1 rounded-full">
-            <span className="material-symbols-outlined text-[14px] text-gray-500">lock</span>
-            <span className="text-[11px] font-bold text-gray-500 uppercase">
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-full">
+            <span className="material-symbols-outlined text-[12px] text-gray-500">lock</span>
+            <span className="text-[9px] font-bold text-gray-500 uppercase">
               {reqPlan === 'sultan' ? 'Sultan' : 'Premium'}
             </span>
           </div>
         )}
         <div>
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <div
-              className={`p-3 rounded-xl ${isLocked ? 'grayscale opacity-60' : ''}`}
+              className={`p-2 rounded-lg ${isLocked ? 'grayscale opacity-60' : ''}`}
               style={{
                 backgroundColor: subject.bg_color || '#dae1ff',
                 color: subject.icon_color || '#0050cb'
               }}
             >
-              <span className="material-symbols-outlined text-[24px]">
+              <span className="material-symbols-outlined text-[18px]">
                 {isLocked ? 'lock' : (subject.icon || 'calculate')}
               </span>
             </div>
           </div>
-          <h3 className="text-[20px] font-bold text-[#191b24] mb-2">{subject.title || subject.name}</h3>
-          <p className="text-[14px] text-[#424656] line-clamp-2">
+          <h3 className="text-[14px] font-bold text-[#191b24] mb-1 leading-tight">{subject.title || subject.name}</h3>
+          <p className="text-[12px] text-[#424656] leading-relaxed">
             {subject.description || 'Tidak ada deskripsi'}
           </p>
         </div>
-        <div className="mt-6 pt-4 border-t border-[#c2c6d8]/20 flex items-center justify-between">
+        <div className="mt-3 pt-3 border-t border-[#c2c6d8]/20 flex items-center justify-between">
           {isLocked ? (
             <>
-              <span className="text-[14px] font-bold text-gray-400">Terkunci</span>
-              <span className="material-symbols-outlined text-gray-400">lock</span>
+              <span className="text-[12px] font-bold text-gray-400">Terkunci</span>
+              <span className="material-symbols-outlined text-[16px] text-gray-400">lock</span>
             </>
           ) : (
             <>
-              <span className="text-[14px] font-bold text-[#0050cb]">Mulai Latihan</span>
-              <span className="material-symbols-outlined text-[#0050cb] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              <span className="text-[12px] font-bold text-[#0050cb]">Mulai</span>
+              <span className="material-symbols-outlined text-[16px] text-[#0050cb] group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </>
           )}
         </div>
@@ -361,33 +264,33 @@ function SubjectGrid({ subjects, user, navigate }) {
     <div className="space-y-10">
       {gratisSubjects.length > 0 && (
         <div>
-          <h2 className="text-[20px] font-bold text-[#191b24] mb-6 flex items-center gap-2">
+          <h2 className="text-[16px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-[#0050cb]">lock_open</span>
             Gratis
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {gratisSubjects.map(renderCard)}
           </div>
         </div>
       )}
       {premiumSubjects.length > 0 && (
         <div>
-          <h2 className="text-[20px] font-bold text-[#191b24] mb-6 flex items-center gap-2">
+          <h2 className="text-[16px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-blue-600">diamond</span>
             Premium
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {premiumSubjects.map(renderCard)}
           </div>
         </div>
       )}
       {sultanSubjects.length > 0 && (
         <div>
-          <h2 className="text-[20px] font-bold text-[#191b24] mb-6 flex items-center gap-2">
+          <h2 className="text-[16px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-yellow-600">star</span>
             Sultan
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {sultanSubjects.map(renderCard)}
           </div>
         </div>

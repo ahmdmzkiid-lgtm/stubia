@@ -58,7 +58,7 @@ INSERT INTO plans (name, display_name, description, price, duration_days, featur
 VALUES
   ('gratis', 'Gratis', 'Cocok untuk memulai persiapan UTBK', 0, 36500, '["Akses soal latihan dasar", "Tryout Mingguan", "Pembahasan soal terbatas"]', false, 1),
   ('premium', 'Premium', 'Tingkatkan persiapan UTBK-mu', 35000, 365, '["Akses semua latihan soal", "Pembahasan lengkap AI", "Analisis performa IRT", "10x Tryout beserta pembahasannya"]', true, 2),
-  ('sultan', 'Sultan', 'Persiapan UTBK terlengkap', 60000, 365, '["Akses semua latihan soal", "Akses semua tryout", "Akses pembahasan soal sepuasnya"]', false, 3)
+  ('sultan', 'Sultan', 'Akses semua latihan soal dan tryout UTBK dan Ujian Mandiri', 160000, 365, '["Akses semua latihan soal UTBK & Ujian Mandiri", "Akses semua tryout UTBK & Ujian Mandiri", "Pembahasan soal berbasis AI sepuasnya", "Analisis performa & prediksi skor IRT"]', false, 3)
 ON CONFLICT (name) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   description = EXCLUDED.description,

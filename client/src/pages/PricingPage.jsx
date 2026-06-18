@@ -230,7 +230,7 @@ export default function PricingPage() {
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <button onClick={() => navigate(user ? '/dashboard' : '/')} className="text-xl font-bold text-blue-600">
-            Eduzet
+            Stubia
           </button>
           {user ? (
             <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-600 hover:text-blue-600">

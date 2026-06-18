@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { ujianMandiriService, tryoutService } from '../services/api';
+import { ujianMandiriService, tryoutService, subscriptionService } from '../services/api';
 import { getStatusConfig } from '../data/ujianMandiriData';
 import Footer from '../components/Footer';
 import toast from 'react-hot-toast';
 import TryoutVerificationModal from '../components/tryout/TryoutVerificationModal';
-import NotificationDropdown from '../components/NotificationDropdown';
+import StudentNavbar from '../components/layout/StudentNavbar';
 import StartConfirmationModal from '../components/StartConfirmationModal';
 
 const PLAN_RANK = {
   gratis: 0,
-  premium_um: 1,
-  premium: 1,
-  sultan: 2,
+  premium_um: 1, premium: 1,
+  utbk_3m: 1, utbk_6m: 1, utbk_9m: 1, utbk_12m: 1,
+  utbk_to_5x: 1, utbk_to_8x: 1, utbk_to_10x: 1,
+  sultan: 2, um_to_all: 2, um_to_3x: 1,
 };
 
 const PLAN_BADGE = {
@@ -33,6 +34,45 @@ const PLAN_BADGE = {
     label: 'SULTAN',
     className: 'text-[#a33200] bg-[#ffdbd0] border border-[#f4b9a5]',
   },
+  utbk_3m: { label: '3 BLN', className: 'text-[#0050cb] bg-[#dae1ff] border border-[#c0c8f5]' },
+  utbk_6m: { label: '6 BLN', className: 'text-[#0050cb] bg-[#dae1ff] border border-[#c0c8f5]' },
+  utbk_9m: { label: '9 BLN', className: 'text-[#0050cb] bg-[#dae1ff] border border-[#c0c8f5]' },
+  utbk_12m: { label: '12 BLN', className: 'text-[#0050cb] bg-[#dae1ff] border border-[#c0c8f5]' },
+  utbk_to_5x: { label: '5 TO', className: 'text-emerald-700 bg-emerald-50 border border-emerald-200' },
+  utbk_to_8x: { label: '8 TO', className: 'text-emerald-700 bg-emerald-50 border border-emerald-200' },
+  utbk_to_10x: { label: '10 TO', className: 'text-emerald-700 bg-emerald-50 border border-emerald-200' },
+  um_to_all: { label: 'ALL UM', className: 'text-teal-700 bg-teal-50 border border-teal-200' },
+  um_to_3x: { label: '3 TO UM', className: 'text-teal-700 bg-teal-50 border border-teal-200' },
+};
+
+const SUBTEST_ORDER = [
+  'penalaran umum',
+  'pengetahuan dan pemahaman umum',
+  'pemahaman bacaan dan tulisan',
+  'pengetahuan kuantitatif',
+  'literasi bahasa indonesia',
+  'literasi bahasa inggris',
+  'penalaran matematika',
+];
+
+const SUBTEST_ICONS = {
+  'penalaran umum': 'psychology',
+  'pengetahuan dan pemahaman umum': 'public',
+  'pemahaman bacaan dan tulisan': 'menu_book',
+  'pengetahuan kuantitatif': 'bar_chart',
+  'literasi bahasa indonesia': 'description',
+  'literasi bahasa inggris': 'translate',
+  'penalaran matematika': 'calculate',
+};
+
+const SUBTEST_COLORS = {
+  'penalaran umum': { bg: '#EDE7F6', icon: '#5E35B1' },
+  'pengetahuan dan pemahaman umum': { bg: '#E8F5E9', icon: '#2E7D32' },
+  'pemahaman bacaan dan tulisan': { bg: '#FFF3E0', icon: '#E65100' },
+  'pengetahuan kuantitatif': { bg: '#E3F2FD', icon: '#1565C0' },
+  'literasi bahasa indonesia': { bg: '#FCE4EC', icon: '#AD1457' },
+  'literasi bahasa inggris': { bg: '#E0F7FA', icon: '#00838F' },
+  'penalaran matematika': { bg: '#F3E5F5', icon: '#7B1FA2' },
 };
 
 const getAttemptCounts = (attempt) => {
@@ -55,118 +95,7 @@ const getAttemptCounts = (attempt) => {
   };
 };
 
-/* ─── Navbar (same pattern as all other pages) ─── */
-const TopNavbar = ({ user, isAdmin, onLogout }) => {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', h);
-    return () => window.removeEventListener('scroll', h);
-  }, []);
 
-  const links = [
-    { to: '/dashboard',      label: 'Dashboard' },
-    { to: '/latihan',        label: 'Latihan' },
-    { to: '/tryout/packages',label: 'Tryout' },
-    { to: '/battle',         label: 'Battle' },
-    { to: '/riwayat',        label: 'Riwayat' },
-    { to: '/prediksi-skor',  label: 'Prediksi Skor' },
-    { to: '/ujian-mandiri',  label: 'Ujian Mandiri', active: true },
-  ];
-
-  return (
-    <>
-      <header className={`fixed top-0 z-[100] w-full backdrop-blur-md transition-all duration-300 ${scrolled ? 'bg-[#faf8ff]/90 shadow-sm border-b border-[#c2c6d8]/30' : 'bg-[#faf8ff] border-b border-transparent'}`}>
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-6 lg:gap-12">
-            <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-10 md:h-12" /></Link>
-            <nav className="hidden lg:flex items-center space-x-8 text-[14px] font-medium">
-              {links.map(l => (
-                <Link key={l.to} to={l.to} className={l.active ? 'text-[#0050cb] border-b-2 border-[#0050cb] pb-1 transition-colors' : 'text-[#424656] hover:text-[#0050cb] transition-colors'}>{l.label}</Link>
-              ))}
-              {isAdmin && <Link to="/admin" className="text-[#a33200] hover:text-[#0050cb] transition-colors">Admin Panel</Link>}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-6">
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-[14px] font-medium text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                  user?.current_plan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
-                  user?.current_plan === 'premium' ? 'bg-blue-100 text-blue-600' :
-                  user?.current_plan === 'premium_um' ? 'bg-teal-100 text-teal-600' :
-                  'bg-gray-100 text-gray-500'
-                }`}>
-                  <span className="material-symbols-outlined text-[10px]">
-                    {user?.current_plan === 'sultan' ? 'star' : user?.current_plan === 'premium' ? 'diamond' : user?.current_plan === 'premium_um' ? 'target' : 'person'}
-                  </span>
-                  {user?.current_plan === 'sultan' ? 'Sultan' : user?.current_plan === 'premium' ? 'Premium' : user?.current_plan === 'premium_um' ? 'Premium UM' : 'Gratis'}
-                </span>
-              </div>
-              <div className={`relative w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-sm border-2 ${
-                user?.current_plan === 'sultan' ? 'border-yellow-400' : user?.current_plan === 'premium' ? 'border-blue-400' : user?.current_plan === 'premium_um' ? 'border-teal-400' : 'border-transparent'
-              }`}>
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                {(user?.current_plan === 'premium' || user?.current_plan === 'premium_um' || user?.current_plan === 'sultan') && (
-                  <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ${
-                    user?.current_plan === 'sultan' ? 'bg-yellow-400 text-yellow-900' : user?.current_plan === 'premium_um' ? 'bg-teal-500 text-white' : 'bg-blue-500 text-white'
-                  }`}>
-                    <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      {user?.current_plan === 'sultan' ? 'star' : user?.current_plan === 'premium_um' ? 'target' : 'diamond'}
-                    </span>
-                  </span>
-                )}
-              </div>
-              <NotificationDropdown />
-            </div>
-            <button type="button" onClick={onLogout} className="hidden sm:flex text-[#424656] hover:text-[#ba1a1a] transition-colors items-center justify-center">
-              <span className="material-symbols-outlined text-[20px]">logout</span>
-            </button>
-            <button type="button" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full text-[#424656]">
-              <span className="material-symbols-outlined text-[24px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
-            </button>
-          </div>
-        </div>
-      </header>
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[99] bg-black/50 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-b-[32px] shadow-2xl p-6 pt-20 animate-slide-down" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} className="w-10 h-10 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <nav className="flex flex-col gap-2">
-              {links.map(l => (
-                <Link key={l.to} to={l.to} onClick={() => setMobileMenuOpen(false)} className={`px-5 py-4 rounded-2xl text-[16px] font-bold transition-colors ${l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'}`}>{l.label}</Link>
-              ))}
-              {isAdmin && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="px-5 py-4 rounded-2xl text-[16px] font-bold text-[#a33200] hover:bg-[#f2f3ff]">Admin Panel</Link>}
-            </nav>
-            <hr className="my-6 border-[#c2c6d8]/30" />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-lg">
-                  {user?.name?.charAt(0)?.toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-[15px] font-bold text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                  <span className="text-[12px] font-bold uppercase text-[#727687]">
-                    {user?.current_plan === 'premium_um' ? 'Premium UM' : (user?.current_plan || 'Gratis')}
-                  </span>
-                </div>
-              </div>
-              <button type="button" onClick={() => { setMobileMenuOpen(false); onLogout(); }} className="px-6 py-3 rounded-xl text-[14px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 border border-red-100">
-                <span className="material-symbols-outlined text-[18px]">logout</span> Keluar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
 
 /* ─── Main Page ─── */
 export default function UjianMandiriDetail() {
@@ -178,6 +107,7 @@ export default function UjianMandiriDetail() {
   const [latihanSoal, setLatihanSoal] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [activePlans, setActivePlans] = useState([]);
   const [selectedPkg, setSelectedPkg] = useState(null);
   const [registrationStatus, setRegistrationStatus] = useState(null);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -187,6 +117,24 @@ export default function UjianMandiriDetail() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmType, setConfirmType] = useState(null); // 'tryout' | 'latihan'
   const [confirmData, setConfirmData] = useState(null); // item to start (pkg or lat)
+  const [expandedSubtests, setExpandedSubtests] = useState({});
+
+  // Helper: check if user has a plan that satisfies the required plan name
+  const hasPlanAccess = (requiredPlan) => {
+    if (!requiredPlan || requiredPlan === 'gratis') return true;
+    // Check against all active subscriptions
+    for (const plan of activePlans) {
+      const pName = plan.name || plan.plan_name;
+      const pRank = PLAN_RANK[pName] ?? 0;
+      const reqRank = PLAN_RANK[requiredPlan] ?? 0;
+      if (pRank >= reqRank) return true;
+    }
+    // Fall back to user.current_plan
+    const userPlan = user?.current_plan || 'gratis';
+    const userRank = PLAN_RANK[userPlan] ?? 0;
+    const reqRank = PLAN_RANK[requiredPlan] ?? 0;
+    return userRank >= reqRank;
+  };
 
   const fetchStatus = async () => {
     if (selectedPkg) {
@@ -209,12 +157,20 @@ export default function UjianMandiriDetail() {
       toast.error('Tryout sedang non-aktif.');
       return;
     }
-    if (reqRank > userRank) {
+    if (!hasPlanAccess(reqPlan)) {
       toast.error(`Tryout ini khusus paket ${reqPlan === 'sultan' ? 'Sultan' : 'Premium'}.`);
       return;
     }
 
-    if (userPlan === 'gratis') {
+    // Only require social verification if user has NO active UM plan
+    const hasUmUnlimited = activePlans.some(p =>
+      (p.name || p.plan_name) !== 'gratis' && p.target_type === 'um' && (p.plan_type === 'subscription' || p.plan_type === 'access')
+    );
+    const hasUmQuota = activePlans.some(p =>
+      p.target_type === 'um' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0
+    );
+    const hasUmAccess = hasUmUnlimited || hasUmQuota;
+    if (!hasUmAccess) {
       setSelectedPkg(pkg);
       setCheckingRegistration(pkg.id);
       try {
@@ -244,10 +200,11 @@ export default function UjianMandiriDetail() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ujianRes, tryoutRes, latihanRes] = await Promise.all([
+        const [ujianRes, tryoutRes, latihanRes, activePlansRes] = await Promise.all([
           ujianMandiriService.getById(id),
           ujianMandiriService.getTryoutPackages(id),
           ujianMandiriService.getLatihan(id),
+          subscriptionService.getActivePlans().catch(() => ({ data: { data: [] } })),
         ]);
         if (!ujianRes.data.data) {
           navigate('/ujian-mandiri');
@@ -258,6 +215,7 @@ export default function UjianMandiriDetail() {
         const latList = (latihanRes.data.data || []).filter(l => l.is_active !== false);
         setTryoutPackages(pkgList);
         setLatihanSoal(latList);
+        setActivePlans(activePlansRes.data?.data || []);
       } catch (err) {
         console.error('Failed to fetch ujian mandiri detail:', err);
         navigate('/ujian-mandiri');
@@ -283,11 +241,47 @@ export default function UjianMandiriDetail() {
 
   const statusCfg = getStatusConfig(ujian.status);
 
+  // Map package name to its required plan
+  const packagePlans = {};
+  latihanSoal.forEach(lat => {
+    const pkgName = lat.package_name || 'Paket 1';
+    if (lat.category === 'package_placeholder') {
+      packagePlans[pkgName] = lat.required_plan || 'gratis';
+    }
+  });
+
+  // For packages that don't have a placeholder yet, default their plan to the first item's plan
+  latihanSoal.forEach(lat => {
+    const pkgName = lat.package_name || 'Paket 1';
+    if (!packagePlans[pkgName]) {
+      packagePlans[pkgName] = lat.required_plan || 'gratis';
+    }
+  });
+
+  // Group exercises by required plan of their parent package
+  const gratisLatihan = latihanSoal.filter(lat => {
+    const pkgName = lat.package_name || 'Paket 1';
+    const pkgPlan = packagePlans[pkgName];
+    return pkgPlan === 'gratis';
+  });
+
+  const premiumLatihan = latihanSoal.filter(lat => {
+    const pkgName = lat.package_name || 'Paket 1';
+    const pkgPlan = packagePlans[pkgName];
+    return pkgPlan === 'premium' || pkgPlan === 'premium_um';
+  });
+
+  const sultanLatihan = latihanSoal.filter(lat => {
+    const pkgName = lat.package_name || 'Paket 1';
+    const pkgPlan = packagePlans[pkgName];
+    return pkgPlan === 'sultan';
+  });
+
   const renderLatihanCard = (lat) => {
-    const reqPlan = lat.required_plan || 'gratis';
+    const pkgName = lat.package_name || 'Paket 1';
+    const reqPlan = packagePlans[pkgName] || lat.required_plan || 'gratis';
     const badge = PLAN_BADGE[reqPlan] || PLAN_BADGE.gratis;
-    const reqRank = PLAN_RANK[reqPlan] ?? 0;
-    const locked = reqRank > userRank;
+    const locked = !hasPlanAccess(reqPlan);
     const inactive = lat.is_active === false;
     const lastAttempt = lat.user_history?.[0];
     const lastScore = lastAttempt?.score;
@@ -307,134 +301,254 @@ export default function UjianMandiriDetail() {
       setConfirmOpen(true);
     };
 
+    // Determine color palette based on category/subtest
+    const catKey = (lat.category || '').toLowerCase();
+    const subtestColor = SUBTEST_COLORS[catKey] || { bg: '#EEF2FF', icon: '#4338CA' };
+    const subtestIcon = SUBTEST_ICONS[catKey] || lat.icon || 'neurology';
+
+    // Green accent gradient for all exercises
+    const accentGradient = 'from-emerald-500 to-teal-400';
+
     return (
       <div
         key={lat.id}
-        className="bg-white border border-[#e5e2e3] rounded-xl shadow-[0_10px_30px_-12px_rgba(0,0,0,0.08)] flex flex-col p-4 gap-3 hover:border-[#0050cb]/40 transition-all"
+        className={`relative bg-white rounded-xl flex flex-col overflow-hidden transition-all duration-300 group
+          ${inactive ? 'opacity-60 grayscale-[30%]' : ''}
+          border border-[#e2e8f0]/80
+          hover:border-transparent
+          shadow-[0_1px_2px_rgba(0,0,0,0.03)]
+          hover:shadow-[0_8px_16px_-8px_rgba(0,51,153,0.1)]
+          hover:-translate-y-0.5`}
       >
-        <div className="flex justify-between items-start gap-2">
-          <div className="flex-1 min-w-0">
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] block text-[#0050cb] mb-1">{lat.category || 'Latihan Mandiri'}</span>
-            <h3 className="text-[15px] font-semibold text-[#191b24] whitespace-normal">{lat.title}</h3>
-            <p className="text-[12px] text-[#424656] line-clamp-2">{lat.description}</p>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            {inactive && (
-              <span className="text-[9px] font-bold uppercase tracking-[0.16em] px-2 py-1 rounded bg-[#f5f3f4] text-[#727687] border border-[#e5e2e3]">Non-aktif</span>
-            )}
-            {!inactive && locked && (
-              <span className="text-[9px] font-bold uppercase tracking-[0.16em] px-2 py-1 rounded bg-[#f5f3f4] text-[#727687] border border-[#e5e2e3]">
-                {reqPlan === 'sultan' ? 'Khusus Sultan' : 'Khusus Premium'}
+        {/* Top Accent Gradient Strip */}
+        <div className={`h-0.5 w-full bg-gradient-to-r ${accentGradient} opacity-60 group-hover:opacity-100 transition-opacity duration-300`} />
+
+        <div className="p-3 flex flex-col gap-2 flex-1">
+          {/* Header: Icon + Title */}
+          <div className="flex items-start gap-2">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-500"
+              style={{ backgroundColor: subtestColor.bg }}
+            >
+              <span
+                className="material-symbols-outlined text-[16px]"
+                style={{ color: subtestColor.icon, fontVariationSettings: "'FILL' 0, 'wght' 300" }}
+              >
+                {subtestIcon}
               </span>
-            )}
-            <span className={`text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-1 rounded ${badge.className}`}>
-              {badge.label}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-[11px] text-[#727687]">
-          <span>{lat.soal_count || 0} Soal</span>
-          <span>•</span>
-          <span className="font-mono bg-[#f6f3f4] px-2 py-1 rounded border border-[#e5e2e3] text-[10px]">
-            +{lat.points_correct ?? 1} | {lat.points_incorrect ?? 0} | {lat.points_unanswered ?? 0}
-          </span>
-        </div>
-
-        <div className="py-2 border-y border-[#e5e2e3] flex justify-between items-center">
-          <div>
-            <span className="text-[9px] uppercase tracking-wider text-[#727687]">Terakhir</span>
-            <div className="text-[18px] font-bold text-[#0050cb] leading-tight">{lastScore ?? 'Belum ada'}</div>
-          </div>
-          <div className="text-right text-[10px] font-mono text-[#424656] leading-tight">
-            {lastCounts ? (
-              <div className="bg-[#f6f3f4] px-2 py-1 rounded border border-[#e5e2e3] inline-flex items-center gap-2">
-                <span className="text-green-700">B:{lastCounts.benar}</span>
-                <span className="text-[#ba1a1a]">S:{lastCounts.salah}</span>
-                <span className="text-[#727687]">K:{lastCounts.kosong}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span
+                  className="text-[8px] font-extrabold uppercase tracking-[0.12em] leading-none"
+                  style={{ color: subtestColor.icon }}
+                >
+                  {lat.category || 'Latihan'}
+                </span>
+                <span className={`text-[7px] font-extrabold uppercase tracking-wider px-1 py-0.5 rounded-md ${badge.className}`}>
+                  {badge.label}
+                </span>
+                {inactive && (
+                  <span className="text-[7px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">Nonaktif</span>
+                )}
+                {!inactive && locked && (
+                  <span className="text-[7px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">
+                    <span className="material-symbols-outlined text-[7px] align-middle mr-0.5">lock</span>
+                    {reqPlan === 'sultan' ? 'Sultan' : 'Premium'}
+                  </span>
+                )}
               </div>
-            ) : (
-              <span className="text-[#727687]">Belum ada detail</span>
-            )}
+              <h3 className="text-[12px] font-bold text-[#1e293b] leading-snug group-hover:text-[#0050cb] transition-colors duration-300 line-clamp-2 mt-0.5">{lat.title}</h3>
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-auto">
-          <button
-            type="button"
-            onClick={handleLatihanClick}
-            disabled={inactive || locked}
-            className={`py-2.5 rounded-md font-bold text-[12px] flex items-center justify-center gap-2 transition-all ${
-              inactive || locked
-                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-[#0050cb] text-white hover:bg-[#003fa4]'
-            }`}
-          >
-            {lastScore ? 'Mulai Lagi' : 'Mulai'}
-          </button>
-          <button
-            type="button"
-            onClick={() => lastAttempt && navigate(`/ujian-mandiri/${id}/latihan/${lat.id}/hasil/${lastAttempt.id}`)}
-            disabled={!lastAttempt}
-            className={`py-2.5 rounded-md font-bold text-[12px] border transition-all flex items-center justify-center gap-2 ${
-              lastAttempt
-                ? 'border-[#c2c6d8] text-[#424656] hover:bg-[#f2f3ff]'
-                : 'border-[#e5e2e3] text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            Hasil
-          </button>
+          {/* Description */}
+          {lat.description && (
+            <p className="text-[11px] text-[#64748b] leading-relaxed line-clamp-2">{lat.description}</p>
+          )}
+
+          {/* Stat Pills + Score compact */}
+          <div className="flex items-center justify-between gap-2 mt-auto">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-100">
+                <span className="material-symbols-outlined text-[12px] text-slate-400">quiz</span>
+                {Number(lat.soal_count) || 0}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg border border-slate-100">
+                <span className="text-emerald-600">+{lat.points_correct ?? 1}</span>
+                <span className="text-slate-300">/</span>
+                <span className="text-rose-500">{lat.points_incorrect ?? 0}</span>
+              </span>
+            </div>
+            <div className={`text-[13px] font-extrabold leading-none ${lastScore != null ? 'text-[#0050cb]' : 'text-slate-300'}`}>
+              {lastScore ?? '—'}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={handleLatihanClick}
+              disabled={inactive || locked}
+              className={`py-1.5 rounded-lg font-bold text-[10px] flex items-center justify-center gap-1 transition-all duration-200 ${
+                inactive || locked
+                  ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'
+                  : 'bg-gradient-to-r from-[#0050cb] to-[#3b82f6] text-white hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.97]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[12px]">{locked ? 'lock' : 'play_arrow'}</span>
+              {lastScore ? 'Ulangi' : 'Mulai'}
+            </button>
+            <button
+              type="button"
+              onClick={() => lastAttempt && navigate(`/ujian-mandiri/${id}/latihan/${lat.id}/hasil/${lastAttempt.id}`)}
+              disabled={!lastAttempt}
+              className={`py-1.5 rounded-lg font-bold text-[10px] flex items-center justify-center gap-1 border transition-all duration-200 ${
+                lastAttempt
+                  ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97]'
+                  : 'border-slate-100 text-slate-200 cursor-not-allowed'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[12px]">bar_chart</span>
+              Hasil
+            </button>
+          </div>
         </div>
       </div>
     );
   };
 
-  // Helper to group latihan by package_name
-  const groupByPackage = (list) => {
-    const groups = {};
+  const renderPackageCards = (list) => {
+    const packages = {};
     list.forEach(lat => {
       const pkg = lat.package_name || 'Paket 1';
-      if (!groups[pkg]) groups[pkg] = [];
-      groups[pkg].push(lat);
+      if (!packages[pkg]) packages[pkg] = [];
+      packages[pkg].push(lat);
     });
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  };
 
-  const gratisLatihan = latihanSoal.filter(lat => (lat.required_plan || 'gratis') === 'gratis');
-  const premiumLatihan = latihanSoal.filter(lat => (lat.required_plan || 'gratis') === 'premium');
-  const sultanLatihan = latihanSoal.filter(lat => (lat.required_plan || 'gratis') === 'sultan');
+    const packageNames = Object.keys(packages).sort();
+    if (packageNames.length === 0) return null;
 
-  const renderPackageGroups = (list) => {
-    const packages = groupByPackage(list);
-    if (packages.length <= 1) {
-      // Only one package or no package — render flat grid without header
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
-          {list.map(renderLatihanCard)}
-        </div>
-      );
-    }
     return (
-      <div className="space-y-8">
-        {packages.map(([pkgName, items]) => (
-          <div key={pkgName}>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-[18px] text-[#0050cb]">inventory_2</span>
-              <h4 className="text-[16px] font-bold text-[#191b24]">{pkgName}</h4>
-              <span className="text-[11px] text-[#727687] bg-[#f2f3ff] px-2 py-0.5 rounded-full">{items.length} soal</span>
+      <div className="space-y-4">
+        {packageNames.map(pkgName => {
+          const pkgItems = packages[pkgName];
+          const placeholder = pkgItems.find(lat => lat.category === 'package_placeholder');
+          const exercises = pkgItems.filter(lat => lat.category !== 'package_placeholder');
+          
+          if (exercises.length === 0 && !placeholder) return null;
+          
+          const isExpanded = expandedSubtests[pkgName] ?? false;
+          const pkgDescription = placeholder?.description || 'Paket latihan soal mandiri.';
+          const pkgPlan = placeholder?.required_plan || pkgItems[0]?.required_plan || 'gratis';
+          const totalSoal = exercises.reduce((sum, lat) => sum + (Number(lat.soal_count) || 0), 0);
+
+          // Plan-themed icon and gradient
+          let iconName = 'folder_special';
+          let iconGradient = 'from-violet-500 via-indigo-500 to-blue-400';
+          const accentColor = 'from-blue-500 to-[#0050cb]'; // Blue gradient only
+
+          if (pkgPlan === 'premium' || pkgPlan === 'premium_um') {
+            iconName = 'workspace_premium';
+            iconGradient = 'from-indigo-600 via-blue-500 to-cyan-400';
+          } else if (pkgPlan === 'sultan') {
+            iconName = 'military_tech';
+            iconGradient = 'from-amber-500 via-orange-500 to-yellow-400';
+          }
+
+          const badge = PLAN_BADGE[pkgPlan] || PLAN_BADGE.gratis;
+          
+          return (
+            <div
+              key={pkgName}
+              className={`relative bg-white rounded-2xl overflow-hidden transition-all duration-500
+                border border-[#e2e8f0]/80
+                shadow-[0_1px_3px_rgba(0,0,0,0.04)]
+                ${isExpanded 
+                  ? 'shadow-[0_20px_40px_-12px_rgba(0,51,153,0.08)] border-[#e2e8f0]/40' 
+                  : 'hover:shadow-[0_12px_24px_rgba(0,51,153,0.06)] hover:border-transparent'
+                }`}
+            >
+              {/* Left Accent Bar - animated */}
+              <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${accentColor} rounded-r-full transition-all duration-500 ${
+                isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-60'
+              }`} />
+
+              {/* Package Card Header — clickable to expand/collapse */}
+              <button
+                type="button"
+                onClick={() => setExpandedSubtests(prev => ({ [pkgName]: !prev[pkgName] }))}
+                className="w-full flex items-center gap-5 p-5 lg:p-6 text-left transition-colors duration-300 relative group"
+              >
+                {/* Premium Icon Container */}
+                <div
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-gradient-to-br ${iconGradient} text-white shadow-lg shadow-indigo-500/10 transform group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500`}
+                >
+                  <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>{iconName}</span>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <h4 className="text-[16px] lg:text-[18px] font-bold text-[#1e293b] tracking-tight group-hover:text-[#0050cb] transition-colors duration-300">{pkgName}</h4>
+                    <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${badge.className} shadow-sm shrink-0`}>
+                      {badge.label}
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-[#64748b] mt-1 line-clamp-1 font-medium">{pkgDescription}</p>
+                  
+                  {/* Elegant Stats Display */}
+                  <div className="flex items-center gap-2.5 mt-2.5">
+                    <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
+                      <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>quiz</span>
+                      <span className="font-semibold">{totalSoal}</span> soal
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
+                      <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>topic</span>
+                      <span className="font-semibold">{exercises.length}</span> latihan
+                    </div>
+                  </div>
+                </div>
+
+                {/* Polished Expand/Collapse Button */}
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${
+                  isExpanded 
+                    ? 'bg-[#0050cb] text-white shadow-md shadow-blue-500/15 ring-4 ring-blue-500/5' 
+                    : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-[#0050cb]'
+                }`}>
+                  <span
+                    className={`material-symbols-outlined text-[20px] transition-transform duration-400 ${isExpanded ? 'rotate-180' : ''}`}
+                  >
+                    expand_more
+                  </span>
+                </div>
+              </button>
+
+              {/* Expanded Content: list of exercises inside */}
+              {isExpanded && (
+                <div className="border-t border-slate-100/80 p-5 lg:p-6 bg-gradient-to-b from-slate-50/40 to-white">
+                  {exercises.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                      {exercises.map(lat => renderLatihanCard(lat))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
+                      <span className="material-symbols-outlined text-[40px] text-slate-300 mb-2" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>folder_open</span>
+                      <p className="text-[#64748b] text-[13px] font-medium">Belum ada latihan soal tersedia dalam paket ini.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
-              {items.map(renderLatihanCard)}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
 
   return (
     <div className="min-h-screen bg-[#FAF8FF]">
-      <TopNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
+      <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
 
       <main className="max-w-[1280px] mx-auto px-6 lg:px-16 py-8">
         {/* Breadcrumb */}
@@ -476,10 +590,17 @@ export default function UjianMandiriDetail() {
         {/* Paket Tryout Tersedia */}
         <section className="mb-16">
           <div className="flex justify-between items-end mb-8">
-            <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight">Tryout Tersedia</h2>
-            <span className="text-[14px] lg:text-[16px] text-[#0050cb] font-semibold cursor-pointer hover:underline">Lihat Semua</span>
+            <div>
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-[18px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>assignment</span>
+                </div>
+                <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight tracking-tight">Tryout Tersedia</h2>
+              </div>
+              <p className="text-[13px] text-slate-500 font-medium ml-[42px]">Simulasi ujian lengkap dengan timer dan penilaian.</p>
+            </div>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-4">
             {tryoutPackages.length > 0 ? (
               tryoutPackages.map((pkg) => {
                 const reqPlan = pkg.required_plan || 'gratis';
@@ -488,90 +609,161 @@ export default function UjianMandiriDetail() {
                 const lastScore = lastAttempt?.score;
                 const lastCounts = getAttemptCounts(lastAttempt);
                 const inactive = pkg.is_active === false;
-                const locked = (PLAN_RANK[reqPlan] ?? 0) > userRank;
+                const locked = !hasPlanAccess(reqPlan);
+
+                // Plan-based gradient for icon container
+                const iconGradient = reqPlan === 'sultan'
+                  ? 'from-amber-500 via-orange-500 to-yellow-400'
+                  : reqPlan === 'premium' || reqPlan === 'premium_um'
+                  ? 'from-indigo-600 via-blue-500 to-cyan-400'
+                  : 'from-violet-500 via-indigo-500 to-blue-400';
+
+                // Plan-based accent bar color
+                const accentBarColor = reqPlan === 'sultan'
+                  ? 'bg-gradient-to-b from-amber-400 to-orange-500'
+                  : reqPlan === 'premium' || reqPlan === 'premium_um'
+                  ? 'bg-gradient-to-b from-indigo-500 to-blue-400'
+                  : 'bg-gradient-to-b from-violet-400 to-indigo-500';
 
                 return (
                   <article
                     key={pkg.id}
-                    className="bg-white border border-[#e5e2e3] rounded-xl shadow-[0_10px_30px_-12px_rgba(0,0,0,0.08)] p-5 lg:p-6 flex flex-col gap-4 hover:border-[#0050cb]/40 transition-all"
+                    className={`relative bg-white rounded-2xl overflow-hidden transition-all duration-500 group
+                      border border-[#e2e8f0]/80
+                      hover:border-transparent
+                      shadow-[0_1px_3px_rgba(0,0,0,0.04)]
+                      hover:shadow-[0_20px_40px_-12px_rgba(0,51,153,0.12)]
+                      ${inactive ? 'opacity-60 grayscale-[30%]' : ''}`}
                   >
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <h3 className="text-[16px] lg:text-[18px] font-semibold text-[#191b24] whitespace-normal">{pkg.title}</h3>
-                        <p className="text-[12px] lg:text-[13px] text-[#424656] line-clamp-2">{pkg.description}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {inactive && (
-                          <span className="text-[9px] font-bold uppercase tracking-[0.16em] px-2 py-1 rounded bg-[#f5f3f4] text-[#727687] border border-[#e5e2e3]">Non-aktif</span>
-                        )}
-                        {!inactive && locked && (
-                          <span className="text-[9px] font-bold uppercase tracking-[0.16em] px-2 py-1 rounded bg-[#f5f3f4] text-[#727687] border border-[#e5e2e3]">
-                            {reqPlan === 'sultan' ? 'Khusus Sultan' : 'Khusus Premium'}
-                          </span>
-                        )}
-                        <span className={`text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-1 rounded ${badge.className}`}>
-                          {badge.label}
-                        </span>
-                      </div>
-                    </div>
+                    {/* Left Accent Bar */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${accentBarColor} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-r-full`} />
 
-                    <div className="flex items-center gap-2 text-[11px] text-[#727687]">
-                      <span>{pkg.duration || 0}m</span>
-                      <span>•</span>
-                      <span>{pkg.soal_count || 0} Soal</span>
-                    </div>
+                    <div className="p-5 lg:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                      <div className="flex items-start gap-4 flex-1 min-w-0">
+                        {/* Premium Icon Container */}
+                        <div
+                          className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-gradient-to-br ${iconGradient} text-white shadow-lg shadow-indigo-500/10 transform group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500`}
+                        >
+                          <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>assignment</span>
+                        </div>
 
-                    <div className="py-3 border-y border-[#e5e2e3] flex justify-between items-center">
-                      <div>
-                        <span className="text-[9px] uppercase tracking-wider text-[#727687]">Terakhir</span>
-                        <div className="text-[20px] font-bold text-[#0050cb] leading-tight">{lastScore ?? 'Belum ada'}</div>
-                      </div>
-                      <div className="text-right text-[10px] font-mono text-[#424656] leading-tight">
-                        {lastCounts ? (
-                          <div className="bg-[#f6f3f4] px-2 py-1 rounded border border-[#e5e2e3] inline-flex items-center gap-2">
-                            <span className="text-green-700">B:{lastCounts.benar}</span>
-                            <span className="text-[#ba1a1a]">S:{lastCounts.salah}</span>
-                            <span className="text-[#727687]">K:{lastCounts.kosong}</span>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {/* Title Row */}
+                          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                            <h3 className="text-[16px] lg:text-[18px] font-bold text-[#1e293b] tracking-tight group-hover:text-[#0050cb] transition-colors duration-300">{pkg.title}</h3>
+                            <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${badge.className} shadow-sm shrink-0`}>
+                              {badge.label}
+                            </span>
+                            {inactive && (
+                              <span className="text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">Nonaktif</span>
+                            )}
+                            {!inactive && locked && (
+                              <span className="text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">
+                                <span className="material-symbols-outlined text-[8px] align-middle mr-0.5">lock</span>
+                                {reqPlan === 'sultan' ? 'Sultan' : 'Premium'}
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          <span className="text-[#727687]">Belum ada detail</span>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStartTryout(pkg)}
-                        disabled={inactive || locked || checkingRegistration !== false}
-                        className={`py-2.5 rounded-md font-bold text-[12px] flex items-center justify-center gap-2 transition-all ${
-                          inactive || locked || checkingRegistration !== false
-                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                            : 'bg-[#0050cb] text-white hover:bg-[#003fa4]'
-                        }`}
-                      >
-                        {checkingRegistration === pkg.id ? 'Memeriksa...' : (lastScore ? 'Mulai Lagi' : 'Mulai')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => lastAttempt && navigate(`/ujian-mandiri/${ujian.id}/tryout/${pkg.id}/hasil/${lastAttempt.id}`)}
-                        disabled={!lastAttempt}
-                        className={`py-2.5 rounded-md font-bold text-[12px] border transition-all flex items-center justify-center gap-2 ${
-                          lastAttempt
-                            ? 'border-[#c2c6d8] text-[#424656] hover:bg-[#f2f3ff]'
-                            : 'border-[#e5e2e3] text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        Hasil
-                      </button>
+                          {/* Description */}
+                          <p className="text-[13px] text-[#64748b] font-medium leading-relaxed line-clamp-2">{pkg.description}</p>
+                          
+                          {/* Elegant Stats Row */}
+                          <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+                            <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
+                              <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>schedule</span>
+                              <span className="font-semibold">{pkg.duration || 0}</span> menit
+                            </div>
+                            <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
+                              <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>quiz</span>
+                              <span className="font-semibold">{Number(pkg.soal_count) || 0}</span> soal
+                            </div>
+                            {(pkg.peserta > 0) && (
+                              <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
+                                <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>group</span>
+                                <span className="font-semibold">{(pkg.peserta || 0).toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Divider for mobile */}
+                      <hr className="md:hidden border-slate-100 w-full" />
+
+                      {/* Right side: Score & Action buttons */}
+                      <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center md:items-stretch lg:items-center gap-3 shrink-0 w-full md:w-auto">
+                        {/* Score Container */}
+                        <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 border border-slate-100/80 rounded-xl p-3.5 flex flex-row sm:flex-col lg:flex-row items-center justify-between sm:justify-center lg:justify-between gap-4 min-w-[160px]">
+                          <div className="text-left sm:text-center lg:text-left">
+                            <span className="text-[8px] uppercase tracking-[0.15em] font-bold text-slate-400 block mb-0.5">Skor Terakhir</span>
+                            <div className={`text-[20px] font-extrabold leading-none ${lastScore != null ? 'text-[#0050cb]' : 'text-slate-300'}`}>
+                              {lastScore ?? '—'}
+                            </div>
+                          </div>
+                          <div className="text-right sm:text-center lg:text-right">
+                            {lastCounts ? (
+                              <div className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm text-[10px] font-semibold font-mono">
+                                <span className="text-emerald-600 flex items-center gap-0.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                                  {lastCounts.benar}
+                                </span>
+                                <span className="text-rose-500 flex items-center gap-0.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
+                                  {lastCounts.salah}
+                                </span>
+                                <span className="text-slate-400 flex items-center gap-0.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block" />
+                                  {lastCounts.kosong}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-300 italic">Belum ada</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-row md:flex-col gap-2 w-full sm:w-auto md:w-44">
+                          <button
+                            type="button"
+                            onClick={() => handleStartTryout(pkg)}
+                            disabled={inactive || locked || checkingRegistration !== false}
+                            className={`flex-1 py-2.5 rounded-xl font-bold text-[12px] flex items-center justify-center gap-1.5 transition-all duration-300 ${
+                              inactive || locked || checkingRegistration !== false
+                                ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'
+                                : 'bg-gradient-to-r from-[#0050cb] to-[#3b82f6] text-white hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.97]'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                              {checkingRegistration === pkg.id ? 'progress_activity' : locked ? 'lock' : 'play_arrow'}
+                            </span>
+                            {checkingRegistration === pkg.id ? 'Memeriksa...' : (lastScore ? 'Ulangi' : 'Mulai')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => lastAttempt && navigate(`/ujian-mandiri/${ujian.id}/tryout/${pkg.id}/hasil/${lastAttempt.id}`)}
+                            disabled={!lastAttempt}
+                            className={`flex-1 py-2.5 rounded-xl font-bold text-[12px] flex items-center justify-center gap-1.5 border transition-all duration-300 ${
+                              lastAttempt
+                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97]'
+                                : 'border-slate-100 text-slate-200 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>bar_chart</span>
+                            Hasil
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </article>
                 );
               })
             ) : (
-              <div className="text-center py-16 bg-white rounded-xl border border-[#e5e2e3]">
-                <span className="material-symbols-outlined text-[48px] text-[#c2c6d8] mb-2">quiz</span>
-                <p className="text-[#727687]">Belum ada paket tryout tersedia untuk ujian ini.</p>
+              <div className="text-center py-16 bg-gradient-to-b from-slate-50/40 to-white rounded-2xl border border-dashed border-slate-200">
+                <span className="material-symbols-outlined text-[52px] text-slate-300 mb-3" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>assignment</span>
+                <p className="text-slate-500 font-medium text-[14px]">Belum ada paket tryout tersedia untuk ujian ini.</p>
+                <p className="text-slate-400 text-[12px] mt-1">Tryout akan segera tersedia, stay tuned!</p>
               </div>
             )}
           </div>
@@ -580,45 +772,54 @@ export default function UjianMandiriDetail() {
         {/* Latihan Soal Mandiri */}
         <section className="mb-16">
           <div className="flex justify-between items-end mb-8">
-            <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight">Latihan Soal Mandiri</h2>
+            <div>
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-[18px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>menu_book</span>
+                </div>
+                <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight tracking-tight">Latihan Soal Mandiri</h2>
+              </div>
+              <p className="text-[13px] text-slate-500 font-medium ml-[42px]">Latihan tanpa batas waktu untuk menguasai materi.</p>
+            </div>
           </div>
           <div className="space-y-10">
             {latihanSoal.length > 0 ? (
               <>
                 {gratisLatihan.length > 0 && (
                   <div>
-                    <h3 className="text-[20px] font-bold text-[#191b24] mb-6 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#0050cb]">lock_open</span>
-                      Gratis
+                    <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>lock_open</span>
+                      <span className="tracking-tight">Gratis</span>
                     </h3>
-                    {renderPackageGroups(gratisLatihan)}
+                    {renderPackageCards(gratisLatihan)}
                   </div>
                 )}
 
                 {premiumLatihan.length > 0 && (
                   <div>
-                    <h3 className="text-[20px] font-bold text-[#191b24] mb-6 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-blue-600">diamond</span>
-                      Premium
+                    <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-indigo-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+                      <span className="tracking-tight">Premium</span>
                     </h3>
-                    {renderPackageGroups(premiumLatihan)}
+                    {renderPackageCards(premiumLatihan)}
                   </div>
                 )}
 
                 {sultanLatihan.length > 0 && (
                   <div>
-                    <h3 className="text-[20px] font-bold text-[#191b24] mb-6 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-yellow-600">star</span>
-                      Sultan
+                    <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-amber-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>military_tech</span>
+                      <span className="tracking-tight">Sultan</span>
                     </h3>
-                    {renderPackageGroups(sultanLatihan)}
+                    {renderPackageCards(sultanLatihan)}
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-center py-16 bg-white rounded-xl border border-[#e5e2e3]">
-                <span className="material-symbols-outlined text-[48px] text-[#c2c6d8] mb-2">menu_book</span>
-                <p className="text-[#727687]">Belum ada latihan soal tersedia untuk ujian ini.</p>
+              <div className="text-center py-16 bg-gradient-to-b from-slate-50/40 to-white rounded-2xl border border-dashed border-slate-200">
+                <span className="material-symbols-outlined text-[52px] text-slate-300 mb-3" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>menu_book</span>
+                <p className="text-slate-500 font-medium text-[14px]">Belum ada latihan soal tersedia untuk ujian ini.</p>
+                <p className="text-slate-400 text-[12px] mt-1">Latihan soal akan segera tersedia.</p>
               </div>
             )}
           </div>
@@ -638,7 +839,11 @@ export default function UjianMandiriDetail() {
 
       <Footer />
 
-      {user?.current_plan === 'gratis' && (
+      {!activePlans.some(p =>
+        (p.name || p.plan_name) !== 'gratis' && p.target_type === 'um' && (p.plan_type === 'subscription' || p.plan_type === 'access')
+      ) && !activePlans.some(p =>
+        p.target_type === 'um' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0
+      ) && (
         <TryoutVerificationModal
           open={showVerificationModal}
           onClose={() => setShowVerificationModal(false)}

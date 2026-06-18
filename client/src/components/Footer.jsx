@@ -7,7 +7,7 @@ const Footer = () => {
       {/* Footer Links */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24 px-6 lg:px-10 py-16 lg:py-24 max-w-[1440px] mx-auto">
         <div className="space-y-6">
-          <div className="text-[24px] font-bold text-[#0050cb]">Eduzet</div>
+          <div className="text-[24px] font-bold text-[#0050cb]">Stubia</div>
           <p className="text-[16px] font-light text-[#424656] max-w-xs leading-relaxed">Platform belajar digital premium yang memberdayakan pembelajar di seluruh Indonesia untuk meraih PTN impian.</p>
           <div className="flex gap-4 pt-2">
             <div className="w-10 h-10 rounded-full border border-[#c2c6d8] flex items-center justify-center text-[#424656] hover:bg-[#0050cb] hover:text-white hover:border-[#0050cb] transition-all cursor-pointer">
@@ -22,7 +22,6 @@ const Footer = () => {
               <Link to="/latihan" className="hover:text-[#0050cb] transition-colors">Latihan Soal</Link>
               <Link to="/tryout/packages" className="hover:text-[#0050cb] transition-colors">Tryout</Link>
               <Link to="/pricing" className="hover:text-[#0050cb] transition-colors">Harga</Link>
-              <Link to="/team" className="hover:text-[#0050cb] transition-colors">Tim Eduzet</Link>
             </nav>
           </div>
           <div className="flex flex-col gap-4">
@@ -42,7 +41,7 @@ const Footer = () => {
         </div>
       </div>
       <div className="px-6 lg:px-10 max-w-[1440px] mx-auto py-8 border-t border-[#c2c6d8]/20">
-        <p className="text-[12px] text-[#424656] font-medium text-center md:text-left">© 2026 Eduzet. All rights reserved.</p>
+        <p className="text-[12px] text-[#424656] font-medium text-center md:text-left">© 2026 Stubia. All rights reserved.</p>
       </div>
     </footer>
   );

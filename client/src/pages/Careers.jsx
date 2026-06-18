@@ -14,7 +14,7 @@ export default function Careers() {
       department: 'Engineering',
       location: 'Jakarta, Indonesia',
       type: 'Full-time',
-      description: 'Mengembangkan interface yang intuitif dan responsif untuk platform EduZET',
+      description: 'Mengembangkan interface yang intuitif dan responsif untuk platform Stubia',
     },
     {
       id: 2,
@@ -46,7 +46,7 @@ export default function Careers() {
       department: 'Product',
       location: 'Jakarta, Indonesia',
       type: 'Full-time',
-      description: 'Memimpin pengembangan produk dan strategi platform EduZET',
+      description: 'Memimpin pengembangan produk dan strategi platform Stubia',
     },
     {
       id: 6,
@@ -54,7 +54,7 @@ export default function Careers() {
       department: 'Marketing',
       location: 'Jakarta, Indonesia',
       type: 'Full-time',
-      description: 'Membangun dan memelihara komunitas pengguna EduZET yang aktif',
+      description: 'Membangun dan memelihara komunitas pengguna Stubia yang aktif',
     },
   ];
 
@@ -62,11 +62,11 @@ export default function Careers() {
     <div>
       {/* About Section */}
       <section className="mb-20">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">Tentang EduZET</h2>
+        <h2 className="text-3xl font-bold text-gray-900 mb-8">Tentang Stubia</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
             <p className="text-gray-700 text-lg leading-relaxed mb-4">
-              EduZET adalah platform pembelajaran UTBK terdepan di Indonesia yang membantu ribuan siswa mencapai impian mereka untuk masuk ke universitas ternama.
+              Stubia adalah platform pembelajaran UTBK terdepan di Indonesia yang membantu ribuan siswa mencapai impian mereka untuk masuk ke universitas ternama.
             </p>
             <p className="text-gray-700 text-lg leading-relaxed">
               Kami berkomitmen untuk menyediakan pengalaman belajar terbaik dengan teknologi terkini dan konten berkualitas tinggi.
@@ -74,7 +74,7 @@ export default function Careers() {
           </div>
           <div>
             <p className="text-gray-700 text-lg leading-relaxed mb-4">
-              Di EduZET, kami percaya bahwa setiap anggota tim memiliki peran penting dalam kesuksesan siswa kami. Kami memberikan ruang bagi Anda untuk berinovasi dan berkembang.
+              Di Stubia, kami percaya bahwa setiap anggota tim memiliki peran penting dalam kesuksesan siswa kami. Kami memberikan ruang bagi Anda untuk berinovasi dan berkembang.
             </p>
           </div>
         </div>
@@ -161,10 +161,10 @@ export default function Careers() {
       <section className="mt-20">
         <h2 className="text-3xl font-bold text-gray-900 mb-8">Hubungi Kami</h2>
         <p className="text-gray-700 mb-6 text-lg">
-          Memiliki pertanyaan tentang karir di EduZET? Jangan ragu untuk menghubungi kami:
+          Memiliki pertanyaan tentang karir di Stubia? Jangan ragu untuk menghubungi kami:
         </p>
         <div className="bg-gray-50 p-8 rounded-lg">
-          <p className="text-gray-800 mb-2"><strong>Email:</strong> careers@eduzet.com</p>
+          <p className="text-gray-800 mb-2"><strong>Email:</strong> careers@stubia.com</p>
           <p className="text-gray-800 mb-2"><strong>Telepon:</strong> 085183147625</p>
           <p className="text-gray-800"><strong>Alamat:</strong> Jakarta, Indonesia</p>
         </div>
@@ -191,7 +191,7 @@ export default function Careers() {
             <div className="text-center">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">Lowongan Belum Dibuka</h2>
               <p className="text-gray-600 mb-2 text-lg">
-                Terima kasih atas minat Anda bergabung dengan tim EduZET!
+                Terima kasih atas minat Anda bergabung dengan tim Stubia!
               </p>
               <p className="text-gray-600 mb-8">
                 Saat ini kami belum membuka lowongan pekerjaan. Namun, kami akan segera mengumumkan posisi terbaru. Silakan periksa kembali di halaman ini atau hubungi kami untuk informasi lebih lanjut.
@@ -211,7 +211,7 @@ export default function Careers() {
         <PageWrapper>
           <div className="max-w-6xl mx-auto py-8">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-12 animate-fade-in">
-              <h1 className="text-3xl font-bold text-[#191b24] mb-8">Karir di Eduzet</h1>
+              <h1 className="text-3xl font-bold text-[#191b24] mb-8">Karir di Stubia</h1>
               {mainContent}
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function Careers() {
           <div className="bg-gradient-to-r from-[#0050cb] to-[#0050cb]/80 py-16">
             <div className="max-w-6xl mx-auto px-4 md:px-8">
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-                Bergabunglah dengan Tim EduZET
+                Bergabunglah dengan Tim Stubia
               </h1>
               <p className="text-white/90 text-lg">
                 Kami mencari talenta terbaik untuk membangun masa depan pendidikan Indonesia

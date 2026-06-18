@@ -10,7 +10,7 @@ const AdminDashboard = () => {
   const { user, logout } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const currentPath = location.pathname;
   const isOverview = currentPath === '/admin';
@@ -34,6 +34,8 @@ const AdminDashboard = () => {
     { path: '/admin', icon: 'dashboard', label: 'Dashboard' },
     { path: '/admin/input', icon: 'edit_note', label: 'Input Manual' },
     { path: '/admin/import', icon: 'upload_file', label: 'Import Excel' },
+    { path: '/admin/duplicates', icon: 'content_paste_off', label: 'Scanner Duplikat' },
+    { path: '/admin/vouchers', icon: 'confirmation_number', label: 'Voucher Diskon' },
     { path: '/admin/latihan', icon: 'assignment', label: 'Manage Latihan' },
     { path: '/admin/tryout', icon: 'quiz', label: 'Manage Tryout' },
     { path: '/admin/battle', icon: 'swords', label: 'Manage Battle 1vs1' },
@@ -41,9 +43,8 @@ const AdminDashboard = () => {
     { path: '/admin/tryout-registrations', icon: 'verified', label: 'Verifikasi Tryout' },
     { path: '/admin/social-verifications', icon: 'favorite', label: 'Verifikasi Latihan' },
     { path: '/admin/users', icon: 'group', label: 'Users' },
-    { path: '/admin/team', icon: 'groups', label: 'Tim Eduzet' },
+    { path: '/admin/todos', icon: 'checklist', label: 'Todo List' },
     { path: '/admin/settings', icon: 'ad_units', label: 'Banner' },
-    { path: '/admin/notifications', icon: 'campaign', label: 'Notifikasi' },
     { path: '/admin/activity', icon: 'monitoring', label: 'Activity' },
   ];
 
@@ -51,10 +52,10 @@ const AdminDashboard = () => {
     <div className="light bg-[#faf8ff] text-[#191b24] antialiased min-h-screen flex">
       
       {/* Sidebar Overlay (Mobile) */}
-      {!isSidebarOpen && (
+      {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[110] lg:hidden"
-          onClick={() => setIsSidebarOpen(true)}
+          onClick={() => setIsSidebarOpen(false)}
         ></div>
       )}
 
@@ -62,9 +63,17 @@ const AdminDashboard = () => {
       <nav 
         className={`h-screen w-64 fixed left-0 top-0 z-[120] border-r border-[#c2c6d8] bg-white flex flex-col py-6 transition-transform duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       >
-        <div className="px-6 mb-8">
-          <h1 className="text-[24px] font-semibold text-[#0050cb] leading-[32px]">Eduzet Admin</h1>
-          <p className="text-[12px] font-semibold text-[#727687] leading-[16px]">Super Admin</p>
+        <div className="px-6 mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-[24px] font-semibold text-[#0050cb] leading-[32px]">Stubia Admin</h1>
+            <p className="text-[12px] font-semibold text-[#727687] leading-[16px]">Super Admin</p>
+          </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#f2f3ff] transition-all text-[#424656]"
+          >
+            <span className="material-symbols-outlined text-[24px]">close</span>
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-1">
@@ -92,14 +101,14 @@ const AdminDashboard = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden lg:ml-64">
         
         {/* Top Bar */}
-        <header className="h-20 bg-white/80 backdrop-blur-md sticky top-0 z-[100] border-b border-[#c2c6d8]/30 px-6 lg:px-10 flex items-center justify-between">
+        <header className="h-20 bg-white/80 backdrop-blur-md sticky top-0 z-[100] border-b border-[#c2c6d8]/30 px-4 sm:px-6 lg:px-10 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-[#f2f3ff] transition-all text-[#424656]"
+              className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-[#f2f3ff] transition-all text-[#424656] lg:hidden"
             >
               <span className="material-symbols-outlined text-[28px]">
-                {isSidebarOpen ? 'menu_open' : 'menu'}
+                {isSidebarOpen ? 'close' : 'menu'}
               </span>
             </button>
             <div className="hidden sm:block">
@@ -134,24 +143,24 @@ const AdminDashboard = () => {
         </header>
 
         {/* Content View */}
-        <main className="flex-1 overflow-y-auto p-6 lg:p-10">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
           <div className="max-w-[1440px] mx-auto">
             {isOverview ? (
-              <div className="space-y-12">
+              <div className="space-y-8 sm:space-y-12">
                 <section>
-                  <h2 className="text-[40px] font-bold text-[#191b24] mb-2 leading-tight">Platform at a Glance</h2>
-                  <p className="text-[#424656] text-[16px]">Monitor real-time performance of your learning ecosystem.</p>
+                  <h2 className="text-[28px] sm:text-[40px] font-bold text-[#191b24] mb-2 leading-tight">Platform at a Glance</h2>
+                  <p className="text-[#424656] text-[15px] sm:text-[16px]">Monitor real-time performance of your learning ecosystem.</p>
                 </section>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                   {[
                     { label: 'Total Pengguna', value: stats?.users?.total, icon: 'group', color: '#0050cb', bg: '#dae1ff' },
                     { label: 'Total Soal', value: stats?.questions?.total, icon: 'assignment', color: '#006688', bg: '#c2e8ff' },
                     { label: 'Sesi Tryout', value: stats?.sessions?.total, icon: 'analytics', color: '#a33200', bg: '#ffdbd0' },
                     { label: 'Mata Pelajaran', value: stats?.subjectStats?.length, icon: 'school', color: '#006a6a', bg: '#80f2f2' },
                   ].map((card, i) => (
-                    <div key={i} className="bg-white p-8 rounded-[32px] border border-[#c2c6d8]/30 shadow-sm hover:shadow-xl transition-all duration-300 group">
+                    <div key={i} className="bg-white p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] border border-[#c2c6d8]/30 shadow-sm hover:shadow-xl transition-all duration-300 group">
                       <div className="flex justify-between items-start mb-6">
                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform" style={{ backgroundColor: card.bg, color: card.color }}>
                           <span className="material-symbols-outlined">{card.icon}</span>
@@ -159,45 +168,45 @@ const AdminDashboard = () => {
                         <span className="text-[12px] font-bold text-[#00c1fd] bg-[#00c1fd]/10 px-3 py-1 rounded-full">+12%</span>
                       </div>
                       <p className="text-[14px] font-bold text-[#424656] mb-1">{card.label}</p>
-                      <h3 className="text-[32px] font-bold text-[#191b24]">{loading ? '...' : card.value?.toLocaleString('id-ID')}</h3>
+                      <h3 className="text-[28px] sm:text-[32px] font-bold text-[#191b24]">{loading ? '...' : card.value?.toLocaleString('id-ID')}</h3>
                     </div>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                   {/* Table */}
-                  <div className="lg:col-span-2 bg-white rounded-[32px] border border-[#c2c6d8]/30 shadow-sm overflow-hidden">
-                    <div className="p-8 border-b border-[#c2c6d8]/20 flex justify-between items-center">
-                      <h4 className="text-[20px] font-bold">Recent User Activity</h4>
-                      <button className="text-[14px] font-bold text-[#0050cb] hover:underline">View All Users</button>
+                  <div className="lg:col-span-2 bg-white rounded-[24px] sm:rounded-[32px] border border-[#c2c6d8]/30 shadow-sm overflow-hidden">
+                    <div className="p-6 sm:p-8 border-b border-[#c2c6d8]/20 flex justify-between items-center">
+                      <h4 className="text-[18px] sm:text-[20px] font-bold">Recent User Activity</h4>
+                      <button className="text-[13px] sm:text-[14px] font-bold text-[#0050cb] hover:underline">View All Users</button>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left">
+                      <table className="w-full text-left min-w-[500px]">
                         <thead>
                           <tr className="bg-[#f2f3ff]/50">
-                            <th className="px-8 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">User</th>
-                            <th className="px-8 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Role</th>
-                            <th className="px-8 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Joined</th>
+                            <th className="px-6 sm:px-8 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">User</th>
+                            <th className="px-6 sm:px-8 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Role</th>
+                            <th className="px-6 sm:px-8 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Joined</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#c2c6d8]/10">
                           {stats?.recentUsers?.slice(0, 5).map((u) => (
                             <tr key={u.id} className="hover:bg-[#f2f3ff]/30 transition-colors">
-                              <td className="px-8 py-6 flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold">
+                              <td className="px-6 sm:px-8 py-4 sm:py-6 flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold shrink-0">
                                   {u.name?.charAt(0)}
                                 </div>
                                 <div>
                                   <p className="font-bold text-[15px]">{u.name}</p>
-                                  <p className="text-[12px] text-[#424656]">{u.email}</p>
+                                  <p className="text-[12px] text-[#424656] break-all">{u.email}</p>
                                 </div>
                               </td>
-                              <td className="px-8 py-6">
+                              <td className="px-6 sm:px-8 py-4 sm:py-6">
                                 <span className={`px-3 py-1 rounded-full text-[12px] font-bold capitalize ${u.role === 'admin' ? 'bg-[#ffdad6] text-[#ba1a1a]' : 'bg-[#dae1ff] text-[#0050cb]'}`}>
                                   {u.role}
                                 </span>
                               </td>
-                              <td className="px-8 py-6 text-[14px] text-[#424656]">
+                              <td className="px-6 sm:px-8 py-4 sm:py-6 text-[14px] text-[#424656]">
                                 {new Date(u.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                               </td>
                             </tr>
@@ -208,8 +217,8 @@ const AdminDashboard = () => {
                   </div>
 
                   {/* Top Subjects */}
-                  <div className="bg-white rounded-[32px] border border-[#c2c6d8]/30 shadow-sm p-8">
-                    <h4 className="text-[20px] font-bold mb-8">Popular Subjects</h4>
+                  <div className="bg-white rounded-[24px] sm:rounded-[32px] border border-[#c2c6d8]/30 shadow-sm p-6 sm:p-8">
+                    <h4 className="text-[18px] sm:text-[20px] font-bold mb-6 sm:mb-8">Popular Subjects</h4>
                     <div className="space-y-8">
                       {stats?.subjectStats?.slice(0, 5).map((s, i) => {
                         const maxCount = stats.subjectStats[0]?.question_count || 1;

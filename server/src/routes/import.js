@@ -4,6 +4,7 @@ const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const XLSX = require('xlsx');
+const { generateQuestionHash } = require('../utils/questionHashUtil');
 
 /**
  * POST /api/import/excel
@@ -165,12 +166,18 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
         }
       }
 
+      // Compute content hash
+      const hashChoices = isShortAnswer
+        ? [resolve(row, 'kunci') || kunci]
+        : choices;
+      const hash = generateQuestionHash(soal, hashChoices, imageUrl);
+
       // ── Insert question ──────────────────────────────────────────
       const pkgId = destination === 'tryout' ? tryout_package_id : null;
       const qSource = destination === 'battle' ? 'battle' : 'manual';
       const qRes = await client.query(
-        'INSERT INTO questions (subject_id, topic_id, content, difficulty, tryout_package_id, display_order, source, image_url, question_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
-        [subject_id, topic_id || null, soal, difficulty, pkgId, nextDisplayOrder, qSource, imageUrl || null, questionType]
+        'INSERT INTO questions (subject_id, topic_id, content, difficulty, tryout_package_id, display_order, source, image_url, question_type, content_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
+        [subject_id, topic_id || null, soal, difficulty, pkgId, nextDisplayOrder, qSource, imageUrl || null, questionType, hash]
       );
       const questionId = qRes.rows[0].id;
       nextDisplayOrder++;

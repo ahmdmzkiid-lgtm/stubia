@@ -6,16 +6,17 @@ import DiscussQuestionModal from '../components/DiscussQuestionModal';
 import MathText from '../components/MathText';
 import ZoomableImage from '../components/ui/ZoomableImage';
 import NationalLeaderboardCard from '../components/NationalLeaderboardCard';
+import StudentNavbar from '../components/layout/StudentNavbar';
 
 const LatihanSoalUMResult = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { ujianId: routeUjianId, latihanId: routeLatihanId, sessionId } = useParams();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const [filter, setFilter] = useState('all');
   const [isDiscussOpen, setIsDiscussOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [resultData, setResultData] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -185,45 +186,7 @@ const LatihanSoalUMResult = () => {
 
   return (
     <div className="bg-[#faf8ff] text-[#191b24] min-h-screen flex flex-col font-sans">
-      <header className="sticky top-0 z-50 bg-[#faf8ff] shadow-sm h-16 sm:h-20 flex items-center">
-        <div className="flex justify-between items-center w-full px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto">
-          <div className="flex items-center gap-6 lg:gap-12">
-            <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-10 md:h-12" /></Link>
-            <nav className="hidden lg:flex items-center gap-8">
-              <Link className="text-[14px] font-medium text-[#0050cb]" to="/ujian-mandiri">Ujian Mandiri</Link>
-              <Link className="text-[14px] font-medium text-[#424656] hover:text-[#0050cb] transition-colors" to="/tryout/packages">Tryout</Link>
-              <Link className="text-[14px] font-medium text-[#424656] hover:text-[#0050cb] transition-colors" to="/riwayat">Riwayat</Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex w-10 h-10 rounded-full bg-[#0050cb] text-white items-center justify-center font-bold text-sm">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full text-[#424656]">
-              <span className="material-symbols-outlined text-[24px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[99] bg-black/50 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-b-[32px] shadow-2xl p-6 pt-20 animate-slide-down" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
-              <button onClick={() => setMobileMenuOpen(false)} className="w-10 h-10 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <nav className="flex flex-col gap-2">
-              {[{to:'/dashboard',label:'Dashboard'},{to:'/ujian-mandiri',label:'Ujian Mandiri',active:true},{to:'/tryout/packages',label:'Tryout'},{to:'/riwayat',label:'Riwayat'}].map(l => (
-                <Link key={l.to} to={l.to} onClick={() => setMobileMenuOpen(false)} className={`px-5 py-4 rounded-2xl text-[16px] font-bold transition-colors ${l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'}`}>{l.label}</Link>
-              ))}
-              {isAdmin && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="px-5 py-4 rounded-2xl text-[16px] font-bold text-[#a33200] hover:bg-[#f2f3ff] transition-colors">Admin</Link>}
-            </nav>
-          </div>
-        </div>
-      )}
+      <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
 
       <main className="flex-grow">
         {/* Back Button */}
@@ -432,7 +395,7 @@ const LatihanSoalUMResult = () => {
                             <span className="material-symbols-outlined text-[18px]">psychology</span>
                           </div>
                           <span className="text-[11px] font-bold text-[#006688] mb-1">Butuh Bantuan?</span>
-                          <span className="text-[10px] text-[#424656] font-medium leading-tight">Chat dengan Kak Z</span>
+                          <span className="text-[10px] text-[#424656] font-medium leading-tight">Chat dengan Bia</span>
                         </button>
                       </div>
                     </div>

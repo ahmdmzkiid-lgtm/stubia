@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { tryoutService, subjectService } from '../../services/api';
+import { tryoutService, subjectService, subscriptionService } from '../../services/api';
 import toast from 'react-hot-toast';
 import TryoutVerificationModal from '../../components/tryout/TryoutVerificationModal';
+import StudentNavbar from '../../components/layout/StudentNavbar';
 import StartConfirmationModal from '../../components/StartConfirmationModal';
+
 
 const ICON_MAP = {
   'penalaran umum': 'psychology',
@@ -29,7 +31,7 @@ const CATEGORY_MAP = {
 const TryoutSubtesSelect = () => {
   const { packageId } = useParams();
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
 
   const [pkg, setPkg] = useState(null);
   const [subjects, setSubjects] = useState([]);
@@ -37,17 +39,31 @@ const TryoutSubtesSelect = () => {
   const [startingSubtest, setStartingSubtest] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [completedSubtests, setCompletedSubtests] = useState(new Set());
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [registrationStatus, setRegistrationStatus] = useState(null);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [subtestToStart, setSubtestToStart] = useState(null);
   const [hasConfirmedStart, setHasConfirmedStart] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedSubtest, setSelectedSubtest] = useState(null);
+  const [activePlans, setActivePlans] = useState([]);
+
+  // Check if user has any active UTBK plan (subscription, access, or quota with remaining)
+  const hasActiveUtbkPlan = () => {
+    return activePlans.some(p => {
+      const name = p.name || p.plan_name;
+      if (name === 'gratis' || !name) return false;
+      // Subscription or access type with target UTBK
+      if (p.target_type === 'utbk' && (p.plan_type === 'subscription' || p.plan_type === 'access')) return true;
+      // Quota type with remaining tries
+      if (p.target_type === 'utbk' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0) return true;
+      return false;
+    });
+  };
 
   const fetchStatus = async () => {
     try {
-      if (user?.current_plan === 'gratis') {
+      if (!hasActiveUtbkPlan()) {
         const regRes = await tryoutService.getRegistrationStatus('utbk', packageId);
         setRegistrationStatus(regRes.data?.data);
       }
@@ -90,8 +106,13 @@ const TryoutSubtesSelect = () => {
           setCompletedSubtests(new Set(saved));
         } catch {}
 
-        // Fetch registration status if gratis plan
-        if (user?.current_plan === 'gratis') {
+        // Fetch active subscriptions
+        subscriptionService.getActivePlans()
+          .then(res => setActivePlans(res.data?.data || []))
+          .catch(() => {});
+
+        // Fetch registration status if no active UTBK plan
+        if (!hasActiveUtbkPlan()) {
           const regRes = await tryoutService.getRegistrationStatus('utbk', packageId);
           setRegistrationStatus(regRes.data?.data);
         }
@@ -123,7 +144,7 @@ const TryoutSubtesSelect = () => {
   };
 
   const handleStartSubtest = async (subtestName) => {
-    if (user?.current_plan === 'gratis') {
+    if (!hasActiveUtbkPlan()) {
       setSubtestToStart(subtestName);
       if (!registrationStatus || registrationStatus.status !== 'approved' || !hasConfirmedStart) {
         setShowVerificationModal(true);
@@ -184,85 +205,12 @@ const TryoutSubtesSelect = () => {
 
   return (
     <div className="min-h-screen text-[#191b24]" style={{ backgroundColor: '#faf8ff', fontFamily: "'Inter', sans-serif" }}>
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#faf8ff] shadow-sm">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 md:px-10 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-6 lg:gap-12">
-            <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-10 md:h-12" /></Link>
-            <nav className="hidden lg:flex items-center gap-1">
-              <Link to="/dashboard" className="px-4 py-2 text-[14px] font-medium text-[#424656] hover:text-[#0050cb] transition-colors">Dashboard</Link>
-              <Link to="/latihan" className="px-4 py-2 text-[14px] font-medium text-[#424656] hover:text-[#0050cb] transition-colors">Latihan</Link>
-              <Link to="/tryout/packages" className="px-4 py-2 text-[14px] font-medium text-[#0050cb]">Tryout</Link>
-              <Link to="/riwayat" className="px-4 py-2 text-[14px] font-medium text-[#424656] hover:text-[#0050cb] transition-colors">Riwayat</Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-[14px] font-medium text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                  user?.current_plan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
-                  user?.current_plan === 'premium' ? 'bg-blue-100 text-blue-600' :
-                  'bg-gray-100 text-gray-500'
-                }`}>
-                  <span className="material-symbols-outlined text-[10px]">
-                    {user?.current_plan === 'sultan' ? 'star' : user?.current_plan === 'premium' ? 'diamond' : 'person'}
-                  </span>
-                  {user?.current_plan === 'sultan' ? 'Sultan' : user?.current_plan === 'premium' ? 'Premium' : 'Gratis'}
-                </span>
-              </div>
-              <div className={`relative w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-sm border-2 ${
-                user?.current_plan === 'sultan' ? 'border-yellow-400' : user?.current_plan === 'premium' ? 'border-blue-400' : 'border-transparent'
-              }`}>
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
-            </div>
-            <button type="button" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full text-[#424656]">
-              <span className="material-symbols-outlined text-[24px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[99] bg-black/50 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-b-[32px] shadow-2xl p-6 pt-20 animate-slide-down" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} className="w-10 h-10 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <nav className="flex flex-col gap-2">
-              {[{to:'/dashboard',label:'Dashboard'},{to:'/latihan',label:'Latihan'},{to:'/tryout/packages',label:'Tryout',active:true},{to:'/riwayat',label:'Riwayat'}].map(l => (
-                <Link key={l.to} to={l.to} onClick={() => setMobileMenuOpen(false)} className={`px-5 py-4 rounded-2xl text-[16px] font-bold transition-colors ${l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'}`}>{l.label}</Link>
-              ))}
-              {isAdmin && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="px-5 py-4 rounded-2xl text-[16px] font-bold text-[#a33200] hover:bg-[#f2f3ff] transition-colors">Admin</Link>}
-            </nav>
-            <hr className="my-6 border-[#c2c6d8]/20" />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-lg">
-                  {user?.name?.charAt(0)?.toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-[15px] font-bold text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                  <span className="text-[12px] font-bold uppercase text-[#727687]">{user?.current_plan || 'Gratis'}</span>
-                </div>
-              </div>
-              <button type="button" onClick={() => { setMobileMenuOpen(false); navigate('/'); }} className="px-6 py-3 rounded-xl text-[14px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 border border-red-100">
-                <span className="material-symbols-outlined text-[18px]">logout</span> Keluar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
 
       <main className="max-w-[1280px] mx-auto px-6 md:px-10 py-12 pb-32">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-2 mb-8 text-[#424656]">
-          <Link to="/dashboard" className="text-[14px] font-medium hover:text-[#0050cb] transition-colors">Eduzet</Link>
+          <Link to="/dashboard" className="text-[14px] font-medium hover:text-[#0050cb] transition-colors">Stubia</Link>
           <span className="material-symbols-outlined text-[16px]">chevron_right</span>
           <Link to="/tryout/packages" className="text-[14px] font-medium hover:text-[#0050cb] transition-colors">Paket Tryout</Link>
           <span className="material-symbols-outlined text-[16px]">chevron_right</span>
@@ -373,7 +321,7 @@ const TryoutSubtesSelect = () => {
       <footer className="fixed bottom-0 w-full z-40 bg-white border-t border-[#c2c6d8] shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 md:px-10 py-3 sm:py-4 flex justify-between items-center">
           <div className="flex items-center gap-6 text-[#424656]">
-            <p className="text-[12px] font-medium hidden sm:block text-gray-400">© 2026 Eduzet</p>
+            <p className="text-[12px] font-medium hidden sm:block text-gray-400">© 2026 Stubia</p>
           </div>
           <div className="flex items-center gap-4 sm:gap-6">
             <span className="text-[12px] sm:text-[14px] font-medium text-[#424656]">
@@ -396,7 +344,7 @@ const TryoutSubtesSelect = () => {
         </div>
       </footer>
 
-      {user?.current_plan === 'gratis' && (
+      {!hasActiveUtbkPlan() && (
         <TryoutVerificationModal
           open={showVerificationModal}
           onClose={() => setShowVerificationModal(false)}

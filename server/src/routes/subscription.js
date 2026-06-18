@@ -9,7 +9,7 @@ const midtrans = require('../services/midtransService');
 router.get('/plans', async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, display_name, description, price, duration_days, features, is_popular, sort_order
+      `SELECT id, name, display_name, description, price, duration_days, features, is_popular, sort_order, plan_type, target_type, quota_limit
        FROM plans WHERE is_active = true ORDER BY sort_order`
     );
     res.json({ success: true, data: rows });
@@ -31,6 +31,24 @@ router.get('/my-subscription', verifyToken, async (req, res, next) => {
     );
     const sub = rows[0] || null;
     res.json({ success: true, data: sub });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /active-plans ─── all active subscriptions for current user
+router.get('/active-plans', verifyToken, async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.id, s.plan_id, s.status, s.expires_at, s.quota_remaining,
+              p.name, p.display_name, p.plan_type, p.target_type, p.quota_limit
+       FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+       ORDER BY s.expires_at DESC`,
+      [req.user.id]
+    );
+    res.json({ success: true, data: rows });
   } catch (err) {
     next(err);
   }
@@ -107,6 +125,324 @@ router.post('/subscribe', verifyToken, async (req, res, next) => {
   }
 });
 
+// ─── Helper to activate user plans after successful purchase ───
+async function activateUserPlans(userId, orderId, dbClient = pool) {
+  const txRes = await dbClient.query(
+    `SELECT * FROM payment_transactions WHERE order_id = $1`,
+    [orderId]
+  );
+  if (txRes.rows.length === 0) return false;
+  const tx = txRes.rows[0];
+
+  // Fetch all items for this transaction
+  const itemsRes = await dbClient.query(
+    `SELECT oi.*, p.name as plan_name, p.duration_days, p.plan_type, p.target_type, p.quota_limit 
+     FROM order_items oi
+     JOIN plans p ON p.id = oi.plan_id
+     WHERE oi.transaction_id = $1`,
+    [tx.id]
+  );
+
+  // Fallback for legacy transactions that stored plan_id directly on payment_transactions
+  if (itemsRes.rows.length === 0 && tx.plan_id) {
+    const planRes = await dbClient.query(`SELECT * FROM plans WHERE id = $1`, [tx.plan_id]);
+    if (planRes.rows.length > 0) {
+      const p = planRes.rows[0];
+      itemsRes.rows.push({
+        plan_id: tx.plan_id,
+        plan_name: p.name,
+        duration_days: p.duration_days,
+        plan_type: p.plan_type || 'subscription',
+        target_type: p.target_type || 'utbk',
+        quota_limit: p.quota_limit
+      });
+    }
+  }
+
+  const planPriority = {
+    'sultan': 100, 'premium': 80,
+    'utbk_12m': 77, 'utbk_9m': 76, 'utbk_6m': 75, 'utbk_3m': 74,
+    'premium_um': 60, 'um_to_all': 55,
+    'utbk_to_10x': 40, 'utbk_to_8x': 39, 'utbk_to_5x': 38, 'um_to_3x': 35,
+    'gratis': 1
+  };
+
+  for (const item of itemsRes.rows) {
+    const planName = item.plan_name;
+    const planType = item.plan_type;
+    const quotaLimit = item.quota_limit;
+
+    if (planType === 'subscription' || planType === 'access') {
+      // Duration stacking: read expires_at BEFORE deactivating old subs
+      const activeSubRes = await dbClient.query(
+        `SELECT expires_at FROM subscriptions
+         WHERE user_id = $1 AND plan_id = $2 AND status = 'active' AND expires_at > NOW()
+         ORDER BY expires_at DESC LIMIT 1`,
+        [userId, item.plan_id]
+      );
+
+      let expiresAt = new Date();
+      if (activeSubRes.rows.length > 0) {
+        expiresAt = new Date(activeSubRes.rows[0].expires_at);
+      }
+      expiresAt.setDate(expiresAt.getDate() + item.duration_days);
+
+      // Deactivate old active subscriptions of the same plan (after reading expiry)
+      await dbClient.query(
+        `UPDATE subscriptions SET status = 'cancelled' WHERE user_id = $1 AND plan_id = $2 AND status = 'active'`,
+        [userId, item.plan_id]
+      );
+
+      // Insert new active subscription with stacked expiry
+      await dbClient.query(
+        `INSERT INTO subscriptions (user_id, plan_id, status, expires_at)
+         VALUES ($1, $2, 'active', $3)`,
+        [userId, item.plan_id, expiresAt]
+      );
+
+    } else if (planType === 'quota') {
+      // Quota stacking: if an active quota subscription already exists, add quota to it
+      const activeQuotaRes = await dbClient.query(
+        `SELECT id FROM subscriptions 
+         WHERE user_id = $1 AND plan_id = $2 AND status = 'active' AND expires_at > NOW()`,
+        [userId, item.plan_id]
+      );
+
+      if (activeQuotaRes.rows.length > 0) {
+        const sub = activeQuotaRes.rows[0];
+        await dbClient.query(
+          `UPDATE subscriptions SET quota_remaining = quota_remaining + $1 WHERE id = $2`,
+          [quotaLimit, sub.id]
+        );
+      } else {
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + item.duration_days);
+        await dbClient.query(
+          `INSERT INTO subscriptions (user_id, plan_id, status, expires_at, quota_remaining) 
+           VALUES ($1, $2, 'active', $3, $4)`,
+          [userId, item.plan_id, expiresAt, quotaLimit]
+        );
+      }
+    }
+  }
+
+  // Determine users.current_plan from ALL active subscriptions (prevents downgrade)
+  const allActiveSubs = await dbClient.query(
+    `SELECT p.name FROM subscriptions s
+     JOIN plans p ON p.id = s.plan_id
+     WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+       AND (p.plan_type = 'subscription' OR p.plan_type = 'access')`,
+    [userId]
+  );
+  let highestPlan = 'gratis';
+  let highestPriority = 0;
+  for (const row of allActiveSubs.rows) {
+    const priority = planPriority[row.name] || 1;
+    if (priority > highestPriority) {
+      highestPriority = priority;
+      highestPlan = row.name;
+    }
+  }
+  await dbClient.query(`UPDATE users SET current_plan = $1 WHERE id = $2`, [highestPlan, userId]);
+
+  // Update voucher usage if applied (atomic upsert to prevent race condition duplicates)
+  if (tx.voucher_id) {
+    const voucherInsert = await dbClient.query(
+      `INSERT INTO user_vouchers (user_id, voucher_id, order_id) VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, voucher_id) DO NOTHING`,
+      [userId, tx.voucher_id, orderId]
+    );
+    // Only increment usage_count if a new row was actually inserted
+    if (voucherInsert.rowCount > 0) {
+      await dbClient.query(
+        `UPDATE vouchers SET usage_count = usage_count + 1 WHERE id = $1`,
+        [tx.voucher_id]
+      );
+    }
+  }
+
+  return true;
+}
+
+// ─── POST /checkout ─── Process cart checkout with optional voucher code
+router.post('/checkout', verifyToken, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const { planIds, voucherCode } = req.body;
+    if (!planIds || !Array.isArray(planIds) || planIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'planIds array is required.' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. Get plan details
+    const plansRes = await client.query(
+      `SELECT * FROM plans WHERE id = ANY($1) AND is_active = true`,
+      [planIds]
+    );
+
+    if (plansRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Paket tidak ditemukan.' });
+    }
+
+    const totalOriginal = plansRes.rows.reduce((sum, row) => sum + row.price, 0);
+
+    // 2. Validate voucher if provided
+    let voucher = null;
+    let discount = 0;
+
+    if (voucherCode) {
+      const cleanedCode = voucherCode.trim().toUpperCase();
+      const voucherRes = await client.query(
+        `SELECT * FROM vouchers WHERE UPPER(code) = $1 AND is_active = true`,
+        [cleanedCode]
+      );
+
+      if (voucherRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'Kode voucher tidak valid.' });
+      }
+
+      voucher = voucherRes.rows[0];
+
+      if (new Date(voucher.expires_at) < new Date()) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'Voucher telah kedaluwarsa.' });
+      }
+
+      if (voucher.usage_limit !== null && voucher.usage_count >= voucher.usage_limit) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'Kuota penggunaan voucher sudah habis.' });
+      }
+
+      const userUsedRes = await client.query(
+        `SELECT 1 FROM user_vouchers WHERE user_id = $1 AND voucher_id = $2`,
+        [req.user.id, voucher.id]
+      );
+      if (userUsedRes.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'Anda sudah pernah menggunakan voucher ini.' });
+      }
+
+      if (totalOriginal < voucher.min_purchase) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          success: false, 
+          error: `Minimum transaksi untuk voucher ini adalah Rp${voucher.min_purchase.toLocaleString('id-ID')}.` 
+        });
+      }
+
+      if (voucher.discount_type === 'percentage') {
+        discount = Math.floor((totalOriginal * voucher.discount_value) / 100);
+        if (voucher.max_discount !== null && discount > voucher.max_discount) {
+          discount = voucher.max_discount;
+        }
+      } else if (voucher.discount_type === 'fixed') {
+        discount = voucher.discount_value;
+      }
+
+      discount = Math.min(discount, totalOriginal);
+    }
+
+    const finalTotal = totalOriginal - discount;
+    const userRes = await client.query('SELECT id, name, email FROM users WHERE id = $1', [req.user.id]);
+    const user = userRes.rows[0];
+
+    // ─── Case A: Free checkout ───
+    if (finalTotal === 0) {
+      const orderId = `EDZ-FREE-${Date.now()}-${uuidv4().slice(0, 8)}`;
+
+      const txRes = await client.query(
+        `INSERT INTO payment_transactions (user_id, plan_id, order_id, amount, status, payment_type, voucher_id)
+         VALUES ($1, NULL, $2, 0, 'settlement', 'free_voucher', $3) RETURNING id`,
+        [req.user.id, orderId, voucher ? voucher.id : null]
+      );
+      const transactionId = txRes.rows[0].id;
+
+      for (const plan of plansRes.rows) {
+        await client.query(
+          `INSERT INTO order_items (transaction_id, plan_id, price) VALUES ($1, $2, $3)`,
+          [transactionId, plan.id, plan.price]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      // Process direct subscription activation
+      await activateUserPlans(req.user.id, orderId, pool);
+
+      const displayPlanNames = plansRes.rows.map(p => p.display_name).join(', ');
+      const { sendPremiumPlanActivatedEmail } = require('../services/emailService');
+      sendPremiumPlanActivatedEmail(user.email, user.name, displayPlanNames, 0, orderId)
+        .catch(err => console.error('Free checkout activation email error:', err));
+
+      return res.json({
+        success: true,
+        message: 'Aktivasi paket berhasil dilakukan.',
+        data: { status: 'settlement', order_id: orderId }
+      });
+    }
+
+    // ─── Case B: Paid checkout via Midtrans ───
+    const orderId = `EDZ-${Date.now()}-${uuidv4().slice(0, 8)}`;
+
+    const itemDetails = plansRes.rows.map(p => ({
+      id: p.id,
+      price: p.price,
+      quantity: 1,
+      name: p.display_name.slice(0, 50),
+    }));
+
+    if (discount > 0) {
+      itemDetails.push({
+        id: `DISC-${voucherCode}`,
+        price: -discount,
+        quantity: 1,
+        name: `Voucher: ${voucherCode}`,
+      });
+    }
+
+    const { token, redirect_url } = await midtrans.createTransaction({
+      orderId,
+      grossAmount: finalTotal,
+      planName: plansRes.rows.length === 1 ? plansRes.rows[0].display_name : 'Stubia Paket Belajar',
+      user,
+      itemDetails,
+    });
+
+    const txRes = await client.query(
+      `INSERT INTO payment_transactions (user_id, plan_id, order_id, amount, status, snap_token, snap_redirect_url, voucher_id)
+       VALUES ($1, NULL, $2, $3, 'pending', $4, $5, $6) RETURNING id`,
+      [req.user.id, orderId, finalTotal, token, redirect_url, voucher ? voucher.id : null]
+    );
+    const transactionId = txRes.rows[0].id;
+
+    for (const plan of plansRes.rows) {
+      await client.query(
+        `INSERT INTO order_items (transaction_id, plan_id, price) VALUES ($1, $2, $3)`,
+        [transactionId, plan.id, plan.price]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        redirect_url,
+        order_id: orderId,
+      },
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
 // ─── POST /webhook ─── Midtrans notification handler (no auth)
 router.post('/webhook', async (req, res, next) => {
   try {
@@ -118,57 +454,52 @@ router.post('/webhook', async (req, res, next) => {
     const fraudStatus = statusResponse.fraud_status;
     const paymentType = statusResponse.payment_type;
 
-    // Determine final status
     let status = transactionStatus;
     if (transactionStatus === 'capture') {
       status = fraudStatus === 'accept' ? 'settlement' : 'deny';
     }
 
-    // Update transaction
-    await pool.query(
+    // Atomic update: only update if not already settled (prevents double-activation)
+    const updateRes = await pool.query(
       `UPDATE payment_transactions 
        SET status = $1, payment_type = $2, midtrans_transaction_id = $3, raw_response = $4, updated_at = NOW()
-       WHERE order_id = $5`,
+       WHERE order_id = $5 AND status != 'settlement'
+       RETURNING id, user_id, amount, plan_id`,
       [status, paymentType, statusResponse.transaction_id, JSON.stringify(statusResponse), orderId]
     );
 
-    // If settlement → activate subscription
-    if (status === 'settlement') {
-      const txResult = await pool.query(
-        `SELECT pt.user_id, pt.plan_id, p.name AS plan_name, p.duration_days
-         FROM payment_transactions pt
-         JOIN plans p ON p.id = pt.plan_id
-         WHERE pt.order_id = $1`,
-        [orderId]
-      );
+    // Only activate plans if this was the request that actually set 'settlement'
+    if (status === 'settlement' && updateRes.rowCount > 0 && updateRes.rows.length > 0) {
+      const tx = updateRes.rows[0];
 
-      if (txResult.rows.length > 0) {
-        const tx = txResult.rows[0];
+      // Process plan activation
+      await activateUserPlans(tx.user_id, orderId, pool);
 
-        // Cancel old active subs
-        await pool.query(
-          `UPDATE subscriptions SET status = 'cancelled' WHERE user_id = $1 AND status = 'active'`,
-          [tx.user_id]
+      const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [tx.user_id]);
+      if (userRes.rows.length > 0) {
+        const user = userRes.rows[0];
+        
+        // Get all purchased items names
+        const itemsRes = await pool.query(
+          `SELECT p.display_name FROM order_items oi JOIN plans p ON p.id = oi.plan_id WHERE oi.transaction_id = $1`,
+          [tx.id]
         );
+        let planNames = itemsRes.rows.map(r => r.display_name).join(', ');
+        if (!planNames && tx.plan_id) {
+          const planRes = await pool.query('SELECT display_name FROM plans WHERE id = $1', [tx.plan_id]);
+          planNames = planRes.rows[0]?.display_name || 'Premium';
+        }
 
-        // Create new subscription
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + tx.duration_days);
-
-        await pool.query(
-          `INSERT INTO subscriptions (user_id, plan_id, status, expires_at) VALUES ($1, $2, 'active', $3)`,
-          [tx.user_id, tx.plan_id, expiresAt]
-        );
-
-        // Update user's current plan
-        await pool.query(`UPDATE users SET current_plan = $1 WHERE id = $2`, [tx.plan_name, tx.user_id]);
+        const { sendPremiumPlanActivatedEmail } = require('../services/emailService');
+        sendPremiumPlanActivatedEmail(user.email, user.name, planNames, tx.amount, orderId)
+          .catch(err => console.error('Premium activation email webhook error:', err));
       }
     }
 
     res.status(200).json({ success: true });
   } catch (err) {
     console.error('Midtrans webhook error:', err);
-    res.status(200).json({ success: true }); // Always respond 200 to Midtrans
+    res.status(200).json({ success: true });
   }
 });
 
@@ -176,9 +507,9 @@ router.post('/webhook', async (req, res, next) => {
 router.get('/transactions', verifyToken, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT pt.*, p.display_name AS plan_name
+      `SELECT pt.*, COALESCE(p.display_name, 'Stubia Paket Belajar') AS plan_name
        FROM payment_transactions pt
-       JOIN plans p ON p.id = pt.plan_id
+       LEFT JOIN plans p ON p.id = pt.plan_id
        WHERE pt.user_id = $1
        ORDER BY pt.created_at DESC
        LIMIT 20`,
@@ -190,7 +521,7 @@ router.get('/transactions', verifyToken, async (req, res, next) => {
   }
 });
 
-// ─── POST /confirm ─── Client-side payment confirmation (fallback for sandbox where webhook can't reach localhost)
+// ─── POST /confirm ─── Client-side payment confirmation fallback
 router.post('/confirm', verifyToken, async (req, res, next) => {
   try {
     const { order_id } = req.body;
@@ -200,7 +531,7 @@ router.post('/confirm', verifyToken, async (req, res, next) => {
     const txResult = await pool.query(
       `SELECT pt.*, p.name AS plan_name, p.duration_days
        FROM payment_transactions pt
-       JOIN plans p ON p.id = pt.plan_id
+       LEFT JOIN plans p ON p.id = pt.plan_id
        WHERE pt.order_id = $1 AND pt.user_id = $2`,
       [order_id, req.user.id]
     );
@@ -208,33 +539,63 @@ router.post('/confirm', verifyToken, async (req, res, next) => {
     if (txResult.rows.length === 0) return res.status(404).json({ success: false, error: 'Transaction not found' });
     const tx = txResult.rows[0];
 
-    // If already settled, just return success
+    if (!tx.plan_name) {
+      const plansRes = await pool.query(
+        `SELECT p.name, p.duration_days FROM order_items oi JOIN plans p ON p.id = oi.plan_id WHERE oi.transaction_id = $1 LIMIT 1`,
+        [tx.id]
+      );
+      if (plansRes.rows.length > 0) {
+        tx.plan_name = plansRes.rows[0].name;
+        tx.duration_days = plansRes.rows[0].duration_days;
+      } else {
+        tx.plan_name = 'Premium';
+        tx.duration_days = 30;
+      }
+    }
+
     if (tx.status === 'settlement') {
       return res.json({ success: true, message: 'Already activated' });
     }
 
-    // Verify with Midtrans
     try {
       const statusResponse = await midtrans.verifyNotification({ order_id, transaction_status: 'capture' });
       const finalStatus = statusResponse.transaction_status === 'capture'
         ? (statusResponse.fraud_status === 'accept' ? 'settlement' : 'deny')
         : statusResponse.transaction_status;
 
-      await pool.query(
-        `UPDATE payment_transactions SET status = $1, updated_at = NOW() WHERE order_id = $2`,
+      // Atomic update: only update if not already settled (prevents double-activation)
+      const confirmUpdate = await pool.query(
+        `UPDATE payment_transactions SET status = $1, updated_at = NOW() WHERE order_id = $2 AND status != 'settlement' RETURNING id`,
         [finalStatus, order_id]
       );
 
-      if (finalStatus === 'settlement') {
-        await pool.query(`UPDATE subscriptions SET status = 'cancelled' WHERE user_id = $1 AND status = 'active'`, [req.user.id]);
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + tx.duration_days);
-        await pool.query(
-          `INSERT INTO subscriptions (user_id, plan_id, status, expires_at) VALUES ($1, $2, 'active', $3)`,
-          [req.user.id, tx.plan_id, expiresAt]
-        );
-        await pool.query(`UPDATE users SET current_plan = $1 WHERE id = $2`, [tx.plan_name, req.user.id]);
+      if (finalStatus === 'settlement' && confirmUpdate.rowCount > 0) {
+        // Activate plans (only if this request was the one that set settlement)
+        await activateUserPlans(req.user.id, order_id, pool);
+
+        const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [req.user.id]);
+        if (userRes.rows.length > 0) {
+          const user = userRes.rows[0];
+          
+          const itemsRes = await pool.query(
+            `SELECT p.display_name FROM order_items oi JOIN plans p ON p.id = oi.plan_id WHERE oi.transaction_id = $1`,
+            [tx.id]
+          );
+          let planNames = itemsRes.rows.map(r => r.display_name).join(', ');
+          if (!planNames && tx.plan_id) {
+            const planRes = await pool.query('SELECT display_name FROM plans WHERE id = $1', [tx.plan_id]);
+            planNames = planRes.rows[0]?.display_name || 'Premium';
+          }
+
+          const { sendPremiumPlanActivatedEmail } = require('../services/emailService');
+          sendPremiumPlanActivatedEmail(user.email, user.name, planNames, tx.amount, order_id)
+            .catch(err => console.error('Premium activation email confirm error:', err));
+        }
+
         return res.json({ success: true, message: 'Plan activated', plan: tx.plan_name });
+      } else if (finalStatus === 'settlement' && confirmUpdate.rowCount === 0) {
+        // Already settled by webhook — no double-activation
+        return res.json({ success: true, message: 'Already activated' });
       }
 
       return res.json({ success: true, message: `Status: ${finalStatus}` });
@@ -243,17 +604,40 @@ router.post('/confirm', verifyToken, async (req, res, next) => {
         console.error('Midtrans verify failed on production:', verifyErr.message);
         return res.status(400).json({ success: false, error: 'Verifikasi pembayaran gagal.' });
       }
-      // If Midtrans verification fails in sandbox, force-activate for testing
+      
       console.warn('Midtrans verify failed, force-activating for sandbox:', verifyErr.message);
-      await pool.query(`UPDATE payment_transactions SET status = 'settlement', updated_at = NOW() WHERE order_id = $1`, [order_id]);
-      await pool.query(`UPDATE subscriptions SET status = 'cancelled' WHERE user_id = $1 AND status = 'active'`, [req.user.id]);
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + tx.duration_days);
-      await pool.query(
-        `INSERT INTO subscriptions (user_id, plan_id, status, expires_at) VALUES ($1, $2, 'active', $3)`,
-        [req.user.id, tx.plan_id, expiresAt]
+      // Atomic sandbox fallback: only activate if not already settled
+      const sandboxUpdate = await pool.query(
+        `UPDATE payment_transactions SET status = 'settlement', updated_at = NOW() WHERE order_id = $1 AND status != 'settlement' RETURNING id`,
+        [order_id]
       );
-      await pool.query(`UPDATE users SET current_plan = $1 WHERE id = $2`, [tx.plan_name, req.user.id]);
+
+      if (sandboxUpdate.rowCount === 0) {
+        return res.json({ success: true, message: 'Already activated' });
+      }
+      
+      // Activate plans
+      await activateUserPlans(req.user.id, order_id, pool);
+
+      const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [req.user.id]);
+      if (userRes.rows.length > 0) {
+        const user = userRes.rows[0];
+        
+        const itemsRes = await pool.query(
+          `SELECT p.display_name FROM order_items oi JOIN plans p ON p.id = oi.plan_id WHERE oi.transaction_id = $1`,
+          [tx.id]
+        );
+        let planNames = itemsRes.rows.map(r => r.display_name).join(', ');
+        if (!planNames && tx.plan_id) {
+          const planRes = await pool.query('SELECT display_name FROM plans WHERE id = $1', [tx.plan_id]);
+          planNames = planRes.rows[0]?.display_name || 'Premium';
+        }
+
+        const { sendPremiumPlanActivatedEmail } = require('../services/emailService');
+        sendPremiumPlanActivatedEmail(user.email, user.name, planNames, tx.amount, order_id)
+          .catch(err => console.error('Premium activation email sandbox confirm error:', err));
+      }
+
       return res.json({ success: true, message: 'Plan activated (sandbox)', plan: tx.plan_name });
     }
   } catch (err) {

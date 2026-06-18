@@ -1,9 +1,8 @@
 import React from 'react';
+import { Toaster } from 'react-hot-toast';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './context/AuthContext';
-import { NotificationProvider } from './hooks/useNotifications';
-import NotificationModal from './components/NotificationModal';
 import { AdminRoute, PublicRoute, StudentRoute, StudentRouteWrapped } from './components/layout/ProtectedRoute';
 
 // Pages
@@ -22,8 +21,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import InputSoal from './pages/admin/InputSoal';
 import ImportCSV from './pages/admin/ImportCSV';
 import UserManagement from './pages/admin/UserManagement';
-import ManageTeam from './pages/admin/ManageTeam';
 import AdminSettings from './pages/admin/AdminSettings';
+import ManageTodos from './pages/admin/ManageTodos';
 import ManageLatihan from './pages/admin/ManageLatihan';
 import LatihanPraktik from './pages/tryout/LatihanPraktik';
 import LatihanResult from './pages/tryout/LatihanResult';
@@ -32,6 +31,9 @@ import TopikLatihan from './pages/tryout/TopikLatihan';
 import ManageTryout from './pages/admin/ManageTryout';
 import ManageBattleSoal from './pages/admin/ManageBattleSoal';
 import PricingPage from './pages/PricingPage';
+import PaketBelajar from './pages/PaketBelajar';
+import Cart from './pages/Cart';
+import ManageVouchers from './pages/admin/ManageVouchers';
 import KonsultasiKakZ from './pages/KonsultasiKakZ';
 import BattleLobby from './pages/BattleLobby';
 import BattleGame from './pages/BattleGame';
@@ -47,13 +49,13 @@ import LatihanSoalUMResult from './pages/LatihanSoalUMResult';
 import TryoutSessionUM from './pages/TryoutSessionUM';
 import TryoutUMResult from './pages/TryoutUMResult';
 import AdminActivity from './pages/admin/AdminActivity';
-import AdminNotification from './pages/admin/AdminNotification';
+import Profile from './pages/Profile';
+import ManageDuplicates from './pages/admin/ManageDuplicates';
 import LeaderboardPage from './pages/LeaderboardPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsAndConditions from './pages/TermsAndConditions';
 import ContactUs from './pages/ContactUs';
 import Careers from './pages/Careers';
-import TeamPage from './pages/TeamPage';
 import ScrollToTop from './components/ScrollToTop';
 
 
@@ -63,7 +65,6 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <AuthProvider>
-        <NotificationProvider>
         <Router>
           <ScrollToTop />
           <Routes>
@@ -74,7 +75,6 @@ function App() {
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/contact-us" element={<ContactUs />} />
           <Route path="/careers" element={<Careers />} />
-          <Route path="/team" element={<TeamPage />} />
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -107,6 +107,9 @@ function App() {
             <Route path="/ujian-mandiri/:ujianId/tryout/:tryoutId" element={<TryoutSessionUM />} />
             <Route path="/ujian-mandiri/:ujianId/tryout/:tryoutId/hasil/:sessionId" element={<TryoutUMResult />} />
             <Route path="/leaderboard/:type/:id" element={<LeaderboardPage />} />
+            <Route path="/paket-belajar" element={<PaketBelajar />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
 
           {/* Student routes that need PageWrapper (no own navbar) */}
@@ -120,7 +123,7 @@ function App() {
               <Route path="input" element={<InputSoal />} />
               <Route path="import" element={<ImportCSV />} />
               <Route path="users" element={<UserManagement />} />
-              <Route path="team" element={<ManageTeam />} />
+              <Route path="todos" element={<ManageTodos />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="latihan" element={<ManageLatihan />} />
               <Route path="tryout" element={<ManageTryout />} />
@@ -129,15 +132,44 @@ function App() {
               <Route path="tryout-registrations" element={<ManageTryoutRegistrations />} />
               <Route path="social-verifications" element={<ManageSocialVerifications />} />
               <Route path="activity" element={<AdminActivity />} />
-              <Route path="notifications" element={<AdminNotification />} />
+              <Route path="duplicates" element={<ManageDuplicates />} />
+              <Route path="vouchers" element={<ManageVouchers />} />
             </Route>
           </Route>
           
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-        <NotificationModal />
+        <Toaster
+          position="top-right"
+          containerStyle={{
+            top: '85px',
+          }}
+          toastOptions={{
+            duration: 2500,
+            style: {
+              background: '#1e293b',
+              color: '#f1f5f9',
+              borderRadius: '12px',
+              padding: '12px 20px',
+              fontSize: '14px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            },
+            success: {
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#fff',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
       </Router>
-      </NotificationProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );

@@ -30,6 +30,9 @@ router.post('/register', async (req, res, next) => {
     );
 
     const user = result.rows[0];
+    const { sendWelcomeEmail } = require('../services/emailService');
+    sendWelcomeEmail(user.email, user.name).catch(err => console.error('Welcome email error:', err));
+
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET || 'secret',
@@ -52,14 +55,14 @@ router.post('/login', async (req, res, next) => {
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials.' });
+      return res.status(401).json({ success: false, error: 'Email atau password salah.' });
     }
 
     const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password_hash);
     
     if (!isMatch) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials.' });
+      return res.status(401).json({ success: false, error: 'Email atau password salah.' });
     }
 
     const token = jwt.sign(
@@ -103,6 +106,8 @@ router.post('/google', async (req, res, next) => {
         [name, email, passwordHash]
       );
       user = insertResult.rows[0];
+      const { sendWelcomeEmail } = require('../services/emailService');
+      sendWelcomeEmail(user.email, user.name).catch(err => console.error('Google welcome email error:', err));
     } else {
       user = result.rows[0];
     }

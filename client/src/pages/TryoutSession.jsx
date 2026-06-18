@@ -8,6 +8,7 @@ import QuestionGrid from '../components/tryout/QuestionGrid';
 import Calculator from '../components/tryout/Calculator';
 import MathText from '../components/MathText';
 import ZoomableImage from '../components/ui/ZoomableImage';
+import ExitConfirmModal from '../components/ExitConfirmModal';
 
 const TryoutSession = () => {
   const { sessionId } = useParams();
@@ -26,6 +27,8 @@ const TryoutSession = () => {
   const [showNavDrawer, setShowNavDrawer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [pendingExitPath, setPendingExitPath] = useState(null);
   const timerRef = useRef(null);
 
   // Refs to avoid stale closures in handleSubmit
@@ -82,14 +85,51 @@ const TryoutSession = () => {
           if (savedTimer) {
             setTimeLeft(parseInt(savedTimer, 10));
           } else {
-            // New subtest session: use the first subtest duration
+            // Calculate remaining time from server started_at if available
+            const serverStartedAt = response.data.started_at;
             const currentSub = data[savedSubjectIdx];
             const dur = currentSub?.duration || 30;
-            setTimeLeft(dur * 60);
+            const totalSeconds = dur * 60;
+            if (serverStartedAt) {
+              const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+              const remaining = Math.max(totalSeconds - elapsed, 0);
+              setTimeLeft(remaining);
+            } else {
+              setTimeLeft(totalSeconds);
+            }
           }
         } catch {
+          const serverStartedAt = response.data.started_at;
           const dur = data[0]?.duration || 30;
-          setTimeLeft(dur * 60);
+          const totalSeconds = dur * 60;
+          if (serverStartedAt) {
+            const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+            setTimeLeft(Math.max(totalSeconds - elapsed, 0));
+          } else {
+            setTimeLeft(totalSeconds);
+          }
+        }
+        // Fallback: restore answers from server DB if localStorage was empty
+        if (!localStorage.getItem(LS_ANSWERS)) {
+          const serverAnswers = {};
+          const serverFlagged = {};
+          data.forEach((subject, sIdx) => {
+            (subject.questions || []).forEach((q, qIdx) => {
+              const key = `${sIdx}:${qIdx}`;
+              if (q.chosen_choice_id) {
+                serverAnswers[key] = q.chosen_choice_id;
+              }
+              if (q.answer_text) {
+                serverAnswers[`${key}_text`] = q.answer_text;
+                if (!q.chosen_choice_id) serverAnswers[key] = '__short_answer__';
+              }
+              if (q.is_flagged) {
+                serverFlagged[key] = true;
+              }
+            });
+          });
+          if (Object.keys(serverAnswers).length > 0) setAnswers(serverAnswers);
+          if (Object.keys(serverFlagged).length > 0) setFlagged(serverFlagged);
         }
       } catch (error) {
         console.error('Failed to fetch questions', error);
@@ -378,9 +418,9 @@ const TryoutSession = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8ff]/95 backdrop-blur-md border-b border-[#e0e2f0] shadow-sm">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="flex items-center">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-9" />
-            </Link>
+            <button onClick={() => { setPendingExitPath('/dashboard'); setShowExitModal(true); }} className="flex items-center">
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-9 cursor-pointer" />
+            </button>
             <div className="hidden sm:flex items-center gap-1.5 text-[13px] font-semibold text-[#0050cb] bg-[#e8eeff] px-3 py-1 rounded-lg">
               <span className="material-symbols-outlined text-[16px]">edit_note</span>
               Tryout
@@ -695,6 +735,14 @@ const TryoutSession = () => {
       />
 
       {showCalculator && <Calculator onClose={() => setShowCalculator(false)} />}
+
+      <ExitConfirmModal
+        open={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        onConfirm={() => { setShowExitModal(false); navigate(pendingExitPath || '/dashboard'); }}
+        title="Yakin ingin keluar dari tryout?"
+        message="Tryout dapat dilanjutkan kembali nanti."
+      />
     </div>
   );
 };

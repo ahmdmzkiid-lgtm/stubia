@@ -2,107 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { subjectService } from '../../services/api';
-import NotificationDropdown from '../../components/NotificationDropdown';
+import toast from 'react-hot-toast';
+import StudentNavbar from '../../components/layout/StudentNavbar';
 import StartConfirmationModal from '../../components/StartConfirmationModal';
 
-const TopNavbar = ({ user, isAdmin, onLogout }) => {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', h); 
-    return () => window.removeEventListener('scroll', h);
-  }, []);
 
-  return (
-    <header className={`fixed top-0 z-[100] w-full backdrop-blur-md transition-all duration-300 ${scrolled ? 'bg-[#faf8ff]/90 shadow-sm border-b border-[#c2c6d8]/30' : 'bg-[#faf8ff] border-b border-transparent'}`}>
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 h-16 sm:h-20 flex items-center justify-between">
-        <div className="flex items-center gap-6 lg:gap-12">
-          <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-10 md:h-12" /></Link>
-          <nav className="hidden lg:flex items-center space-x-8 text-[14px] font-medium">
-            <Link to="/dashboard" className="text-[#424656] hover:text-[#0050cb] transition-colors">Dashboard</Link>
-            <Link to="/latihan" className="text-[#0050cb] transition-colors">Latihan</Link>
-            <Link to="/tryout/packages" className="text-[#424656] hover:text-[#0050cb] transition-colors">Tryout</Link>
-            <Link to="/riwayat" className="text-[#424656] hover:text-[#0050cb] transition-colors">Riwayat</Link>
-            {isAdmin && <Link to="/admin" className="text-[#a33200] hover:text-[#0050cb] transition-colors">Admin</Link>}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-[14px] font-medium text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-              <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                user?.current_plan === 'sultan' ? 'bg-yellow-100 text-yellow-700' :
-                user?.current_plan === 'premium' ? 'bg-blue-100 text-blue-600' :
-                'bg-gray-100 text-gray-500'
-              }`}>
-                <span className="material-symbols-outlined text-[10px]">
-                  {user?.current_plan === 'sultan' ? 'star' : user?.current_plan === 'premium' ? 'diamond' : 'person'}
-                </span>
-                {user?.current_plan === 'sultan' ? 'Sultan' : user?.current_plan === 'premium' ? 'Premium' : 'Gratis'}
-              </span>
-            </div>
-            <div className={`relative w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-sm border-2 ${
-              user?.current_plan === 'sultan' ? 'border-yellow-400' : user?.current_plan === 'premium' ? 'border-blue-400' : 'border-transparent'
-            }`}>
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-              {(user?.current_plan === 'premium' || user?.current_plan === 'sultan') && (
-                <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ${
-                  user?.current_plan === 'sultan' ? 'bg-yellow-400 text-yellow-900' : 'bg-blue-500 text-white'
-                }`}>
-                  <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {user?.current_plan === 'sultan' ? 'star' : 'diamond'}
-                  </span>
-                </span>
-              )}
-            </div>
-            <NotificationDropdown />
-          </div>
-          <button onClick={onLogout} className="hidden sm:flex text-[#424656] hover:text-[#ba1a1a] transition-colors flex items-center justify-center">
-            <span className="material-symbols-outlined text-[20px]">logout</span>
-          </button>
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full text-[#424656]">
-            <span className="material-symbols-outlined text-[24px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
-          </button>
-        </div>
-      </div>
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[99] bg-black/50 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-b-[32px] shadow-2xl p-6 pt-20 animate-slide-down" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
-              <button onClick={() => setMobileMenuOpen(false)} className="w-10 h-10 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <nav className="flex flex-col gap-2">
-              {[{to:'/dashboard',label:'Dashboard'},{to:'/latihan',label:'Latihan',active:true},{to:'/tryout/packages',label:'Tryout'},{to:'/riwayat',label:'Riwayat'}].map(l => (
-                <Link key={l.to} to={l.to} onClick={() => setMobileMenuOpen(false)} className={`px-5 py-4 rounded-2xl text-[16px] font-bold transition-colors ${l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'}`}>{l.label}</Link>
-              ))}
-              {isAdmin && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="px-5 py-4 rounded-2xl text-[16px] font-bold text-[#a33200] hover:bg-[#f2f3ff] transition-colors">Admin</Link>}
-            </nav>
-            <hr className="my-6 border-[#c2c6d8]/20" />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-lg">
-                  {user?.name?.charAt(0)?.toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-[15px] font-bold text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                  <span className="text-[12px] font-bold uppercase text-[#727687]">{user?.current_plan || 'Gratis'}</span>
-                </div>
-              </div>
-              <button onClick={onLogout} className="px-6 py-3 rounded-xl text-[14px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 border border-red-100">
-                <span className="material-symbols-outlined text-[18px]">logout</span> Keluar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </header>
-  );
-};
 
 const TopikLatihan = () => {
   const { user, isAdmin, logout } = useAuth();
@@ -154,7 +58,7 @@ const TopikLatihan = () => {
 
   return (
     <div className="bg-[#faf8ff] text-[#191b24] min-h-screen flex flex-col font-sans overflow-x-hidden">
-      <TopNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
+      <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
       
       <main className="flex-grow pt-16 sm:pt-20">
         <section className="px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto py-10 sm:py-16">
@@ -245,13 +149,18 @@ const TopikLatihan = () => {
                             <span className="text-[12px] font-medium text-[#424656] block mb-2">Riwayat Skor:</span>
                             <div className="flex flex-wrap gap-1.5">
                               {topicHistory.slice(0, 5).map((attempt, aIdx) => (
-                                <span 
-                                  key={aIdx} 
-                                  className="px-2.5 py-1 bg-[#f2f3ff] border border-[#c2c6d8]/30 rounded-lg text-[12px] font-bold text-[#0050cb] shadow-sm"
-                                  title={`Dikerjakan pada ${new Date(attempt.submitted_at).toLocaleDateString('id-ID')}`}
+                                <button 
+                                  key={aIdx}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/latihan/hasil/${attempt.id}`);
+                                  }}
+                                  className="px-2.5 py-1 bg-[#f2f3ff] border border-[#c2c6d8]/30 rounded-lg text-[12px] font-bold text-[#0050cb] shadow-sm hover:bg-[#0050cb] hover:text-white hover:border-transparent transition-all duration-150"
+                                  title={`Lihat hasil percobaan ini (Dikerjakan pada ${new Date(attempt.submitted_at).toLocaleDateString('id-ID')})`}
                                 >
                                   {attempt.percentage}%
-                                </span>
+                                </button>
                               ))}
                               {topicHistory.length > 5 && (
                                 <span className="text-[12px] text-[#727687] self-center ml-1">+{topicHistory.length - 5} lagi</span>
@@ -260,20 +169,59 @@ const TopikLatihan = () => {
                           </div>
                         )}
 
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmData({
-                              topicId: item.id,
-                              title: item.title,
-                              questionsCount: item.questions_count,
-                            });
-                            setConfirmOpen(true);
-                          }}
-                          className="w-full py-3 bg-white border border-[#0050cb] text-[#0050cb] font-bold text-[14px] rounded-lg hover:bg-[#0050cb] hover:text-white transition-all duration-200 active:scale-95"
-                        >
-                          {isDone ? 'Ulangi Latihan' : 'Mulai'}
-                        </button>
+                        {isDone ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const latestSessionId = topicHistory[0]?.id;
+                                if (latestSessionId) {
+                                  navigate(`/latihan/hasil/${latestSessionId}`);
+                                } else {
+                                  toast.error('Gagal memuat hasil latihan.');
+                                }
+                              }}
+                              className="py-3 bg-[#0050cb] text-white font-bold text-[14px] rounded-lg hover:bg-[#003da8] hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200 active:scale-95 flex items-center justify-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">bar_chart</span>
+                              Lihat Hasil
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmData({
+                                  topicId: item.id,
+                                  title: item.title,
+                                  questionsCount: item.questions_count,
+                                });
+                                setConfirmOpen(true);
+                              }}
+                              className="py-3 bg-white border border-[#0050cb] text-[#0050cb] font-bold text-[14px] rounded-lg hover:bg-[#f2f3ff] transition-all duration-200 active:scale-95 flex items-center justify-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">replay</span>
+                              Ulangi
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmData({
+                                topicId: item.id,
+                                title: item.title,
+                                questionsCount: item.questions_count,
+                              });
+                              setConfirmOpen(true);
+                            }}
+                            className="w-full py-3 bg-white border border-[#0050cb] text-[#0050cb] font-bold text-[14px] rounded-lg hover:bg-[#0050cb] hover:text-white transition-all duration-200 active:scale-95 flex items-center justify-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+                            Mulai
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -308,7 +256,7 @@ const TopikLatihan = () => {
 
       <footer className="bg-white border-t border-[#c2c6d8]/30">
         <div className="px-6 lg:px-10 max-w-[1440px] mx-auto py-8 border-t border-[#c2c6d8]/20">
-          <p className="text-[12px] text-[#424656] font-medium text-center md:text-left">© 2026 Eduzet. All rights reserved.</p>
+          <p className="text-[12px] text-[#424656] font-medium text-center md:text-left">© 2026 Stubia. All rights reserved.</p>
         </div>
       </footer>
     </div>

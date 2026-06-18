@@ -10,6 +10,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -17,14 +18,16 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
     try {
       const res = await login({ email, password });
       toast.success('Selamat datang kembali!');
       const dest = res?.data?.user?.role === 'admin' ? '/admin' : (redirectTo || '/dashboard');
       navigate(dest);
-    } catch (error) {
-      // Error handled by interceptor
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Email atau password salah. Silakan coba lagi.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -32,13 +35,15 @@ const Login = () => {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
+      setError('');
       setLoading(true);
       const res = await loginWithGoogle(credentialResponse.credential);
       toast.success('Berhasil masuk dengan Google!');
       const dest = res?.data?.user?.role === 'admin' ? '/admin' : (redirectTo || '/dashboard');
       navigate(dest);
-    } catch (error) {
-      // Error handled by interceptor
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Gagal masuk dengan Google. Silakan coba lagi.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -46,6 +51,7 @@ const Login = () => {
 
   const handleGoogleError = () => {
     console.error('Google Login Failed');
+    setError('Gagal masuk dengan Google. Silakan coba lagi.');
     toast.error('Gagal masuk dengan Google');
   };
 
@@ -54,14 +60,14 @@ const Login = () => {
       {/* Desktop Left Panel */}
       <div className="register-left">
         <div className="auth-side-nav">
-          <Link to="/" className="register-logo"><img src="/eduzet-brand-light.svg" alt="Eduzet" /></Link>
+          <Link to="/" className="register-logo"><img src="/stubiabrandicon.png" alt="Stubia" /></Link>
         </div>
         <div className="register-left-content">
           <h1>Lanjutkan perjalanan <span>UTBK</span>-mu</h1>
           <p>Masuk ke akunmu untuk melanjutkan latihan soal, tryout simulasi, dan pantau perkembangan skormu.</p>
           <div className="register-hero-img">
             <img
-              src="/landingpage-hero.svg"
+              src="/landingpage-hero.webp"
               alt="Students collaborating"
             />
           </div>
@@ -71,24 +77,32 @@ const Login = () => {
       {/* Right Panel - Form */}
       <div className="register-right">
         <div className="register-form-card">
-          <Link to="/" className="register-mobile-logo"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
+          <Link to="/" className="register-mobile-logo"><img src="/stubiabrandicon.png" alt="Stubia" className="h-8" /></Link>
 
           <div className="register-form-header">
             <h2>Masuk</h2>
-            <p>Masuk ke akun Eduzet-mu.</p>
+            <p>Masuk ke akun Stubia-mu.</p>
           </div>
+
+          {/* Inline error banner */}
+          {error && (
+            <div className="login-error-banner" role="alert">
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>error</span>
+              <span>{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="register-form">
             <div className="form-group">
               <label htmlFor="email">Email</label>
-              <div className="input-wrapper">
+              <div className={`input-wrapper${error ? ' input-error' : ''}`}>
                 <span className="material-symbols-outlined input-icon">mail</span>
                 <input
                   id="email"
                   type="email"
                   placeholder="nama@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setError(''); }}
                   required
                 />
               </div>
@@ -96,14 +110,14 @@ const Login = () => {
 
             <div className="form-group">
               <label htmlFor="password">Password</label>
-              <div className="input-wrapper">
+              <div className={`input-wrapper${error ? ' input-error' : ''}`}>
                 <span className="material-symbols-outlined input-icon">lock</span>
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setError(''); }}
                   required
                 />
                 <button
@@ -147,3 +161,4 @@ const Login = () => {
 };
 
 export default Login;
+

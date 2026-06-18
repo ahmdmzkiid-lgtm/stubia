@@ -9,7 +9,7 @@ export default function TermsAndConditions() {
       <section className="mb-12">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Penerimaan Syarat</h2>
         <p className="text-gray-700 leading-relaxed">
-          Dengan mengakses dan menggunakan platform EduZET, Anda menerima dan setuju untuk terikat 
+          Dengan mengakses dan menggunakan platform Stubia, Anda menerima dan setuju untuk terikat 
           oleh syarat dan ketentuan ini. Jika Anda tidak setuju dengan bagian mana pun dari syarat 
           ini, mohon hentikan penggunaan platform kami.
         </p>
@@ -18,7 +18,7 @@ export default function TermsAndConditions() {
       <section className="mb-12">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Lisensi Penggunaan</h2>
         <p className="text-gray-700 leading-relaxed mb-4">
-          EduZET memberikan Anda lisensi terbatas, non-eksklusif, non-dapat dialihkan, dan dapat 
+          Stubia memberikan Anda lisensi terbatas, non-eksklusif, non-dapat dialihkan, dan dapat 
           dibatalkan untuk mengakses dan menggunakan platform kami untuk tujuan pendidikan pribadi Anda.
         </p>
         <p className="text-gray-700 leading-relaxed">
@@ -50,7 +50,7 @@ export default function TermsAndConditions() {
         <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Konten Pengguna</h2>
         <p className="text-gray-700 leading-relaxed mb-4">
           Anda mempertahankan semua hak atas konten yang Anda unggah. Dengan mengunggah konten, 
-          Anda memberikan EduZET lisensi global, royalti-gratis untuk menggunakan, menyimpan, 
+          Anda memberikan Stubia lisensi global, royalti-gratis untuk menggunakan, menyimpan, 
           dan menampilkan konten untuk keperluan platform kami.
         </p>
         <p className="text-gray-700 leading-relaxed">
@@ -67,8 +67,8 @@ export default function TermsAndConditions() {
       <section className="mb-12">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Hak Kekayaan Intelektual</h2>
         <p className="text-gray-700 leading-relaxed">
-          Semua konten di platform EduZET, termasuk teks, grafik, logo, dan materi pembelajaran, 
-          adalah milik EduZET atau pemberi lisensi kami. Konten dilindungi oleh undang-undang hak cipta 
+          Semua konten di platform Stubia, termasuk teks, grafik, logo, dan materi pembelajaran, 
+          adalah milik Stubia atau pemberi lisensi kami. Konten dilindungi oleh undang-undang hak cipta 
           dan tidak dapat direproduksi tanpa izin tertulis.
         </p>
       </section>
@@ -90,7 +90,7 @@ export default function TermsAndConditions() {
       <section className="mb-12">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Pembatasan Tanggung Jawab</h2>
         <p className="text-gray-700 leading-relaxed">
-          Sejauh diizinkan oleh hukum, EduZET tidak bertanggung jawab atas kerusakan tidak langsung, 
+          Sejauh diizinkan oleh hukum, Stubia tidak bertanggung jawab atas kerusakan tidak langsung, 
           insidental, khusus, atau konsekuen yang timbul dari penggunaan platform kami, bahkan jika 
           kami telah diberitahu tentang kemungkinan kerusakan tersebut.
         </p>
@@ -131,7 +131,7 @@ export default function TermsAndConditions() {
           Jika Anda memiliki pertanyaan tentang syarat ini, silakan hubungi kami:
         </p>
         <div className="bg-gray-50 p-6 rounded-lg mt-4">
-          <p className="text-gray-800"><strong>Email:</strong> eduzetsupport@gmail.com</p>
+          <p className="text-gray-800"><strong>Email:</strong> stubiasupport@gmail.com</p>
           <p className="text-gray-800"><strong>Alamat:</strong> Jakarta, Indonesia</p>
           <p className="text-gray-800"><strong>Telepon:</strong> 085183147625</p>
         </div>
@@ -177,7 +177,7 @@ export default function TermsAndConditions() {
             Syarat dan Ketentuan
           </h1>
           <p className="text-white/90 text-lg">
-            Ketentuan penggunaan layanan EduZET
+            Ketentuan penggunaan layanan Stubia
           </p>
         </div>
       </div>

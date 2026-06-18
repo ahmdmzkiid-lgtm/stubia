@@ -1,4 +1,4 @@
--- Team members table for "Tim Eduzet" section
+-- Team members table for "Tim Stubia" section
 CREATE TABLE IF NOT EXISTS team_members (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,

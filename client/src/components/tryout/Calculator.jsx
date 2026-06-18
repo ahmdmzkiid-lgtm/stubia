@@ -22,7 +22,12 @@ const Calculator = ({ onClose }) => {
 
   const calculate = () => {
     try {
-      const result = eval(equation + display);
+      const expression = equation + display;
+      // Safety check: only allow numbers, operators, decimals, and spaces
+      if (!/^[0-9+\-*/.\s]+$/.test(expression)) {
+        throw new Error("Invalid characters in math expression");
+      }
+      const result = Function(`"use strict"; return (${expression})`)();
       setDisplay(String(Number(result.toFixed(8))));
       setEquation('');
       setIsDone(true);

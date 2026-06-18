@@ -14,9 +14,9 @@ const DiscussQuestionModal = ({ isOpen, onClose, question }) => {
 
   useEffect(() => {
     if (isOpen) {
-      // Initial message from Kak Z
+      // Initial message from Bia
       const isCorrect = question.isCorrect;
-      const initialText = `Hai! Aku Kak Z 👋 Aku udah baca soalnya nih. ${isCorrect ? 'Wah kamu udah jawab benar ya, keren! 🎉' : 'Tenang aja, yuk kita bahas bareng biar kamu paham!'} Ada yang mau kamu tanyakan tentang soal ini?`;
+      const initialText = `Hai! Aku Bia 👋 Aku udah baca soalnya nih. ${isCorrect ? 'Wah kamu udah jawab benar ya, keren! 🎉' : 'Tenang aja, yuk kita bahas bareng biar kamu paham!'} Ada yang mau kamu tanyakan tentang soal ini?`;
       
       setMessages([
         { 
@@ -71,7 +71,7 @@ const DiscussQuestionModal = ({ isOpen, onClose, question }) => {
     } catch (error) {
       console.error('Discussion error:', error);
       const errorTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setMessages([...newMessages, { role: 'model', text: 'Aduh, Kak Z lagi sedikit pusing nih. Boleh diulang pertanyaannya? 🙏', time: errorTime }]);
+      setMessages([...newMessages, { role: 'model', text: 'Aduh, Bia lagi sedikit pusing nih. Boleh diulang pertanyaannya? 🙏', time: errorTime }]);
     } finally {
       setIsLoading(false);
     }
@@ -89,13 +89,13 @@ const DiscussQuestionModal = ({ isOpen, onClose, question }) => {
             <div className="relative w-12 h-12">
               <img 
                 className="w-full h-full object-cover rounded-full border-2 border-[#0050cb]/10" 
-                alt="Kak Z Avatar" 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAsqbf_KDYhD6F9rgrq4_CKAREtY02eG-4OoAn62g1bnUU4sjfufTpgm0JHNPQw4Bh2v0IPCpJMB-Ga1EdovaWU_-d49yffNN259JGRoG3Gli1eeK4nXykeW8VklOAzOv_JbLk3QqdC5L35gXNySI7rHNrxz_nEE96kCJSVQHSIbL17gtFvhAphaZlD2xTiulhEfcYCQsXl_e1OI6XFzInZd24Q0aByIblmS8S0buT_5uQqK2JcEnECQz1HuKrvu77l0CIyScdgvg"
+                alt="Bia Avatar" 
+                src="/mentorkonsultasi.webp"
               />
               <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#00c1fd] border-2 border-white rounded-full"></span>
             </div>
             <div>
-              <h2 className="text-[18px] font-bold text-[#191b24]">Diskusi dengan Kak Z</h2>
+              <h2 className="text-[18px] font-bold text-[#191b24]">Diskusi dengan Bia</h2>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 bg-[#00c1fd] rounded-full"></div>
                 <span className="text-[#006688] text-[12px] font-semibold">Tutor AI Standby</span>
@@ -131,8 +131,8 @@ const DiscussQuestionModal = ({ isOpen, onClose, question }) => {
                   <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden mt-1 border border-[#c2c6d8]/50 shadow-sm">
                     <img 
                       className="w-full h-full object-cover" 
-                      alt="Kak Z" 
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAvncBoZ7j6blA-hboSsjTE6AYftyv6iH5XCTU45aETLvPXZ69oinWplEyosaciDa3FG9tKwcDHtQMk7beM_BvdWaOL2gm27txU_oSIYoHyrcjNLicbjHwlxKWiExthTSHoOaAt0u649-jOZ60o1oJq1LKIAocmQ6yyecAdmhyg8MPztgoG_-Ofij7W_0z8vWq5jQj3xcRirB-0VcBaHmEEYw5r4iE1jEdAIqTHSbRCC8YB30wjzIr9ET-bAeJ2yCE0Ad1RZhP2ew"
+                      alt="Bia" 
+                      src="/mentorkonsultasi.webp"
                     />
                   </div>
                 )}

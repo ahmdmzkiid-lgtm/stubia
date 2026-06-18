@@ -42,13 +42,13 @@ router.post('/image', verifyToken, (req, res, next) => {
       return res.status(400).json({ success: false, error: 'File gambar tidak ditemukan' });
     }
 
-    const folder = req.body.folder || 'eduzet';
+    const folder = req.body.folder || 'stubia';
 
     // Upload to Cloudinary using buffer
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: `eduzet/${folder}`,
+          folder: `stubia/${folder}`,
           resource_type: 'image',
           transformation: [
             { quality: 'auto:good' },

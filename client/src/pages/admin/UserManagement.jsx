@@ -119,90 +119,90 @@ const UserManagement = () => {
     <div className="animate-fade-in text-on-surface">
 
       {/* Breadcrumb + Title */}
-      <div className="mb-10">
+      <div className="mb-6 sm:mb-10">
         <div className="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm mb-2">
           <span>Dashboard</span>
           <span className="material-symbols-outlined text-[16px]">chevron_right</span>
           <span className="text-primary font-bold">User Management</span>
         </div>
-        <h2 className="font-headline-lg text-headline-lg text-on-surface">System User Management</h2>
+        <h2 className="text-[28px] sm:text-[32px] font-bold text-on-surface leading-tight">System User Management</h2>
       </div>
 
       {/* Stats Cards */}
-      <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-16">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-8 sm:mb-16">
         {/* Sultan Students */}
-        <div className="bg-surface p-8 rounded-2xl border border-outline-variant hover:border-yellow-400 transition-all shadow-sm flex flex-col justify-between group">
+        <div className="bg-surface p-5 sm:p-8 rounded-xl sm:rounded-2xl border border-outline-variant hover:border-yellow-400 transition-all shadow-sm flex flex-col justify-between group">
           <div>
-            <div className="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center mb-6 text-yellow-700 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-yellow-100 rounded-xl flex items-center justify-center mb-4 sm:mb-6 text-yellow-700 group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-[28px] sm:text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
             </div>
             <p className="font-label-md text-label-md text-on-surface-variant mb-1">Sultan Students</p>
-            <p className="text-[48px] font-bold leading-none text-on-surface">{stats.sultanStudents?.toLocaleString('id-ID') || '0'}</p>
+            <p className="text-[36px] sm:text-[48px] font-bold leading-none text-on-surface">{stats.sultanStudents?.toLocaleString('id-ID') || '0'}</p>
           </div>
-          <p className="font-label-sm text-label-sm text-yellow-700 mt-6 flex items-center gap-1">
+          <p className="font-label-sm text-label-sm text-yellow-700 mt-4 sm:mt-6 flex items-center gap-1">
             <span className="material-symbols-outlined text-[16px]">verified</span> Paket Sultan Aktif
           </p>
         </div>
 
         {/* Premium Students */}
-        <div className="bg-surface p-8 rounded-2xl border border-outline-variant hover:border-blue-400 transition-all shadow-sm flex flex-col justify-between group">
+        <div className="bg-surface p-5 sm:p-8 rounded-xl sm:rounded-2xl border border-outline-variant hover:border-blue-400 transition-all shadow-sm flex flex-col justify-between group">
           <div>
-            <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-6 text-blue-700 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-4 sm:mb-6 text-blue-700 group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-[28px] sm:text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
             </div>
             <p className="font-label-md text-label-md text-on-surface-variant mb-1">Premium Students</p>
-            <p className="text-[48px] font-bold leading-none text-on-surface">{stats.premiumStudents?.toLocaleString('id-ID') || '0'}</p>
+            <p className="text-[36px] sm:text-[48px] font-bold leading-none text-on-surface">{stats.premiumStudents?.toLocaleString('id-ID') || '0'}</p>
           </div>
-          <p className="font-label-sm text-label-sm text-blue-700 mt-6 flex items-center gap-1">
+          <p className="font-label-sm text-label-sm text-blue-700 mt-4 sm:mt-6 flex items-center gap-1">
             <span className="material-symbols-outlined text-[16px]">verified</span> Paket Premium Aktif
           </p>
         </div>
 
         {/* Premium UM Students */}
-        <div className="bg-surface p-8 rounded-2xl border border-outline-variant hover:border-teal-400 transition-all shadow-sm flex flex-col justify-between group">
+        <div className="bg-surface p-5 sm:p-8 rounded-xl sm:rounded-2xl border border-outline-variant hover:border-teal-400 transition-all shadow-sm flex flex-col justify-between group">
           <div>
-            <div className="w-14 h-14 bg-teal-100 rounded-xl flex items-center justify-center mb-6 text-teal-700 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>target</span>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-teal-100 rounded-xl flex items-center justify-center mb-4 sm:mb-6 text-teal-700 group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-[28px] sm:text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>target</span>
             </div>
             <p className="font-label-md text-label-md text-on-surface-variant mb-1">Premium UM Students</p>
-            <p className="text-[48px] font-bold leading-none text-on-surface">{stats.premiumUmStudents?.toLocaleString('id-ID') || '0'}</p>
+            <p className="text-[36px] sm:text-[48px] font-bold leading-none text-on-surface">{stats.premiumUmStudents?.toLocaleString('id-ID') || '0'}</p>
           </div>
-          <p className="font-label-sm text-label-sm text-teal-700 mt-6 flex items-center gap-1">
+          <p className="font-label-sm text-label-sm text-teal-700 mt-4 sm:mt-6 flex items-center gap-1">
             <span className="material-symbols-outlined text-[16px]">verified</span> Paket Premium UM Aktif
           </p>
         </div>
 
         {/* Active Students */}
-        <div className="bg-surface p-8 rounded-2xl border border-outline-variant hover:border-primary transition-all shadow-sm flex flex-col justify-between">
+        <div className="bg-surface p-5 sm:p-8 rounded-xl sm:rounded-2xl border border-outline-variant hover:border-primary transition-all shadow-sm flex flex-col justify-between">
           <div>
-            <div className="w-14 h-14 bg-[#00c1fd]/20 rounded-xl flex items-center justify-center mb-6 text-[#006688]">
-              <span className="material-symbols-outlined text-[32px]">person_add</span>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#00c1fd]/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6 text-[#006688]">
+              <span className="material-symbols-outlined text-[28px] sm:text-[32px]">person_add</span>
             </div>
             <p className="font-label-md text-label-md text-on-surface-variant mb-1">Active Students</p>
-            <p className="text-[48px] font-bold leading-none text-on-surface">{stats.students?.toLocaleString('id-ID') || '—'}</p>
+            <p className="text-[36px] sm:text-[48px] font-bold leading-none text-on-surface">{stats.students?.toLocaleString('id-ID') || '—'}</p>
           </div>
-          <p className="font-label-sm text-label-sm text-secondary mt-6 flex items-center gap-1">
+          <p className="font-label-sm text-label-sm text-secondary mt-4 sm:mt-6 flex items-center gap-1">
             <span className="material-symbols-outlined text-[16px]">arrow_upward</span> Platform UTBK
           </p>
         </div>
 
         {/* Staff Admins */}
-        <div className="bg-surface p-8 rounded-2xl border border-outline-variant hover:border-primary transition-all shadow-sm flex flex-col justify-between">
+        <div className="bg-surface p-5 sm:p-8 rounded-xl sm:rounded-2xl border border-outline-variant hover:border-primary transition-all shadow-sm flex flex-col justify-between">
           <div>
-            <div className="w-14 h-14 bg-[#ffdbd0] rounded-xl flex items-center justify-center mb-6 text-[#832600]">
-              <span className="material-symbols-outlined text-[32px]">admin_panel_settings</span>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#ffdbd0] rounded-xl flex items-center justify-center mb-4 sm:mb-6 text-[#832600]">
+              <span className="material-symbols-outlined text-[28px] sm:text-[32px]">admin_panel_settings</span>
             </div>
             <p className="font-label-md text-label-md text-on-surface-variant mb-1">Staff Admins</p>
-            <p className="text-[48px] font-bold leading-none text-on-surface">{stats.admins || '—'}</p>
+            <p className="text-[36px] sm:text-[48px] font-bold leading-none text-on-surface">{stats.admins || '—'}</p>
           </div>
-          <p className="font-label-sm text-label-sm text-on-surface-variant mt-6">Stable system access</p>
+          <p className="font-label-sm text-label-sm text-on-surface-variant mt-4 sm:mt-6">Stable system access</p>
         </div>
       </section>
 
       {/* Table Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6">
         {/* Tab Filter */}
-        <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl">
+        <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl w-full xl:w-auto overflow-x-auto whitespace-nowrap">
           {[
             { key: 'all', label: 'All Users' },
             { key: 'student', label: 'Students' },
@@ -211,7 +211,7 @@ const UserManagement = () => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-8 py-2 rounded-lg font-label-md text-label-md transition-all ${
+              className={`px-4 sm:px-8 py-2 rounded-lg font-label-md text-label-md transition-all flex-1 sm:flex-initial text-center ${
                 activeTab === tab.key
                   ? 'bg-white shadow-sm text-primary font-bold'
                   : 'text-on-surface-variant hover:bg-surface-container-high'
@@ -223,15 +223,15 @@ const UserManagement = () => {
         </div>
 
         {/* Search + Actions */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <form onSubmit={handleSearch} className="relative">
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          <form onSubmit={handleSearch} className="relative flex-grow sm:flex-grow-0">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
             <input
               type="text"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder="Cari pengguna..."
-              className="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-xl text-label-md outline-none focus:ring-2 focus:ring-primary w-48"
+              className="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-xl text-label-md outline-none focus:ring-2 focus:ring-primary w-full sm:w-48"
             />
           </form>
 
@@ -240,7 +240,7 @@ const UserManagement = () => {
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-5 py-2 border rounded-xl font-label-md text-label-md transition-all ${
+              className={`flex items-center justify-center gap-2 px-5 py-2 border rounded-xl font-label-md text-label-md transition-all ${
                 planFilter !== 'all'
                   ? 'bg-primary/10 border-primary text-primary font-bold shadow-sm'
                   : 'bg-surface-container-low border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
@@ -284,7 +284,7 @@ const UserManagement = () => {
                           setPlanFilter(e.target.value);
                           setShowFilters(false);
                         }}
-                        className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-3 py-2 text-label-md text-on-surface outline-none focus:ring-2 focus:ring-primary transition-all cursor-pointer"
+                        className="w-full bg-surface-container-low border border-[#c2c6d8]/30 rounded-xl px-3 py-2 text-label-md text-on-surface outline-none focus:ring-2 focus:ring-primary transition-all cursor-pointer"
                       >
                         <option value="all">Semua Paket</option>
                         <option value="sultan">Sultan</option>
@@ -299,7 +299,7 @@ const UserManagement = () => {
             )}
           </div>
 
-          <button className="flex items-center gap-2 px-6 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:shadow-md active:scale-95 transition-all">
+          <button className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:shadow-md active:scale-95 transition-all flex-grow sm:flex-grow-0">
             <span className="material-symbols-outlined text-[20px]">add</span>
             Invite User
           </button>
@@ -505,7 +505,7 @@ const UserManagement = () => {
       <footer className="mt-16 pt-8 border-t border-outline-variant/30">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
-            <p className="font-label-md text-label-md text-primary font-bold">Eduzet Pro</p>
+            <p className="font-label-md text-label-md text-primary font-bold">Stubia Pro</p>
             <p className="font-label-sm text-label-sm text-on-surface-variant">© 2026 UTBK Learning Systems. All rights reserved.</p>
           </div>
           <div className="flex gap-8">

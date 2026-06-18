@@ -74,18 +74,25 @@ const ManageTryout = () => {
     }
   };
 
-  const ensureArray = (data) => {
-    if (!data) return [];
-    if (Array.isArray(data)) return data;
-    if (typeof data === 'string') {
+  const ensureArray = (data, fallbackToStandard = false) => {
+    let arr = [];
+    if (Array.isArray(data)) {
+      arr = data;
+    } else if (data && typeof data === 'string') {
       try {
         const parsed = JSON.parse(data);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
-        return [];
-      }
+        if (Array.isArray(parsed)) arr = parsed;
+      } catch (e) {}
     }
-    return [];
+    
+    if ((!arr || arr.length === 0) && fallbackToStandard) {
+      return standardSubtests.map(name => ({
+        name,
+        questionCount: 20,
+        durationMin: 30
+      }));
+    }
+    return arr;
   };
 
   const handleOpenModal = (pkg = null) => {
@@ -107,7 +114,7 @@ const ManageTryout = () => {
         is_public: !!pkg.is_public,
         is_active: pkg.is_active !== undefined ? pkg.is_active : true,
         required_plan: pkg.required_plan || 'gratis',
-        subject_config: ensureArray(pkg.subject_config)
+        subject_config: ensureArray(pkg.subject_config, true)
       });
     } else {
       setEditingPackage(null);
@@ -131,17 +138,22 @@ const ManageTryout = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        is_public: !!formData.is_active,
+        is_active: !!formData.is_active
+      };
       if (editingPackage) {
-        await tryoutService.updatePackage(editingPackage.id, formData);
+        await tryoutService.updatePackage(editingPackage.id, payload);
         toast.success("Tryout berhasil diperbarui");
       } else {
-        await tryoutService.createPackage(formData);
+        await tryoutService.createPackage(payload);
         toast.success("Tryout berhasil dibuat");
       }
       setShowModal(false);
       fetchData();
       if (selectedPackage && editingPackage?.id === selectedPackage.id) {
-         setSelectedPackage({ ...selectedPackage, ...formData });
+         setSelectedPackage({ ...selectedPackage, ...payload });
       }
     } catch (error) {
       const msg = error.response?.data?.error || 'Gagal menyimpan tryout. Coba lagi.';
@@ -185,7 +197,7 @@ const ManageTryout = () => {
   const handleSelectPackage = (pkg) => {
     setSelectedPackage({
       ...pkg,
-      subject_config: ensureArray(pkg.subject_config)
+      subject_config: ensureArray(pkg.subject_config, true)
     });
   };
 
@@ -430,10 +442,10 @@ const ManageTryout = () => {
         {/* Dynamic Header */}
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
-            <h1 className="text-[48px] font-bold text-[#191b24] mb-2 leading-tight">
+            <h1 className="text-[28px] sm:text-[40px] lg:text-[48px] font-bold text-[#191b24] mb-2 leading-tight">
               {selectedPackage ? `Manage Subtests: ${selectedPackage.title}` : 'Kelola Tryout'}
             </h1>
-            <p className="text-[18px] text-[#424656] max-w-2xl leading-relaxed">
+            <p className="text-[15px] sm:text-[18px] text-[#424656] max-w-2xl leading-relaxed">
               {selectedPackage 
                 ? `Configure the 7 subtests for ${selectedPackage.title}. Define question quotas and individual time limits.`
                 : 'Manage national simulation packages. Configure subtests, duration, and question distribution for upcoming exams.'}
@@ -482,8 +494,8 @@ const ManageTryout = () => {
                           <span className="inline-block px-3 py-1 rounded-lg bg-[#f2f3ff] text-[#0050cb] text-[10px] font-bold uppercase tracking-widest">
                             National Selection
                           </span>
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${pkg.is_public ? 'bg-[#dcfce7] text-[#166534] border-[#bbf7d0]' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                            {pkg.is_public ? 'Active' : 'Draft'}
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${pkg.is_active ? 'bg-[#dcfce7] text-[#166534] border-[#bbf7d0]' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                            {pkg.is_active ? 'Active' : 'Draft'}
                           </span>
                           <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
                             pkg.required_plan === 'sultan' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
@@ -545,7 +557,7 @@ const ManageTryout = () => {
                         </div>
                         <div>
                           <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Subtests</p>
-                          <p className="text-[15px] font-extrabold text-[#191b24]">{ensureArray(pkg.subject_config).length} Modules</p>
+                          <p className="text-[15px] font-extrabold text-[#191b24]">{ensureArray(pkg.subject_config, true).length} Modules</p>
                         </div>
                       </div>
                     </div>
@@ -579,7 +591,7 @@ const ManageTryout = () => {
           /* VIEW 2: Subtest List for Selected Package */
           <section className="animate-fade-in-up">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {ensureArray(selectedPackage.subject_config).map((sub, idx) => (
+              {ensureArray(selectedPackage.subject_config, true).map((sub, idx) => (
                 <div key={idx} className="bg-white rounded-[32px] border border-[#c2c6d8]/30 p-8 hover:shadow-xl transition-all group relative overflow-hidden">
                   <div className="flex justify-between items-start mb-6">
                     <div className="w-14 h-14 rounded-2xl bg-[#dae1ff] flex items-center justify-center text-[#0050cb]">
@@ -693,11 +705,16 @@ const ManageTryout = () => {
                     <input
                       type="checkbox"
                       className="w-6 h-6 rounded-md border-[#c2c6d8] text-[#0050cb] focus:ring-[#0050cb]"
-                      checked={formData.is_public}
-                      onChange={e => setFormData({...formData, is_public: e.target.checked})}
+                      checked={formData.is_active}
+                      onChange={e => setFormData({
+                        ...formData,
+                        is_active: e.target.checked,
+                        is_public: e.target.checked
+                      })}
                     />
                     <div>
-                      <span className="text-[18px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors">Publikasikan Paket</span>
+                      <span className="text-[18px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors">Aktifkan & Publikasikan Paket</span>
+                      <p className="text-[12px] text-[#727687]">Aktifkan paket agar dapat diakses dan dilihat oleh pengguna.</p>
                     </div>
                   </label>
                   <div>
@@ -721,18 +738,6 @@ const ManageTryout = () => {
                     </div>
                     <p className="text-[12px] text-[#727687] mt-2">User harus punya paket ini untuk bisa ikut tryout.</p>
                   </div>
-                  <label className="flex items-center gap-3 cursor-pointer p-6 bg-white rounded-[32px] border border-[#c2c6d8]/20 shadow-sm w-full group hover:border-[#0050cb] transition-all">
-                    <input
-                      type="checkbox"
-                      className="w-6 h-6 rounded-md border-[#c2c6d8] text-[#0050cb] focus:ring-[#0050cb]"
-                      checked={!!formData.is_active}
-                      onChange={e => setFormData({...formData, is_active: e.target.checked})}
-                    />
-                    <div>
-                      <span className="text-[18px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors">Aktifkan Paket</span>
-                      <p className="text-[12px] text-[#727687]">Nonaktifkan untuk menyembunyikan paket dari pengguna.</p>
-                    </div>
-                  </label>
                 </div>
               </div>
 
@@ -742,7 +747,7 @@ const ManageTryout = () => {
                   Konfigurasi 7 Subtes UTBK
                 </h3>
                 <div className="space-y-5">
-                  {ensureArray(formData.subject_config).map((sub, idx) => (
+                  {ensureArray(formData.subject_config, true).map((sub, idx) => (
                     <div key={idx} className="bg-white p-8 rounded-[32px] border border-[#c2c6d8]/10 shadow-sm flex flex-wrap lg:flex-nowrap items-center gap-8 hover:shadow-md transition-shadow">
                       <div className="flex-1 min-w-[240px]">
                         <span className="text-[11px] font-bold text-[#0050cb] uppercase tracking-[0.2em] block mb-2">Subtes {idx + 1}</span>

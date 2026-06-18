@@ -8,6 +8,7 @@ import QuestionGrid from '../components/tryout/QuestionGrid';
 import Calculator from '../components/tryout/Calculator';
 import MathText from '../components/MathText';
 import ZoomableImage from '../components/ui/ZoomableImage';
+import ExitConfirmModal from '../components/ExitConfirmModal';
 
 const TryoutSessionUM = () => {
   const { ujianId, tryoutId } = useParams();
@@ -27,6 +28,8 @@ const TryoutSessionUM = () => {
   const [showNavDrawer, setShowNavDrawer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [pendingExitPath, setPendingExitPath] = useState(null);
   const timerRef = useRef(null);
 
   const answersRef = useRef(answers);
@@ -70,6 +73,7 @@ const TryoutSessionUM = () => {
           const startRes = await ujianMandiriService.startTryout(tryoutId);
           currentSessionId = startRes.data.data.session_id;
           const duration = startRes.data.data.duration || 60;
+          const wasResumed = startRes.data.data.resumed === true;
 
           // Save session info to localStorage
           localStorage.setItem(LS_SESSION, JSON.stringify({
@@ -79,9 +83,14 @@ const TryoutSessionUM = () => {
             startedAt: new Date().toISOString()
           }));
 
-          // Set initial timer
-          setTimeLeft(duration * 60);
-          localStorage.setItem(LS_TIMER, String(duration * 60));
+          // If backend resumed an existing session, treat it as resuming
+          if (wasResumed) {
+            isResuming = true;
+          } else {
+            // Set initial timer only for truly new sessions
+            setTimeLeft(duration * 60);
+            localStorage.setItem(LS_TIMER, String(duration * 60));
+          }
         }
 
         setSessionId(currentSessionId);
@@ -106,7 +115,23 @@ const TryoutSessionUM = () => {
         if (isResuming) {
           try {
             const savedAnswers = localStorage.getItem(LS_ANSWERS);
-            if (savedAnswers) setAnswers(JSON.parse(savedAnswers));
+            if (savedAnswers) {
+              setAnswers(JSON.parse(savedAnswers));
+            } else {
+              // Fallback: restore answers from server DB if localStorage was empty
+              const serverAnswers = {};
+              const serverFlagged = {};
+              fetchedQuestions.forEach((q, idx) => {
+                if (q.chosen_choice_id) {
+                  serverAnswers[idx] = q.chosen_choice_id;
+                }
+                if (q.is_flagged) {
+                  serverFlagged[idx] = true;
+                }
+              });
+              if (Object.keys(serverAnswers).length > 0) setAnswers(serverAnswers);
+              if (Object.keys(serverFlagged).length > 0) setFlagged(serverFlagged);
+            }
 
             const savedFlagged = localStorage.getItem(LS_FLAGGED);
             if (savedFlagged) setFlagged(JSON.parse(savedFlagged));
@@ -132,10 +157,26 @@ const TryoutSessionUM = () => {
                 setTimeLeft(0);
               }
             } else {
-              setTimeLeft((pkg.duration || 60) * 60);
+              // Calculate remaining time from server started_at
+              const serverStartedAt = pkg.started_at;
+              const totalSeconds = (pkg.duration || 60) * 60;
+              if (serverStartedAt) {
+                const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+                setTimeLeft(Math.max(totalSeconds - elapsed, 0));
+              } else {
+                setTimeLeft(totalSeconds);
+              }
             }
           } catch {
-            setTimeLeft((pkg.duration || 60) * 60);
+            // Calculate remaining time from server started_at on error
+            const serverStartedAt = pkg.started_at;
+            const totalSeconds = (pkg.duration || 60) * 60;
+            if (serverStartedAt) {
+              const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+              setTimeLeft(Math.max(totalSeconds - elapsed, 0));
+            } else {
+              setTimeLeft(totalSeconds);
+            }
           }
         } else {
           // New session — timer was already set above
@@ -349,9 +390,9 @@ const TryoutSessionUM = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8ff]/95 backdrop-blur-md border-b border-[#e0e2f0] shadow-sm">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="flex items-center">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-9" />
-            </Link>
+            <button onClick={() => { setPendingExitPath('/dashboard'); setShowExitModal(true); }} className="flex items-center">
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-9 cursor-pointer" />
+            </button>
             <div className="hidden sm:flex items-center gap-1.5 text-[13px] font-semibold text-[#0050cb] bg-[#e8eeff] px-3 py-1 rounded-lg">
               <span className="material-symbols-outlined text-[16px]">school</span>
               {ujianName || 'Ujian Mandiri'}
@@ -565,6 +606,14 @@ const TryoutSessionUM = () => {
         total={totalQuestions}
       />
       {showCalculator && <Calculator onClose={() => setShowCalculator(false)} />}
+
+      <ExitConfirmModal
+        open={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        onConfirm={() => { setShowExitModal(false); navigate(pendingExitPath || '/dashboard'); }}
+        title="Yakin ingin keluar dari tryout?"
+        message="Tryout dapat dilanjutkan kembali nanti."
+      />
     </div>
   );
 };

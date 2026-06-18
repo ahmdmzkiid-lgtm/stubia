@@ -358,9 +358,32 @@ router.patch('/tryout-registrations/:id', verifyToken, verifyAdmin, async (req, 
       [status, status === 'rejected' ? rejection_reason : null, id]
     );
 
+    const reg = result.rows[0];
+    
+    // Retrieve user and package details to send notification email
+    const detailRes = await pool.query(`
+      SELECT u.name, u.email, COALESCE(tp.title, utp.title) as package_title
+      FROM users u
+      LEFT JOIN tryout_packages tp ON tp.id = $2
+      LEFT JOIN um_tryout_packages utp ON utp.id = $3
+      WHERE u.id = $1
+    `, [reg.user_id, reg.utbk_package_id, reg.um_package_id]);
+
+    if (detailRes.rows.length > 0) {
+      const detail = detailRes.rows[0];
+      const { sendTryoutRegistrationApprovedEmail, sendTryoutRegistrationRejectedEmail } = require('../services/emailService');
+      if (status === 'approved') {
+        sendTryoutRegistrationApprovedEmail(detail.email, detail.name, detail.package_title, reg.package_type)
+          .catch(err => console.error('Tryout approved email error:', err));
+      } else if (status === 'rejected') {
+        sendTryoutRegistrationRejectedEmail(detail.email, detail.name, detail.package_title, rejection_reason)
+          .catch(err => console.error('Tryout rejected email error:', err));
+      }
+    }
+
     res.json({
       success: true,
-      data: result.rows[0],
+      data: reg,
       message: `Pendaftaran berhasil ${status === 'approved' ? 'disetujui' : 'ditolak'}.`
     });
   } catch (error) {
@@ -457,7 +480,7 @@ router.get('/activity/stream', ensureAdminFromAny, async (req, res) => {
 });
 
 // ──────────────────────────────────
-// Tim Eduzet CRUD (Admin)
+// Tim Stubia CRUD (Admin)
 // ──────────────────────────────────
 
 // GET /api/admin/team - List all team members
@@ -580,6 +603,163 @@ router.post('/api-keys-reset', verifyToken, verifyAdmin, async (req, res, next) 
       success: false,
       error: error.message || 'Failed to reset API keys'
     });
+  }
+});
+
+// GET /api/admin/questions/duplicates - Find all duplicate questions in both UTBK and UM
+router.get('/questions/duplicates', verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    const utbkDuplicates = await pool.query(`
+      SELECT q.content_hash, COUNT(*) as duplicate_count, 
+             json_agg(
+               json_build_object(
+                 'id', q.id,
+                 'content', q.content,
+                 'difficulty', q.difficulty,
+                 'subject_name', s.name
+               )
+             ) as questions_list
+      FROM questions q
+      LEFT JOIN subjects s ON q.subject_id = s.id
+      WHERE q.content_hash IS NOT NULL
+      GROUP BY q.content_hash
+      HAVING COUNT(*) > 1
+      ORDER BY duplicate_count DESC
+    `);
+
+    const umDuplicates = await pool.query(`
+      SELECT q.content_hash, COUNT(*) as duplicate_count, 
+             json_agg(
+               json_build_object(
+                 'id', q.id,
+                 'content', q.content,
+                 'difficulty', q.difficulty,
+                 'package_title', tp.title,
+                 'latihan_title', ls.title
+               )
+             ) as questions_list
+      FROM um_questions q
+      LEFT JOIN um_tryout_packages tp ON q.tryout_package_id = tp.id
+      LEFT JOIN um_latihan_soal ls ON q.latihan_id = ls.id
+      WHERE q.content_hash IS NOT NULL
+      GROUP BY q.content_hash
+      HAVING COUNT(*) > 1
+      ORDER BY duplicate_count DESC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        utbk: utbkDuplicates.rows,
+        um: umDuplicates.rows
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/todos - List all todo items
+router.get('/todos', verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        t.*,
+        c.name as creator_name,
+        c.email as creator_email,
+        a.name as assigned_name,
+        a.email as assigned_email
+      FROM admin_todos t
+      LEFT JOIN users c ON t.created_by = c.id
+      LEFT JOIN users a ON t.assigned_to = a.id
+      ORDER BY t.due_date ASC, t.created_at DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/admin/todos - Create a new todo item
+router.post('/todos', verifyToken, verifyAdmin, async (req, res, next) => {
+  const { title, description, assigned_to, due_date } = req.body;
+  const created_by = req.user.id;
+  try {
+    if (!title) {
+      return res.status(400).json({ success: false, error: 'Title is required' });
+    }
+    const result = await pool.query(
+      `INSERT INTO admin_todos (title, description, assigned_to, due_date, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [title, description || null, assigned_to || null, due_date || null, created_by]
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/admin/todos/:id - Update todo item status/details
+router.patch('/todos/:id', verifyToken, verifyAdmin, async (req, res, next) => {
+  const { id } = req.params;
+  const { title, description, assigned_to, due_date, status } = req.body;
+  try {
+    const fields = [];
+    const values = [];
+    let valIdx = 1;
+
+    if (title !== undefined) {
+      fields.push(`title = $${valIdx++}`);
+      values.push(title);
+    }
+    if (description !== undefined) {
+      fields.push(`description = $${valIdx++}`);
+      values.push(description);
+    }
+    if (assigned_to !== undefined) {
+      fields.push(`assigned_to = $${valIdx++}`);
+      values.push(assigned_to);
+    }
+    if (due_date !== undefined) {
+      fields.push(`due_date = $${valIdx++}`);
+      values.push(due_date);
+    }
+    if (status !== undefined) {
+      fields.push(`status = $${valIdx++}`);
+      values.push(status);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const query = `UPDATE admin_todos SET ${fields.join(', ')} WHERE id = $${valIdx} RETURNING *`;
+    const result = await pool.query(query, values);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Todo not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/admin/todos/:id - Delete todo item
+router.delete('/todos/:id', verifyToken, verifyAdmin, async (req, res, next) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM admin_todos WHERE id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Todo not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
   }
 });
 

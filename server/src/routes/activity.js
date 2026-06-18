@@ -455,35 +455,33 @@ router.get('/', verifyToken, async (req, res, next) => {
       LIMIT 10
     `;
 
-    // Get recent latihan topics (subjects user has answered questions in)
+    // Get recent latihan sessions for this user
     const latihanSql = `
       SELECT
-        s.id,
+        ls.id,
         'latihan' as type,
-        s.name,
+        COALESCE(s.name, ls.subject_name) as name,
         s.bg_color,
         s.icon_color,
         s.icon,
-        NOW() as started_at,
-        NULL as submitted_at,
-        NULL as score,
-        NULL as score_breakdown,
-        50 as progress
-      FROM subjects s
-      WHERE s.id IN (
-        SELECT DISTINCT q.subject_id
-        FROM questions q
-        JOIN user_answers ua ON ua.question_id = q.id
-        WHERE ua.session_id IS NULL
-        ORDER BY q.created_at DESC
-        LIMIT 5
-      )
-      ORDER BY started_at DESC
+        ls.created_at as started_at,
+        ls.submitted_at,
+        ls.irt_score as score,
+        ls.score_breakdown,
+        ls.correct_count,
+        ls.total_questions,
+        ls.subject_id,
+        ls.topic_id
+      FROM latihan_sessions ls
+      LEFT JOIN subjects s ON s.id = ls.subject_id
+      WHERE ls.user_id = $1
+      ORDER BY ls.created_at DESC
+      LIMIT 10
     `;
 
     const [tryoutResult, latihanResult, umTryoutResult] = await Promise.all([
       pool.query(tryoutSql, [userId]),
-      pool.query(latihanSql),
+      pool.query(latihanSql, [userId]),
       pool.query(umTryoutSql, [userId])
     ]);
 
@@ -569,18 +567,25 @@ router.get('/', verifyToken, async (req, res, next) => {
     });
 
     // Format Latihan results
-    const latihanActivities = latihanResult.rows.map(row => ({
-      id: row.id,
-      type: 'latihan',
-      name: row.name || row.subject_name || 'Latihan Topik',
-      progress: 50,
-      score: null,
-      startedAt: row.started_at,
-      submittedAt: null,
-      bgColor: row.bg_color || '#ffdbd0',
-      iconColor: row.icon_color || '#a33200',
-      icon: row.icon || 'school'
-    }));
+    const latihanActivities = latihanResult.rows.map(row => {
+      const progress = row.total_questions > 0
+        ? Math.round((row.correct_count / row.total_questions) * 100)
+        : 0;
+      return {
+        id: row.id,
+        type: 'latihan',
+        name: row.name || 'Latihan Topik',
+        progress,
+        score: row.score,
+        subjectId: row.subject_id,
+        topicId: row.topic_id,
+        startedAt: row.started_at,
+        submittedAt: row.submitted_at,
+        bgColor: row.bg_color || '#ffdbd0',
+        iconColor: row.icon_color || '#a33200',
+        icon: row.icon || 'school'
+      };
+    });
 
     // Combine and sort by date
     const allActivities = [...tryoutActivities, ...latihanActivities, ...umActivities]

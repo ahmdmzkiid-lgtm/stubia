@@ -66,7 +66,7 @@ export default function ContactUs() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">Email</h3>
-              <p className="text-gray-600">eduzetsupport@gmail.com</p>
+              <p className="text-gray-600">stubiasupport@gmail.com</p>
             </div>
           </div>
 
@@ -241,7 +241,7 @@ export default function ContactUs() {
         <div className="bg-gray-50 p-6 rounded-lg">
           <h3 className="text-lg font-semibold text-gray-900 mb-3">Bagaimana cara melaporkan masalah?</h3>
           <p className="text-gray-600">
-            Anda dapat melaporkan masalah teknis melalui email eduzetsupport@gmail.com dengan detail lengkap 
+            Anda dapat melaporkan masalah teknis melalui email stubiasupport@gmail.com dengan detail lengkap 
             tentang masalah yang Anda hadapi.
           </p>
         </div>

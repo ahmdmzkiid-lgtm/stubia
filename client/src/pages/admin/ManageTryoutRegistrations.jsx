@@ -5,12 +5,10 @@ import toast from 'react-hot-toast';
 const ManageTryoutRegistrations = () => {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState(''); // '' for all, 'pending', 'approved', 'rejected'
+  const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 10 });
   
-  // Lightbox and Reject Modal states
-  const [selectedImage, setSelectedImage] = useState(null);
   const [rejectingItem, setRejectingItem] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [submittingAction, setSubmittingAction] = useState(false);
@@ -122,19 +120,12 @@ const ManageTryoutRegistrations = () => {
     );
   };
 
-  // Helper to get screenshot URLs with fallback for old data
-  const getScreenshots = (reg) => {
-    const followUrl = reg.screenshot_follow_url || reg.screenshot_url;
-    const repostUrl = reg.screenshot_repost_url;
-    return { followUrl, repostUrl };
-  };
-
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Title & Page Header */}
       <div>
         <h1 className="text-[32px] font-bold text-[#191b24] mb-2 leading-tight">Verifikasi Pendaftaran Tryout</h1>
-        <p className="text-[#424656] text-[16px]">Tinjau dan verifikasi bukti screenshot pendaftaran tryout dari pengguna Free Plan.</p>
+        <p className="text-[#424656] text-[16px]">Tinjau dan verifikasi pendaftaran tryout dari pengguna Free Plan.</p>
       </div>
 
       {/* Filters Tab Bar */}
@@ -182,132 +173,126 @@ const ManageTryoutRegistrations = () => {
                   <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Pengguna</th>
                   <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Email & Platform</th>
                   <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Paket Tryout</th>
-                  <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">SS Follow</th>
-                  <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">SS Repost</th>
+                  <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Username Sosmed</th>
+                  <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Link Komentar</th>
                   <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[12px] font-bold text-[#424656] uppercase tracking-widest text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#c2c6d8]/10">
-                {registrations.map((reg) => {
-                  const { followUrl, repostUrl } = getScreenshots(reg);
-                  return (
-                    <tr key={reg.id} className="hover:bg-[#f2f3ff]/20 transition-colors">
-                      {/* User */}
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#0050cb]/10 text-[#0050cb] font-bold flex items-center justify-center">
-                            {reg.user_name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-bold text-[15px] text-[#191b24]">{reg.user_name}</p>
-                            <p className="text-[12px] text-[#727687]">{reg.user_email}</p>
-                          </div>
+                {registrations.map((reg) => (
+                  <tr key={reg.id} className="hover:bg-[#f2f3ff]/20 transition-colors">
+                    {/* User */}
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#0050cb]/10 text-[#0050cb] font-bold flex items-center justify-center">
+                          {reg.user_name?.charAt(0).toUpperCase()}
                         </div>
-                      </td>
-
-                      {/* Contact Email + Platform */}
-                      <td className="px-6 py-5">
-                        <span className="text-[14px] text-[#191b24] font-medium block mb-1">{reg.contact_email}</span>
-                        {getPlatformBadge(reg.platform || 'instagram')}
-                      </td>
-
-                      {/* Tryout Package */}
-                      <td className="px-6 py-5">
                         <div>
-                          <p className="font-bold text-[14px] text-[#191b24]">{reg.package_title}</p>
-                          <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 mt-0.5 rounded-full ${
-                            reg.package_type === 'utbk' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
-                          }`}>
-                            {reg.package_type === 'utbk' ? 'UTBK' : 'Ujian Mandiri'}
-                          </span>
+                          <p className="font-bold text-[15px] text-[#191b24]">{reg.user_name}</p>
+                          <p className="text-[12px] text-[#727687]">{reg.user_email}</p>
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Screenshot Follow */}
-                      <td className="px-6 py-5">
-                        {followUrl ? (
-                          <div 
-                            className="relative w-14 h-14 rounded-lg overflow-hidden border border-[#c2c6d8]/50 cursor-zoom-in hover:scale-105 transition-transform"
-                            onClick={() => setSelectedImage(followUrl)}
-                          >
-                            <img src={followUrl} alt="Follow proof" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/10 hover:bg-black/0 transition-colors" />
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] font-bold text-center py-0.5">FOLLOW</div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[#c2c6d8]">—</span>
+                    {/* Contact Email + Platform */}
+                    <td className="px-6 py-5">
+                      <span className="text-[14px] text-[#191b24] font-medium block mb-1">{reg.contact_email}</span>
+                      {getPlatformBadge(reg.platform || 'instagram')}
+                    </td>
+
+                    {/* Tryout Package */}
+                    <td className="px-6 py-5">
+                      <div>
+                        <p className="font-bold text-[14px] text-[#191b24]">{reg.package_title}</p>
+                        <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 mt-0.5 rounded-full ${
+                          reg.package_type === 'utbk' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                        }`}>
+                          {reg.package_type === 'utbk' ? 'UTBK' : 'Ujian Mandiri'}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Username Sosmed */}
+                    <td className="px-6 py-5">
+                      {reg.social_username ? (
+                        <span className="font-mono text-[14px] text-[#0050cb] font-semibold">
+                          @{reg.social_username.replace(/^@/, '')}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[#c2c6d8]">—</span>
+                      )}
+                    </td>
+
+                    {/* Link Komentar */}
+                    <td className="px-6 py-5">
+                      {reg.comment_link ? (
+                        <a
+                          href={reg.comment_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[13px] text-[#0050cb] hover:underline font-medium inline-flex items-center gap-1 max-w-[200px]"
+                          title={reg.comment_link}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                          <span className="truncate">{reg.comment_link.length > 30 ? reg.comment_link.slice(0, 30) + '…' : reg.comment_link}</span>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-[#c2c6d8]">—</span>
+                      )}
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="px-6 py-5">
+                      <div>
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusBadgeClass(reg.status)}`}>
+                          {reg.status === 'pending' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />}
+                          {reg.status === 'approved' ? 'Disetujui' : reg.status === 'rejected' ? 'Ditolak' : 'Menunggu'}
+                        </span>
+                        {reg.status === 'rejected' && reg.rejection_reason && (
+                          <p className="text-xs text-red-500 mt-1 max-w-[180px] truncate" title={reg.rejection_reason}>
+                            Reason: {reg.rejection_reason}
+                          </p>
                         )}
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Screenshot Repost */}
-                      <td className="px-6 py-5">
-                        {repostUrl ? (
-                          <div 
-                            className="relative w-14 h-14 rounded-lg overflow-hidden border border-[#c2c6d8]/50 cursor-zoom-in hover:scale-105 transition-transform"
-                            onClick={() => setSelectedImage(repostUrl)}
-                          >
-                            <img src={repostUrl} alt="Repost proof" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/10 hover:bg-black/0 transition-colors" />
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] font-bold text-center py-0.5">REPOST</div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[#c2c6d8]">—</span>
-                        )}
-                      </td>
-
-                      {/* Status Badge */}
-                      <td className="px-6 py-5">
-                        <div>
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold capitalize ${getStatusBadgeClass(reg.status)}`}>
-                            {reg.status === 'pending' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />}
-                            {reg.status === 'approved' ? 'Disetujui' : reg.status === 'rejected' ? 'Ditolak' : 'Menunggu'}
-                          </span>
-                          {reg.status === 'rejected' && reg.rejection_reason && (
-                            <p className="text-xs text-red-500 mt-1 max-w-[180px] truncate" title={reg.rejection_reason}>
-                              Reason: {reg.rejection_reason}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Action buttons */}
-                      <td className="px-6 py-5">
-                        <div className="flex items-center justify-center gap-2">
-                          {reg.status === 'pending' ? (
-                            <>
-                              <button
-                                onClick={() => handleApprove(reg.id)}
-                                disabled={submittingAction}
-                                className="w-10 h-10 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-all border border-green-200"
-                                title="Setujui"
-                              >
-                                <span className="material-symbols-outlined text-[20px] font-bold">check</span>
-                              </button>
-                              <button
-                                onClick={() => setRejectingItem(reg)}
-                                disabled={submittingAction}
-                                className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-all border border-red-200"
-                                title="Tolak"
-                              >
-                                <span className="material-symbols-outlined text-[20px] font-bold">close</span>
-                              </button>
-                            </>
-                          ) : (
+                    {/* Action buttons */}
+                    <td className="px-6 py-5">
+                      <div className="flex items-center justify-center gap-2">
+                        {reg.status === 'pending' ? (
+                          <>
                             <button
-                              onClick={() => setDeletingItem(reg)}
+                              onClick={() => handleApprove(reg.id)}
+                              disabled={submittingAction}
+                              className="w-10 h-10 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-all border border-green-200"
+                              title="Setujui"
+                            >
+                              <span className="material-symbols-outlined text-[20px] font-bold">check</span>
+                            </button>
+                            <button
+                              onClick={() => setRejectingItem(reg)}
                               disabled={submittingAction}
                               className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-all border border-red-200"
-                              title="Hapus"
+                              title="Tolak"
                             >
-                              <span className="material-symbols-outlined text-[20px] font-bold">delete</span>
+                              <span className="material-symbols-outlined text-[20px] font-bold">close</span>
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => setDeletingItem(reg)}
+                            disabled={submittingAction}
+                            className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-all border border-red-200"
+                            title="Hapus"
+                          >
+                            <span className="material-symbols-outlined text-[20px] font-bold">delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -342,27 +327,6 @@ const ManageTryoutRegistrations = () => {
         )}
       </div>
 
-      {/* ── Lightbox Modal ── */}
-      {selectedImage && (
-        <div 
-          className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setSelectedImage(null)}
-        >
-          <button 
-            className="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
-            onClick={() => setSelectedImage(null)}
-          >
-            <span className="material-symbols-outlined text-[24px]">close</span>
-          </button>
-          <img 
-            src={selectedImage} 
-            alt="Proof enlarged" 
-            className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-
       {/* ── Reject Reason Modal ── */}
       {rejectingItem && (
         <div 
@@ -379,36 +343,33 @@ const ManageTryoutRegistrations = () => {
             </div>
             <div className="p-6 space-y-4">
               <p className="text-sm text-[#424656]">
-                Berikan alasan penolakan agar <strong>{rejectingItem.user_name}</strong> dapat memperbaiki bukti pendaftaran mereka.
+                Berikan alasan penolakan agar <strong>{rejectingItem.user_name}</strong> dapat memperbaiki pendaftaran mereka.
               </p>
               
-              {/* Show submitted screenshots for reference */}
-              {(() => {
-                const { followUrl, repostUrl } = getScreenshots(rejectingItem);
-                return (followUrl || repostUrl) ? (
-                  <div className="flex gap-3">
-                    {followUrl && (
-                      <div className="flex-1">
-                        <p className="text-[10px] font-bold text-[#727687] uppercase mb-1">SS Follow</p>
-                        <img src={followUrl} alt="Follow" className="w-full h-20 object-cover rounded-lg border border-[#c2c6d8]/30" />
-                      </div>
-                    )}
-                    {repostUrl && (
-                      <div className="flex-1">
-                        <p className="text-[10px] font-bold text-[#727687] uppercase mb-1">SS Repost</p>
-                        <img src={repostUrl} alt="Repost" className="w-full h-20 object-cover rounded-lg border border-[#c2c6d8]/30" />
-                      </div>
-                    )}
+              {/* Show submitted info for reference */}
+              <div className="p-3 rounded-xl bg-[#f2f3ff] border border-[#c2c6d8]/30 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="material-symbols-outlined text-[16px] text-[#0050cb]">person</span>
+                  <span className="font-mono text-[#0050cb] font-semibold">
+                    {rejectingItem.social_username ? `@${rejectingItem.social_username.replace(/^@/, '')}` : '—'}
+                  </span>
+                </div>
+                {rejectingItem.comment_link && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="material-symbols-outlined text-[16px] text-[#0050cb]">link</span>
+                    <a href={rejectingItem.comment_link} target="_blank" rel="noopener noreferrer" className="text-[#0050cb] hover:underline text-xs truncate max-w-[280px]">
+                      {rejectingItem.comment_link}
+                    </a>
                   </div>
-                ) : null;
-              })()}
+                )}
+              </div>
 
               <div>
                 <label className="text-xs font-bold text-[#727687] uppercase tracking-wider block mb-1.5">Alasan Penolakan</label>
                 <textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Misalnya: Screenshot tidak menampilkan postingan terbaru atau buram."
+                  placeholder="Misalnya: Username tidak ditemukan atau link komentar tidak valid."
                   rows={4}
                   className="w-full border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all placeholder:text-gray-400 bg-gray-50 border-[#c2c6d8]"
                   disabled={submittingAction}

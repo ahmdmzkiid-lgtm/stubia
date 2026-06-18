@@ -9,9 +9,9 @@ VALUES (
   'premium_um',
   'Premium Ujian Mandiri',
   'Fokus persiapan Ujian Mandiri (SIMAK UI, UTUL UGM, dll)',
-  15000,
+  30000,
   60,
-  '["Akses semua latihan mandiri", "Akses semua tryout mandiri", "Pembahasan lengkap & analisis"]',
+  '["Akses penuh latihan mandiri", "Akses penuh tryout mandiri", "Analisis & Pembahasan lengkap", "SIMAK UI, UTUL UGM, dll"]',
   false,
   4
 )

@@ -1,7 +1,7 @@
 {
-  "name": "eduzet-server",
+  "name": "stubia-server",
   "version": "1.0.0",
-  "description": "Eduzet UTBK Backend API",
+  "description": "Stubia UTBK Backend API",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",

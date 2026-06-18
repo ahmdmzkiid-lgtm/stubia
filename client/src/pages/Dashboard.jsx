@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { settingsService, subscriptionService, activityService } from '../services/api';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import ChatWidget from '../components/ChatWidget';
 import Footer from '../components/Footer';
-import NotificationDropdown from '../components/NotificationDropdown';
+import StudentNavbar from '../components/layout/StudentNavbar';
 
 const DEFAULT_SCHEDULE = [
   { day: 'SEN', date: '12', title: 'Tryout Penalaran Umum', time: '09:00 - 11:30', active: true },
@@ -18,125 +18,6 @@ const SUBJECTS = [
   { name: 'Pengetahuan Kuantitatif', progress: 55, icon: 'calculate', sub: 'Matematika Dasar' },
 ];
 
-const ScrollNavbar = ({ user, isAdmin, onLogout }) => {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 60);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-  const base = scrolled ? 'bg-[#f2f3ff]/90 shadow-sm' : 'bg-transparent';
-  const txt = scrolled ? 'text-[#0050cb]' : 'text-white';
-  const txt2 = scrolled ? 'text-[#424656]' : 'text-white/80';
-  const links = [
-    { to: '/dashboard', label: 'Dashboard', active: true },
-    { to: '/latihan', label: 'Latihan' },
-    { to: '/tryout/packages', label: 'Tryout' },
-    { to: '/battle', label: 'Battle' },
-    { to: '/riwayat', label: 'Riwayat' },
-    { to: '/prediksi-skor', label: 'Prediksi Skor' },
-    { to: '/ujian-mandiri', label: 'Ujian Mandiri' },
-  ];
-  return (
-    <>
-    <header className={`fixed top-0 z-[100] w-full backdrop-blur-md transition-all duration-300 ${base}`}>
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-        <div className="flex items-center gap-6 xl:gap-12">
-          <div>
-            <Link to="/dashboard" className="flex items-center">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-10 md:h-12" />
-            </Link>
-          </div>
-          <nav className="hidden lg:flex items-center gap-1">
-            {links.map(l => (
-              <Link key={l.to} to={l.to} className={`px-4 py-2 text-[14px] font-medium transition-colors ${l.active ? `${txt} font-bold` : txt2}`}>{l.label}</Link>
-            ))}
-            {isAdmin && <Link to="/admin" className={`px-4 py-2 text-[14px] font-medium ${scrolled ? 'text-[#a33200]' : 'text-[#ffb59d]'}`}>Admin Panel</Link>}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3 sm:gap-4">
-          <NotificationDropdown iconClassName={`${txt2} hover:bg-white/10`} />
-          <div className={`hidden sm:flex items-center gap-3 pl-4 border-l ${scrolled ? 'border-[#c2c6d8]/30' : 'border-white/20'}`}>
-            <div className="hidden sm:flex flex-col items-center justify-center">
-              <p className={`text-[14px] font-medium ${scrolled ? 'text-[#191b24]' : 'text-white'}`}>{user?.name?.split(' ')[0]}</p>
-              <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                user?.current_plan === 'sultan' ? 'bg-yellow-400/20 text-yellow-600' :
-                user?.current_plan === 'premium' ? 'bg-blue-500/20 text-blue-500' :
-                user?.current_plan === 'premium_um' ? 'bg-teal-500/20 text-teal-600' :
-                (scrolled ? 'bg-gray-200/60 text-gray-500' : 'bg-white/15 text-white/70')
-              }`}>
-                <span className="material-symbols-outlined text-[10px]">
-                  {user?.current_plan === 'sultan' ? 'star' : user?.current_plan === 'premium' ? 'diamond' : user?.current_plan === 'premium_um' ? 'target' : 'person'}
-                </span>
-                {user?.current_plan === 'sultan' ? 'Sultan' : user?.current_plan === 'premium' ? 'Premium' : user?.current_plan === 'premium_um' ? 'Premium UM' : 'Gratis'}
-              </span>
-            </div>
-            <div className={`relative w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-sm border-2 ${
-              user?.current_plan === 'sultan' ? 'border-yellow-400' : user?.current_plan === 'premium' ? 'border-blue-400' : user?.current_plan === 'premium_um' ? 'border-teal-400' : 'border-[#dae1ff]'
-            }`}>
-              {user?.name?.charAt(0)?.toUpperCase()}
-              {(user?.current_plan === 'premium' || user?.current_plan === 'premium_um' || user?.current_plan === 'sultan') && (
-                <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] ${
-                  user?.current_plan === 'sultan' ? 'bg-yellow-400 text-yellow-900' : user?.current_plan === 'premium_um' ? 'bg-teal-500 text-white' : 'bg-blue-500 text-white'
-                }`}>
-                  <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {user?.current_plan === 'sultan' ? 'star' : user?.current_plan === 'premium_um' ? 'target' : 'diamond'}
-                  </span>
-                </span>
-              )}
-            </div>
-            <button onClick={onLogout} className={`flex items-center justify-center w-10 h-10 rounded-full transition-all hover:bg-red-500/10 hover:text-red-500 ${txt2}`} title="Logout">
-              <span className="material-symbols-outlined text-[20px]">logout</span>
-            </button>
-          </div>
-          {/* Hamburger for mobile */}
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className={`lg:hidden flex items-center justify-center w-10 h-10 rounded-full transition-all ${txt2}`}>
-            <span className="material-symbols-outlined text-[24px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
-          </button>
-        </div>
-      </div>
-    </header>
-    {/* Mobile menu overlay */}
-    {mobileMenuOpen && (
-      <div className="fixed inset-0 z-[99] bg-black/50 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)}>
-        <div className="absolute top-0 left-0 right-0 bg-white rounded-b-[32px] shadow-2xl p-6 pt-20 animate-slide-down" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-8">
-            <Link to="/dashboard" className="flex items-center"><img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8" /></Link>
-            <button onClick={() => setMobileMenuOpen(false)} className="w-10 h-10 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656]">
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          <nav className="flex flex-col gap-2">
-            {links.map(l => (
-              <Link key={l.to} to={l.to} onClick={() => setMobileMenuOpen(false)} className={`px-5 py-4 rounded-2xl text-[16px] font-bold transition-colors ${l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'}`}>{l.label}</Link>
-            ))}
-            {isAdmin && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="px-5 py-4 rounded-2xl text-[16px] font-bold text-[#a33200] hover:bg-[#f2f3ff]">Admin Panel</Link>}
-          </nav>
-          <hr className="my-6 border-[#c2c6d8]/30" />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-lg">
-                {user?.name?.charAt(0)?.toUpperCase()}
-              </div>
-              <div>
-                <p className="text-[15px] font-bold text-[#191b24]">{user?.name?.split(' ')[0]}</p>
-                <span className="text-[12px] font-bold uppercase text-[#727687]">
-                  {user?.current_plan === 'premium_um' ? 'Premium UM' : (user?.current_plan || 'Gratis')}
-                </span>
-              </div>
-            </div>
-            <button onClick={() => { setMobileMenuOpen(false); onLogout(); }} className="px-6 py-3 rounded-xl text-[14px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2 border border-red-100">
-              <span className="material-symbols-outlined text-[18px]">logout</span> Keluar
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    </>
-  );
-};
-
 const Dashboard = () => {
   const { user, isAdmin, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -144,7 +25,7 @@ const Dashboard = () => {
   const [banner, setBanner] = useState({
     banner_image_url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=80',
     banner_title: 'Raih Skor UTBK Terbaikmu',
-    banner_subtitle: 'Bergabung dengan 50.000+ pelajar yang telah mempersiapkan UTBK bersama Eduzet.',
+    banner_subtitle: 'Bergabung dengan 50.000+ pelajar yang telah mempersiapkan UTBK bersama Stubia.',
   });
   const [schedule, setSchedule] = useState(DEFAULT_SCHEDULE);
   const [plans, setPlans] = useState([]);
@@ -312,8 +193,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen text-[#191b24]" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#faf8ff' }}>
-      <Toaster position="top-right" />
-      <ScrollNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
+      <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} transparent={true} />
 
       {/* ── HERO BANNER (full-screen) ── */}
       <section className="relative h-screen w-full flex items-center overflow-hidden">
@@ -422,7 +302,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card 3: Konsultasi Kak Z */}
+            {/* Card 3: Konsultasi Bia */}
             <div className="bg-gradient-to-br from-[#f0f4ff] to-[#e8eeff] rounded-xl p-6 shadow-[0_4px_20px_rgba(0,102,255,0.04)] border border-[#c2c6d8] flex flex-col hover:-translate-y-1 transition-transform duration-300">
               <div className="flex justify-between items-start mb-6">
                 <div className="w-12 h-12 bg-[#0050cb]/10 text-[#0050cb] flex items-center justify-center rounded-xl">
@@ -432,7 +312,7 @@ const Dashboard = () => {
                   <div className="text-[12px] leading-4 font-semibold text-[#424656] uppercase tracking-wider">AI Chatbot</div>
                 </div>
               </div>
-              <h3 className="text-[24px] font-semibold leading-8 mb-2 text-[#191b24]">Konsultasi dengan Kak Z</h3>
+              <h3 className="text-[24px] font-semibold leading-8 mb-2 text-[#191b24]">Konsultasi dengan Bia</h3>
               <p className="text-[16px] leading-6 text-[#424656] mb-4">Dapatkan rekomendasi belajar dan informasi Perguruan Tinggi Negeri dari AI tutor.</p>
               <ul className="text-[14px] text-[#727687] mb-6 space-y-2">
                 <li className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-[#0050cb]">check_circle</span> Rekomendasi strategi belajar</li>
@@ -510,7 +390,7 @@ const Dashboard = () => {
                 <p className="text-[#424656] text-[14px] leading-5 font-medium">Fokus persiapan Ujian Mandiri</p>
               </div>
               <div className="my-4 flex items-baseline">
-                <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#191b24]">Rp15.000</span>
+                <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#191b24]">Rp30.000</span>
                 <span className="text-[#424656] text-[14px] sm:text-[16px] leading-6 ml-1">/2 bulan</span>
               </div>
               <hr className="border-teal-500/20 my-4" />
@@ -547,7 +427,7 @@ const Dashboard = () => {
                 <p className="text-[#c2c6d8] text-[14px] leading-5 font-medium">Persiapan UTBK terlengkap</p>
               </div>
               <div className="my-4 flex items-baseline">
-                <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#faf8ff]">Rp60.000</span>
+                <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#faf8ff]">Rp160.000</span>
                 <span className="text-[#c2c6d8] text-[14px] sm:text-[16px] leading-6 ml-1">/tahun</span>
               </div>
               <hr className="border-[#424656]/30 my-4" />

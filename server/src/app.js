@@ -8,6 +8,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { initializeDatabase } = require('./config/db');
+const { populateQuestionHashes } = require('./utils/populateQuestionHashes');
 
 const app = express();
 
@@ -45,9 +46,9 @@ const subscriptionRoutes = require('./routes/subscription');
 const battleRoutes = require('./routes/battle');
 const uploadRoutes = require('./routes/upload');
 const ujianMandiriRoutes = require('./routes/ujianMandiri');
-const notificationRoutes = require('./routes/notifications');
 const socialRoutes = require('./routes/social');
 const teamRoutes = require('./routes/team');
+const vouchersRoutes = require('./routes/vouchers');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -65,9 +66,9 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/battle', battleRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ujian-mandiri', ujianMandiriRoutes);
-app.use('/api/notifications', notificationRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/team', teamRoutes);
+app.use('/api/vouchers', vouchersRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -83,6 +84,7 @@ const PORT = process.env.PORT || 3001;
 async function startServer() {
   try {
     await initializeDatabase();
+    await populateQuestionHashes();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });

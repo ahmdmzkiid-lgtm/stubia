@@ -24,7 +24,7 @@ router.post('/', verifyToken, async (req, res, next) => {
   }
 });
 
-// Discuss a specific question with Kak Z
+// Discuss a specific question with Stu
 router.post('/discuss', verifyToken, async (req, res, next) => {
   try {
     const { message, questionContext, history } = req.body;
@@ -50,7 +50,7 @@ router.post('/discuss', verifyToken, async (req, res, next) => {
   }
 });
 
-// Konsultasi belajar & PTN with Kak Z
+// Konsultasi belajar & PTN with Stu
 router.post('/konsultasi', verifyToken, async (req, res, next) => {
   try {
     const { message, history } = req.body;

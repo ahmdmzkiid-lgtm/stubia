@@ -25,12 +25,42 @@ router.patch('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
 // Delete topic
 router.delete('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    const result = await pool.query('DELETE FROM topics WHERE id = $1 RETURNING *', [id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Topic not found' });
-    res.json({ success: true, message: 'Topic deleted' });
+    await client.query('BEGIN');
+
+    // 1. Delete bookmarks referencing these questions
+    await client.query(
+      `DELETE FROM bookmarks WHERE question_id IN (SELECT id FROM questions WHERE topic_id = $1)`,
+      [id]
+    );
+
+    // 2. Delete user_answers referencing these questions
+    await client.query(
+      `DELETE FROM user_answers WHERE question_id IN (SELECT id FROM questions WHERE topic_id = $1)`,
+      [id]
+    );
+
+    // 3. Delete questions (this will cascade delete answer_choices)
+    await client.query(
+      `DELETE FROM questions WHERE topic_id = $1`,
+      [id]
+    );
+
+    // 4. Delete the topic itself
+    const result = await client.query('DELETE FROM topics WHERE id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Topic and its questions deleted successfully' });
   } catch (error) {
+    await client.query('ROLLBACK');
     next(error);
+  } finally {
+    client.release();
   }
 });
 

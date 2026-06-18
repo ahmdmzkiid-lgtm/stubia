@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { generateQuestionHash, updateQuestionHash } = require('../utils/questionHashUtil');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -58,10 +59,18 @@ router.get('/questions', verifyToken, async (req, res, next) => {
 
     // Free plan practice limit check (global, not per-latihan)
     if (!tryout_package_id && (latihan_id || parent_type === 'latihan_soal')) {
-      const userRes = await pool.query('SELECT current_plan FROM users WHERE id = $1', [req.user.id]);
-      const currentPlan = userRes.rows[0]?.current_plan || 'gratis';
+      // Check if user has an active subscription/access plan for UM
+      const activeUmRes = await pool.query(
+        `SELECT 1 FROM subscriptions s
+         JOIN plans p ON p.id = s.plan_id
+         WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+           AND p.target_type = 'um' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+         LIMIT 1`,
+        [req.user.id]
+      );
+      const hasUmUnlimited = activeUmRes.rows.length > 0;
 
-      if (currentPlan === 'gratis') {
+      if (!hasUmUnlimited) {
         const targetLatihanId = latihan_id || parent_id;
         if (targetLatihanId) {
           const latihanCountRes = await pool.query(
@@ -222,7 +231,8 @@ router.post('/questions/import', [verifyToken, verifyAdmin, upload.single('file'
       if (opsiD) options.push({ label: 'D', content: opsiD });
       if (opsiE) options.push({ label: 'E', content: opsiE });
 
-      parsedRows.push({ soal, difficulty: difficulty || 'medium', displayOrder: nextDisplayOrder, kunci, pembahasan, options });
+      const hash = generateQuestionHash(soal, options);
+      parsedRows.push({ soal, difficulty: difficulty || 'medium', displayOrder: nextDisplayOrder, kunci, pembahasan, options, hash });
       nextDisplayOrder++;
     }
 
@@ -233,13 +243,13 @@ router.post('/questions/import', [verifyToken, verifyAdmin, upload.single('file'
       const values = [];
       const params = [];
       batch.forEach((r, idx) => {
-        const offset = idx * 5;
-        values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`);
-        params.push(tryout_package_id || null, latihan_id || null, r.soal, r.difficulty, r.displayOrder);
+        const offset = idx * 6;
+        values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`);
+        params.push(tryout_package_id || null, latihan_id || null, r.soal, r.difficulty, r.displayOrder, r.hash);
       });
 
       const qRes = await client.query(
-        `INSERT INTO um_questions (tryout_package_id, latihan_id, content, difficulty, display_order)
+        `INSERT INTO um_questions (tryout_package_id, latihan_id, content, difficulty, display_order, content_hash)
          VALUES ${values.join(', ')} RETURNING id, display_order`,
         params
       );
@@ -311,10 +321,28 @@ router.post('/questions', [verifyToken, verifyAdmin], async (req, res, next) => 
     await client.query('BEGIN');
     const { tryout_package_id, latihan_id, content, image_url, image_position, difficulty, choices } = req.body;
 
+    // Calculate content hash and check for duplicates
+    const hash = generateQuestionHash(content, choices, image_url);
+    const existingRes = await client.query(
+      `SELECT q.id, tp.title as package_title, ls.title as latihan_title 
+       FROM um_questions q 
+       LEFT JOIN um_tryout_packages tp ON q.tryout_package_id = tp.id
+       LEFT JOIN um_latihan_soal ls ON q.latihan_id = ls.id
+       WHERE q.content_hash = $1 LIMIT 1`,
+      [hash]
+    );
+    let duplicateWarning = null;
+    if (existingRes.rows.length > 0) {
+      const location = existingRes.rows[0].package_title 
+        ? `Tryout: ${existingRes.rows[0].package_title}`
+        : (existingRes.rows[0].latihan_title ? `Latihan: ${existingRes.rows[0].latihan_title}` : 'tidak diketahui');
+      duplicateWarning = `Soal ini terdeteksi duplikat dengan soal ID ${existingRes.rows[0].id} di ${location}`;
+    }
+
     const qResult = await client.query(
-      `INSERT INTO um_questions (tryout_package_id, latihan_id, content, image_url, image_position, difficulty)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [tryout_package_id || null, latihan_id || null, content, image_url || null, image_position || 'after', difficulty || 'medium']
+      `INSERT INTO um_questions (tryout_package_id, latihan_id, content, image_url, image_position, difficulty, content_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [tryout_package_id || null, latihan_id || null, content, image_url || null, image_position || 'after', difficulty || 'medium', hash]
     );
     const question = qResult.rows[0];
 
@@ -340,7 +368,7 @@ router.post('/questions', [verifyToken, verifyAdmin], async (req, res, next) => 
        WHERE q.id = $1 GROUP BY q.id`,
       [question.id]
     );
-    res.status(201).json({ success: true, data: full.rows[0] });
+    res.status(201).json({ success: true, data: full.rows[0], duplicateWarning });
   } catch (error) {
     await client.query('ROLLBACK');
     next(error);
@@ -372,6 +400,9 @@ router.patch('/questions/:id', [verifyToken, verifyAdmin], async (req, res, next
         );
       }
     }
+
+    // Recalculate content hash
+    await updateQuestionHash(client, req.params.id, true);
     await client.query('COMMIT');
 
     const full = await pool.query(
@@ -663,40 +694,90 @@ router.post('/tryout/start', verifyToken, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'tryout_package_id required' });
     }
 
-    // Get user plan and perform free plan restrictions
-    const userRes = await client.query('SELECT current_plan FROM users WHERE id = $1', [userId]);
-    const currentPlan = userRes.rows[0]?.current_plan || 'gratis';
+    // ── Resume existing active session if available (prevents duplicate quota deduction) ──
+    const existingSession = await client.query(
+      `SELECT ts.id, ts.started_at, tp.duration, COUNT(ua.id) as total_questions
+       FROM um_tryout_sessions ts
+       JOIN um_tryout_packages tp ON tp.id = ts.package_id
+       LEFT JOIN um_user_answers ua ON ua.session_id = ts.id
+       WHERE ts.user_id = $1 AND ts.package_id = $2 AND ts.submitted_at IS NULL
+       GROUP BY ts.id, tp.duration
+       ORDER BY ts.started_at DESC LIMIT 1`,
+      [userId, tryout_package_id]
+    );
+    if (existingSession.rows.length > 0 && parseInt(existingSession.rows[0].total_questions) > 0) {
+      await client.query('COMMIT');
+      return res.json({
+        success: true,
+        data: {
+          session_id: existingSession.rows[0].id,
+          total_questions: parseInt(existingSession.rows[0].total_questions),
+          duration: existingSession.rows[0].duration || 60,
+          resumed: true
+        },
+        message: 'Resumed existing session'
+      });
+    }
 
-    if (currentPlan === 'gratis') {
-      // Check if this specific package has already been completed
-      const umCompleted = await client.query(
-        'SELECT COUNT(*) as count FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
-        [userId, tryout_package_id]
+    // Check if user has an active subscription/access plan for UM (unlimited access)
+    const activeUmRes = await client.query(
+      `SELECT 1 FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+         AND p.target_type = 'um' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+       LIMIT 1`,
+      [userId]
+    );
+    const hasUmUnlimited = activeUmRes.rows.length > 0;
+
+    if (!hasUmUnlimited) {
+      // Check if user has active tryout quota for UM
+      const quotaRes = await client.query(
+        `SELECT s.id, s.quota_remaining FROM subscriptions s
+         JOIN plans p ON p.id = s.plan_id
+         WHERE s.user_id = $1 AND s.status = 'active' AND p.plan_type = 'quota' AND p.target_type = 'um' AND s.quota_remaining > 0
+         ORDER BY s.expires_at ASC LIMIT 1`,
+        [userId]
       );
-      const totalCompleted = parseInt(umCompleted.rows[0].count);
 
-      if (totalCompleted >= 1) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({
-          success: false,
-          error: 'Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
-          code: 'FREE_LIMIT_REACHED'
-        });
-      }
+      if (quotaRes.rows.length > 0) {
+        // Deduct 1 tryout quota credit
+        const quota = quotaRes.rows[0];
+        await client.query(
+          `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1`,
+          [quota.id]
+        );
+      } else {
+        // Check if this specific package has already been completed
+        const umCompleted = await client.query(
+          'SELECT COUNT(*) as count FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL',
+          [userId, tryout_package_id]
+        );
+        const totalCompleted = parseInt(umCompleted.rows[0].count);
 
-      // Check if registration exists and is approved for this package
-      const regRes = await client.query(
-        "SELECT status FROM tryout_registrations WHERE user_id = $1 AND um_package_id = $2 AND status = 'approved'",
-        [userId, tryout_package_id]
-      );
+        if (totalCompleted >= 1) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            success: false,
+            error: 'Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
+            code: 'FREE_LIMIT_REACHED'
+          });
+        }
 
-      if (regRes.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({
-          success: false,
-          error: 'Pendaftaran tryout belum diverifikasi admin.',
-          code: 'NOT_VERIFIED'
-        });
+        // Check if registration exists and is approved for this package
+        const regRes = await client.query(
+          "SELECT status FROM tryout_registrations WHERE user_id = $1 AND um_package_id = $2 AND status = 'approved'",
+          [userId, tryout_package_id]
+        );
+
+        if (regRes.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            success: false,
+            error: 'Pendaftaran tryout belum diverifikasi admin.',
+            code: 'NOT_VERIFIED'
+          });
+        }
       }
     }
 
@@ -765,9 +846,9 @@ router.get('/tryout/session/:sessionId/questions', verifyToken, async (req, res,
     const { sessionId } = req.params;
     const userId = req.user.id;
 
-    // Verify session
+    // Verify session (include started_at for timer sync)
     const sessionRes = await pool.query(
-      `SELECT ts.id, ts.package_id, tp.title, tp.duration 
+      `SELECT ts.id, ts.package_id, ts.started_at, tp.title, tp.duration 
        FROM um_tryout_sessions ts
        JOIN um_tryout_packages tp ON ts.package_id = tp.id
        WHERE ts.id = $1 AND ts.user_id = $2`,
@@ -817,7 +898,8 @@ router.get('/tryout/session/:sessionId/questions', verifyToken, async (req, res,
       data: result.rows,
       package: {
         title: sessionInfo.title,
-        duration: sessionInfo.duration || 60
+        duration: sessionInfo.duration || 60,
+        started_at: sessionInfo.started_at || null
       }
     });
   } catch (error) {

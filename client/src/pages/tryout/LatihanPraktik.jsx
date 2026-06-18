@@ -9,6 +9,7 @@ import Calculator from '../../components/tryout/Calculator';
 import SocialFollowModal from '../../components/SocialFollowModal';
 import LatihanPreRequirementModal from '../../components/LatihanPreRequirementModal';
 import MathText from '../../components/MathText';
+import ExitConfirmModal from '../../components/ExitConfirmModal';
 
 const LatihanPraktik = () => {
   const navigate = useNavigate();
@@ -32,13 +33,16 @@ const LatihanPraktik = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showPreModal, setShowPreModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [pendingExitPath, setPendingExitPath] = useState(null);
+  const [excludeCompleted, setExcludeCompleted] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const params = { subject_id: subjectId, limit: 100 };
+        const params = { subject_id: subjectId, limit: 100, exclude_completed: excludeCompleted ? 'true' : 'false' };
         if (topicId) params.topic_id = topicId;
 
         const [soalRes, subRes] = await Promise.all([
@@ -77,7 +81,7 @@ const LatihanPraktik = () => {
       }
     };
     if (subjectId) fetchData();
-  }, [subjectId, topicId]);
+  }, [subjectId, topicId, excludeCompleted]);
 
   // Block copy/select-all keyboard shortcuts on exam page
   useEffect(() => {
@@ -95,7 +99,7 @@ const LatihanPraktik = () => {
       // retry fetch after verified
       setLoading(true);
       setError(null);
-      const params = { subject_id: subjectId, limit: 100 };
+      const params = { subject_id: subjectId, limit: 100, exclude_completed: excludeCompleted ? 'true' : 'false' };
       if (topicId) params.topic_id = topicId;
       const [soalRes, subRes] = await Promise.all([
         soalService.list(params),
@@ -301,14 +305,50 @@ const LatihanPraktik = () => {
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen bg-[#faf8ff] flex items-center justify-center">
-        <div className="text-center">
-          <span className="material-symbols-outlined text-[64px] text-[#c2c6d8] block mb-4">quiz</span>
-          <h2 className="text-[22px] font-bold text-[#191b24] mb-2">Belum Ada Soal</h2>
-          <p className="text-[#424656] mb-6 text-[15px]">Belum ada soal tersedia untuk subtes ini.</p>
-          <button onClick={() => navigate(-1)} className="px-8 py-3 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003da6] transition-all">
-            Kembali
-          </button>
+      <div className="min-h-screen bg-[#faf8ff] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-[#c2c6d8]/30 shadow-lg text-center animate-in zoom-in-95 duration-200" style={{ fontFamily: "'Inter', sans-serif" }}>
+          {excludeCompleted ? (
+            <>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                <span className="material-symbols-outlined text-[32px]">task_alt</span>
+              </div>
+              <h2 className="text-xl font-bold text-[#191b24] mb-2">Hebat! Semua Soal Selesai</h2>
+              <p className="text-sm text-[#424656] mb-6 leading-relaxed">
+                Kamu telah menyelesaikan seluruh bank soal yang tersedia di subtes/topik ini.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => setExcludeCompleted(false)}
+                  className="w-full py-3.5 rounded-xl text-white font-bold text-sm transition-all hover:shadow-lg hover:shadow-blue-500/10 active:scale-[0.98]"
+                  style={{ background: 'linear-gradient(135deg, #0050cb, #3b82f6)' }}
+                >
+                  Kerjakan Ulang Soal
+                </button>
+                <button
+                  onClick={() => navigate(-1)}
+                  className="w-full py-3 rounded-xl border border-[#c2c6d8] text-[#424656] font-semibold hover:bg-gray-50 text-sm"
+                >
+                  Kembali
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                <span className="material-symbols-outlined text-[32px]">quiz</span>
+              </div>
+              <h2 className="text-xl font-bold text-[#191b24] mb-2">Belum Ada Soal</h2>
+              <p className="text-sm text-[#424656] mb-6 leading-relaxed">
+                Belum ada soal tersedia untuk subtes ini.
+              </p>
+              <button
+                onClick={() => navigate(-1)}
+                className="w-full py-3 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003da6] transition-all text-sm"
+              >
+                Kembali
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -320,9 +360,9 @@ const LatihanPraktik = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8ff]/95 backdrop-blur-md border-b border-[#e0e2f0] shadow-sm">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="flex items-center">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-8 sm:h-9" />
-            </Link>
+            <button onClick={() => { setPendingExitPath('/dashboard'); setShowExitModal(true); }} className="flex items-center">
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-9 cursor-pointer" />
+            </button>
             <div className="hidden sm:flex items-center gap-1.5 text-[13px] font-semibold text-[#0050cb] bg-[#e8eeff] px-3 py-1 rounded-lg">
               <span className="material-symbols-outlined text-[16px]">school</span>
               Latihan
@@ -567,6 +607,14 @@ const LatihanPraktik = () => {
         total={totalQuestions}
       />
       {showCalculator && <Calculator onClose={() => setShowCalculator(false)} />}
+
+      <ExitConfirmModal
+        open={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        onConfirm={() => { setShowExitModal(false); navigate(pendingExitPath || '/dashboard'); }}
+        title="Yakin ingin keluar dari latihan?"
+        message="Jawaban yang sudah dikerjakan akan tetap tersimpan."
+      />
     </div>
   );
 };

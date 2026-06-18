@@ -9,7 +9,7 @@ export default function PrivacyPolicy() {
       <section className="mb-12">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Pendahuluan</h2>
         <p className="text-gray-700 leading-relaxed mb-4">
-          EduZET ("kami", "kami", atau "perusahaan") berkomitmen untuk melindungi privasi Anda. 
+          Stubia ("kami", "kami", atau "perusahaan") berkomitmen untuk melindungi privasi Anda. 
           Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, mengungkapkan, 
           dan melindungi informasi Anda ketika Anda menggunakan platform kami.
         </p>
@@ -91,7 +91,7 @@ export default function PrivacyPolicy() {
           Untuk pertanyaan tentang kebijakan privasi ini, silakan hubungi kami di:
         </p>
         <div className="bg-gray-50 p-6 rounded-lg mt-4">
-          <p className="text-gray-800"><strong>Email:</strong> eduzetsupport@gmail.com</p>
+          <p className="text-gray-800"><strong>Email:</strong> stubiasupport@gmail.com</p>
           <p className="text-gray-800"><strong>Alamat:</strong> Jakarta, Indonesia</p>
           <p className="text-gray-800"><strong>Telepon:</strong> 085183147625</p>
         </div>

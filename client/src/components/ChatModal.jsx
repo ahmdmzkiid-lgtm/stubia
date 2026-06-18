@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import api from '../services/api';
 import stripMarkdown from '../utils/stripMarkdown';
 
-const CHAT_STORAGE_KEY = 'eduzet_chat_history';
+const CHAT_STORAGE_KEY = 'stubia_chat_history';
 const CHAT_TTL_DAYS = 3;
 
 const getStoredMessages = () => {
@@ -34,7 +34,7 @@ const saveMessages = (messages) => {
 
 const DEFAULT_MESSAGE = { 
   role: 'model', 
-  text: 'Halo! 👋 Aku Kak Z, asisten belajarmu. Ada yang bisa Kak Z bantu hari ini?',
+  text: 'Halo! 👋 Aku Stu, asisten belajarmu. Ada yang bisa Stu bantu hari ini?',
   time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 };
 
@@ -95,7 +95,7 @@ const ChatModal = ({ isOpen, onClose }) => {
     } catch (error) {
       console.error('Chat error:', error);
       const errorTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setMessages([...newMessages, { role: 'model', text: 'Maaf ya, Kak Z lagi ada gangguan teknis nih. Coba lagi nanti ya! 🙏', time: errorTime }]);
+      setMessages([...newMessages, { role: 'model', text: 'Maaf ya, Stu lagi ada gangguan teknis nih. Coba lagi nanti ya! 🙏', time: errorTime }]);
     } finally {
       setIsLoading(false);
     }
@@ -109,13 +109,13 @@ const ChatModal = ({ isOpen, onClose }) => {
           <div className="relative w-10 h-10">
             <img 
               className="w-full h-full object-cover rounded-full border border-[#c2c6d8]" 
-              alt="Kak Z Avatar" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAsqbf_KDYhD6F9rgrq4_CKAREtY02eG-4OoAn62g1bnUU4sjfufTpgm0JHNPQw4Bh2v0IPCpJMB-Ga1EdovaWU_-d49yffNN259JGRoG3Gli1eeK4nXykeW8VklOAzOv_JbLk3QqdC5L35gXNySI7rHNrxz_nEE96kCJSVQHSIbL17gtFvhAphaZlD2xTiulhEfcYCQsXl_e1OI6XFzInZd24Q0aByIblmS8S0buT_5uQqK2JcEnECQz1HuKrvu77l0CIyScdgvg"
+              alt="Stu Avatar" 
+              src="/customerservice.webp"
             />
             <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-[#22c55e] border-2 border-[#faf8ff] rounded-full"></span>
           </div>
           <div>
-            <h2 className="text-[16px] font-bold leading-tight text-[#191b24]">Kak Z - Eduzet Tutor</h2>
+            <h2 className="text-[16px] font-bold leading-tight text-[#191b24]">Stu - Stubia Tutor</h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[#006688] text-[10px] font-bold uppercase tracking-wider">Online</span>
             </div>
@@ -131,7 +131,7 @@ const ChatModal = ({ isOpen, onClose }) => {
         {/* System Message */}
         <div className="flex justify-center pb-2">
           <span className="bg-[#f2f3ff] text-[#0050cb] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
-            Diskusi aktif dengan Kak Z
+            Diskusi aktif dengan Stu
           </span>
         </div>
 
@@ -151,8 +151,8 @@ const ChatModal = ({ isOpen, onClose }) => {
               <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-[#c2c6d8]/30 mt-0.5">
                 <img 
                   className="w-full h-full object-cover" 
-                  alt="Kak Z Avatar" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAsqbf_KDYhD6F9rgrq4_CKAREtY02eG-4OoAn62g1bnUU4sjfufTpgm0JHNPQw4Bh2v0IPCpJMB-Ga1EdovaWU_-d49yffNN259JGRoG3Gli1eeK4nXykeW8VklOAzOv_JbLk3QqdC5L35gXNySI7rHNrxz_nEE96kCJSVQHSIbL17gtFvhAphaZlD2xTiulhEfcYCQsXl_e1OI6XFzInZd24Q0aByIblmS8S0buT_5uQqK2JcEnECQz1HuKrvu77l0CIyScdgvg"
+                  alt="Stu Avatar" 
+                  src="/customerservice.webp"
                 />
               </div>
               <div className="max-w-[80%] bg-white text-[#191b24] px-4 py-3 rounded-2xl rounded-tl-none border border-[#c2c6d8]/30 shadow-sm">
@@ -185,7 +185,7 @@ const ChatModal = ({ isOpen, onClose }) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 bg-transparent border-none focus:ring-0 text-[14px] text-[#191b24] placeholder:text-[#727687] py-1 outline-none" 
-            placeholder="Tanya soal UTBK ke Kak Z..." 
+            placeholder="Tanya soal UTBK ke Stu..." 
             disabled={isLoading}
           />
           <button 
@@ -196,7 +196,7 @@ const ChatModal = ({ isOpen, onClose }) => {
             <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
           </button>
         </form>
-        <p className="text-center mt-3 text-[10px] text-[#727687] font-bold uppercase tracking-widest">Powered by Eduzet AI Assistant</p>
+        <p className="text-center mt-3 text-[10px] text-[#727687] font-bold uppercase tracking-widest">Powered by Stubia AI Assistant</p>
       </div>
     </div>
   );

@@ -82,7 +82,7 @@ const InputSoal = () => {
 
     setLoading(true);
     try {
-      await soalService.create({
+      const res = await soalService.create({
         subject_id: formData.subject_id,
         difficulty,
         content: formData.content,
@@ -93,7 +93,11 @@ const InputSoal = () => {
           explanation: c.is_correct ? formData.explanation : null
         }))
       });
-      toast.success('Soal berhasil dipublikasikan!');
+      if (res.data?.duplicateWarning) {
+        toast(res.data.duplicateWarning, { icon: '⚠️', duration: 8000 });
+      } else {
+        toast.success('Soal berhasil dipublikasikan!');
+      }
       setFormData(prev => ({
         ...prev,
         content: '',
@@ -444,7 +448,7 @@ const InputSoal = () => {
       {/* Footer */}
       <footer className="mt-12 py-6 border-t border-outline-variant/30 text-center">
         <p className="font-label-sm text-label-sm text-on-surface-variant opacity-60">
-          © 2026 Eduzet UTBK Platform. All Rights Reserved.
+          © 2026 Stubia UTBK Platform. All Rights Reserved.
         </p>
       </footer>
     </div>

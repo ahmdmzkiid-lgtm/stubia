@@ -21,7 +21,7 @@ const LandingPage = () => {
       <nav className="landing-nav">
         <div className="landing-nav-inner">
           <div className="landing-logo">
-            <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-10 sm:h-14" />
+            <img src="/stubiabrandicon.png" alt="Stubia" className="h-10 sm:h-14" />
           </div>
           <div className="landing-nav-actions">
             <button className="btn-login" onClick={() => navigate('/login')}>Login</button>
@@ -44,7 +44,7 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="hero-image">
-              <img src="/landingpage-hero.svg" alt="Students collaborating" />
+              <img src="/landingpage-hero.webp" alt="Students collaborating" />
             </div>
           </div>
         </section>
@@ -61,7 +61,7 @@ const LandingPage = () => {
         <section id="features" className="landing-features">
           <div className="section-inner">
             <div className="section-header">
-              <h2>Kenapa Pilih Eduzet?</h2>
+              <h2>Kenapa Pilih Stubia?</h2>
               <p>Platform belajar UTBK paling efektif dengan fitur lengkap untuk memaksimalkan persiapanmu.</p>
             </div>
             <div className="features-grid">
@@ -211,7 +211,7 @@ const LandingPage = () => {
             <h2 className="text-center">Cerita Sukses</h2>
             <div className="testimonials-grid">
               <TestimonialCard
-                text="Eduzet benar-benar mengubah cara belajar saya. Soal-soalnya mirip banget sama UTBK asli, dan pembahasannya lengkap. Alhamdulillah lolos FKUI!"
+                text="Stubia benar-benar mengubah cara belajar saya. Soal-soalnya mirip banget sama UTBK asli, dan pembahasannya lengkap. Alhamdulillah lolos FKUI!"
                 avatar="https://ui-avatars.com/api/?name=Muhammad+Rayyan+Daffa&background=0050cb&color=fff"
                 name="Muhammad Rayyan Daffa" role="Mahasiswa FK UI"
               />
@@ -221,7 +221,7 @@ const LandingPage = () => {
                 name="Anwar Rizal Fadhillah" role="Mahasiswa Teknik ITB"
               />
               <TestimonialCard
-                text="Platform terbaik untuk persiapan UTBK. Fitur Tanya Kak Z dan riwayat bikin review soal jadi gampang. Worth it banget! Terima kasih Eduzet sudah bantu aku sampai lolos ke jurusan impian!"
+                text="Platform terbaik untuk persiapan UTBK. Fitur Tanya Stu dan riwayat bikin review soal jadi gampang. Worth it banget! Terima kasih Stubia sudah bantu aku sampai lolos ke jurusan impian!"
                 avatar="https://ui-avatars.com/api/?name=Alya+Nurul+Khairunnisa&background=a33200&color=fff"
                 name="Alya Nurul Khairunnisa" role="Mahasiswa FEB UGM"
               />
@@ -234,7 +234,7 @@ const LandingPage = () => {
           <div className="landing-cta">
             <h2>Siap raih PTN impianmu?</h2>
             <p>Bergabung dengan 50.000+ siswa di seluruh Indonesia dan mulai persiapan UTBK-mu sekarang.</p>
-            <button className="btn-cta" onClick={() => navigate('/register')}>Daftar Eduzet Gratis</button>
+            <button className="btn-cta" onClick={() => navigate('/register')}>Daftar Stubia Gratis</button>
           </div>
         </section>
       </main>
@@ -244,7 +244,7 @@ const LandingPage = () => {
         <div className="footer-inner">
           <div className="footer-brand">
             <div className="landing-logo">
-              <img src="/eduzet-brand-light.svg" alt="Eduzet" className="h-10 sm:h-14" />
+              <img src="/stubiabrandicon.png" alt="Stubia" className="h-10 sm:h-14" />
             </div>
             <p>Platform persiapan UTBK terbaik untuk raih PTN impianmu.</p>
           </div>
@@ -253,9 +253,8 @@ const LandingPage = () => {
             <button onClick={() => navigate('/privacy-policy')} className="cursor-pointer hover:text-[#0050cb] transition">Kebijakan Privasi</button>
             <button onClick={() => navigate('/contact-us')} className="cursor-pointer hover:text-[#0050cb] transition">Hubungi Kami</button>
             <button onClick={() => navigate('/careers')} className="cursor-pointer hover:text-[#0050cb] transition">Karir</button>
-            <button onClick={() => navigate('/team')} className="cursor-pointer hover:text-[#0050cb] transition">Tim Eduzet</button>
           </div>
-          <div className="footer-copy">© 2026 Eduzet. All rights reserved.</div>
+          <div className="footer-copy">© 2026 Stubia. All rights reserved.</div>
         </div>
       </footer>
     </div>
