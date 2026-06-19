@@ -1,43 +1,55 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { pool } = require('../config/db');
-const { verifyToken } = require('../middleware/auth');
-const { calculateIRTScore } = require('../services/irtScoringService');
+const { pool } = require("../config/db");
+const { verifyToken } = require("../middleware/auth");
+const { calculateIRTScore } = require("../services/irtScoringService");
 const {
   checkLatihanAccess,
   assertUtbkGratisContentAccess,
   assertUmGratisContentAccess,
   hasActiveUtbkSubscription,
   hasActiveUmSubscription,
+  isAdminUser,
   SOCIAL_VERIFY_MSG,
-} = require('../utils/latihanAccessUtil');
+} = require("../utils/latihanAccessUtil");
 
 // Submit latihan (practice) result with IRT scoring
-router.post('/latihan/submit', verifyToken, async (req, res, next) => {
+router.post("/latihan/submit", verifyToken, async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { subject_id, subject_name, topic_id, latihan_id, questions, answers } = req.body;
+    const {
+      subject_id,
+      subject_name,
+      topic_id,
+      latihan_id,
+      questions,
+      answers,
+    } = req.body;
 
     if (!questions || !Array.isArray(questions) || questions.length === 0) {
-      return res.status(400).json({ success: false, error: 'Questions data required' });
+      return res
+        .status(400)
+        .json({ success: false, error: "Questions data required" });
     }
 
-    if (req.user.role !== 'admin') {
+    if (!(await isAdminUser(userId, req.user.role))) {
       if (latihan_id) {
         const hasUm = await hasActiveUmSubscription(userId);
         if (!hasUm) {
           const planBlock = await assertUmGratisContentAccess(latihan_id);
-          if (planBlock) return res.status(403).json({ success: false, ...planBlock });
+          if (planBlock)
+            return res.status(403).json({ success: false, ...planBlock });
 
           const latihanCountRes = await pool.query(
-            'SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND latihan_id = $2 AND submitted_at IS NOT NULL',
-            [userId, latihan_id]
+            "SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND latihan_id = $2 AND submitted_at IS NOT NULL",
+            [userId, latihan_id],
           );
           if (parseInt(latihanCountRes.rows[0].count, 10) >= 1) {
             return res.status(403).json({
               success: false,
-              error: 'Akun gratis hanya dapat mengerjakan setiap latihan soal sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
-              code: 'FREE_LIMIT_REACHED',
+              error:
+                "Akun gratis hanya dapat mengerjakan setiap latihan soal sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.",
+              code: "FREE_LIMIT_REACHED",
             });
           }
 
@@ -46,35 +58,40 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
             return res.status(403).json({
               success: false,
               error: SOCIAL_VERIFY_MSG,
-              code: access.code || 'FREE_LIMIT_REQUIRE_SOCIAL',
+              code: access.code || "FREE_LIMIT_REQUIRE_SOCIAL",
             });
           }
         }
       } else {
         const hasUtbk = await hasActiveUtbkSubscription(userId);
         if (!hasUtbk) {
-          const planBlock = await assertUtbkGratisContentAccess(subject_id, topic_id);
-          if (planBlock) return res.status(403).json({ success: false, ...planBlock });
+          const planBlock = await assertUtbkGratisContentAccess(
+            subject_id,
+            topic_id,
+          );
+          if (planBlock)
+            return res.status(403).json({ success: false, ...planBlock });
 
           let completed = 0;
           if (topic_id) {
             const r = await pool.query(
-              'SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND topic_id = $2 AND submitted_at IS NOT NULL',
-              [userId, topic_id]
+              "SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND topic_id = $2 AND submitted_at IS NOT NULL",
+              [userId, topic_id],
             );
             completed = parseInt(r.rows[0].count, 10);
           } else if (subject_id) {
             const r = await pool.query(
-              'SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND subject_id = $2 AND submitted_at IS NOT NULL',
-              [userId, subject_id]
+              "SELECT COUNT(*) as count FROM latihan_sessions WHERE user_id = $1 AND subject_id = $2 AND submitted_at IS NOT NULL",
+              [userId, subject_id],
             );
             completed = parseInt(r.rows[0].count, 10);
           }
           if (completed >= 1) {
             return res.status(403).json({
               success: false,
-              error: 'Akun gratis hanya dapat mengerjakan setiap latihan soal sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.',
-              code: 'FREE_LIMIT_REACHED',
+              error:
+                "Akun gratis hanya dapat mengerjakan setiap latihan soal sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.",
+              code: "FREE_LIMIT_REACHED",
             });
           }
 
@@ -83,7 +100,7 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
             return res.status(403).json({
               success: false,
               error: SOCIAL_VERIFY_MSG,
-              code: access.code || 'FREE_LIMIT_REQUIRE_SOCIAL',
+              code: access.code || "FREE_LIMIT_REQUIRE_SOCIAL",
             });
           }
         }
@@ -96,20 +113,27 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
       let isCorrect = false;
       let chosenChoice = null;
 
-      if (q.question_type === 'short_answer') {
-        const correctChoice = (q.choices || []).find(c => c.is_correct);
-        isCorrect = !!(correctChoice && chosenId && correctChoice.content.trim().toLowerCase() === String(chosenId).trim().toLowerCase());
+      if (q.question_type === "short_answer") {
+        const correctChoice = (q.choices || []).find((c) => c.is_correct);
+        isCorrect = !!(
+          correctChoice &&
+          chosenId &&
+          correctChoice.content.trim().toLowerCase() ===
+            String(chosenId).trim().toLowerCase()
+        );
       } else {
-        chosenChoice = chosenId ? (q.choices || []).find(c => c.id === chosenId) : null;
+        chosenChoice = chosenId
+          ? (q.choices || []).find((c) => c.id === chosenId)
+          : null;
         isCorrect = chosenChoice?.is_correct === true;
       }
 
       return {
-        chosen_choice_id: q.question_type === 'short_answer' ? null : chosenId,
+        chosen_choice_id: q.question_type === "short_answer" ? null : chosenId,
         is_correct: isCorrect,
         question_id: q.id,
-        difficulty: q.difficulty || 'medium',
-        subject_name: subject_name || 'Latihan',
+        difficulty: q.difficulty || "medium",
+        subject_name: subject_name || "Latihan",
         time_spent_sec: 0,
       };
     });
@@ -121,17 +145,22 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
     let customScoring = null;
     if (latihan_id) {
       const latihanRes = await pool.query(
-        'SELECT points_correct, points_incorrect, points_unanswered FROM um_latihan_soal WHERE id = $1',
-        [latihan_id]
+        "SELECT points_correct, points_incorrect, points_unanswered FROM um_latihan_soal WHERE id = $1",
+        [latihan_id],
       );
       const ptCorrect = latihanRes.rows[0]?.points_correct ?? 4;
       const ptIncorrect = latihanRes.rows[0]?.points_incorrect ?? -1;
       const ptUnanswered = latihanRes.rows[0]?.points_unanswered ?? 0;
 
-      const correctCount = irtAnswers.filter(a => a.is_correct).length;
-      const unansweredCount = irtAnswers.filter(a => !a.chosen_choice_id).length;
+      const correctCount = irtAnswers.filter((a) => a.is_correct).length;
+      const unansweredCount = irtAnswers.filter(
+        (a) => !a.chosen_choice_id,
+      ).length;
       const incorrectCount = totalQuestions - correctCount - unansweredCount;
-      const customScore = (correctCount * ptCorrect) + (incorrectCount * ptIncorrect) + (unansweredCount * ptUnanswered);
+      const customScore =
+        correctCount * ptCorrect +
+        incorrectCount * ptIncorrect +
+        unansweredCount * ptUnanswered;
 
       customScoring = { ptCorrect, ptIncorrect, ptUnanswered };
 
@@ -144,18 +173,21 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
         totalScore: customScore,
         theta: 0,
         percentile: 0,
-        mastery: totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0,
+        mastery:
+          totalQuestions > 0
+            ? Math.round((correctCount / totalQuestions) * 100)
+            : 0,
         pointsCorrect: ptCorrect,
         pointsIncorrect: ptIncorrect,
         pointsUnanswered: ptUnanswered,
-        scoringMethod: `Custom (Benar: ${ptCorrect > 0 ? '+' : ''}${ptCorrect}, Salah: ${ptIncorrect > 0 ? '+' : ''}${ptIncorrect}, Kosong: ${ptUnanswered > 0 ? '+' : ''}${ptUnanswered})`,
+        scoringMethod: `Custom (Benar: ${ptCorrect > 0 ? "+" : ""}${ptCorrect}, Salah: ${ptIncorrect > 0 ? "+" : ""}${ptIncorrect}, Kosong: ${ptUnanswered > 0 ? "+" : ""}${ptUnanswered})`,
         itemAnalysis: irtAnswers.map((a, idx) => ({
           questionIndex: idx,
           questionId: a.question_id,
-          difficulty: a.difficulty || 'medium',
+          difficulty: a.difficulty || "medium",
           isCorrect: a.is_correct,
           chosenChoiceId: a.chosen_choice_id,
-          subjectName: a.subject_name || 'Latihan',
+          subjectName: a.subject_name || "Latihan",
         })),
       };
     } else {
@@ -168,17 +200,29 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
     const unansweredCount = irtResult.kosong;
 
     // Save to latihan_sessions
-    const insertRes = await pool.query(`
+    const insertRes = await pool.query(
+      `
       INSERT INTO latihan_sessions
         (user_id, subject_id, topic_id, latihan_id, subject_name, total_questions, correct_count, incorrect_count, unanswered_count, irt_score, theta, percentile, score_breakdown)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
-    `, [
-      userId, subject_id, topic_id || null, latihan_id || null, subject_name, totalQuestions,
-      correctCount, incorrectCount, unansweredCount,
-      irtResult.totalScore, irtResult.theta || 0, irtResult.percentile || 0,
-      JSON.stringify(irtResult)
-    ]);
+    `,
+      [
+        userId,
+        subject_id,
+        topic_id || null,
+        latihan_id || null,
+        subject_name,
+        totalQuestions,
+        correctCount,
+        incorrectCount,
+        unansweredCount,
+        irtResult.totalScore,
+        irtResult.theta || 0,
+        irtResult.percentile || 0,
+        JSON.stringify(irtResult),
+      ],
+    );
 
     res.json({
       success: true,
@@ -192,28 +236,31 @@ router.post('/latihan/submit', verifyToken, async (req, res, next) => {
         unanswered: unansweredCount,
         total: totalQuestions,
         mastery: irtResult.mastery,
-        ...(customScoring ? {
-          pointsCorrect: customScoring.ptCorrect,
-          pointsIncorrect: customScoring.ptIncorrect,
-          pointsUnanswered: customScoring.ptUnanswered,
-          scoringMethod: irtResult.scoringMethod,
-        } : {}),
-      }
+        ...(customScoring
+          ? {
+              pointsCorrect: customScoring.ptCorrect,
+              pointsIncorrect: customScoring.ptIncorrect,
+              pointsUnanswered: customScoring.ptUnanswered,
+              scoringMethod: irtResult.scoringMethod,
+            }
+          : {}),
+      },
     });
   } catch (error) {
-    console.error('Error submitting latihan:', error);
+    console.error("Error submitting latihan:", error);
     next(error);
   }
 });
 
 // Get full riwayat (history) with real-time data
-router.get('/riwayat', verifyToken, async (req, res, next) => {
+router.get("/riwayat", verifyToken, async (req, res, next) => {
   try {
     const userId = req.user.id;
 
     // Get all submitted tryout sessions WITH the dominant subject of each session
     // (a session typically covers one subtest — we identify it via the most common subject)
-    const tryoutRes = await pool.query(`
+    const tryoutRes = await pool.query(
+      `
       SELECT
         ts.id,
         ts.package_id,
@@ -236,10 +283,13 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
       JOIN tryout_packages tp ON tp.id = ts.package_id
       WHERE ts.user_id = $1 AND ts.submitted_at IS NOT NULL
       ORDER BY ts.started_at ASC
-    `, [userId]);
+    `,
+      [userId],
+    );
 
     // Get all latihan sessions
-    const latihanRes = await pool.query(`
+    const latihanRes = await pool.query(
+      `
       SELECT
         id,
         'latihan' as type,
@@ -257,11 +307,14 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
       FROM latihan_sessions
       WHERE user_id = $1
       ORDER BY submitted_at DESC
-    `, [userId]);
+    `,
+      [userId],
+    );
 
     // Get all Ujian Mandiri tryout sessions
-    const umTryoutRes = await pool.query(`
-      SELECT 
+    const umTryoutRes = await pool.query(
+      `
+      SELECT
         ts.id,
         ts.package_id,
         tp.title as name,
@@ -276,7 +329,9 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
       JOIN ujian_mandiri um ON tp.ujian_id = um.id
       WHERE ts.user_id = $1 AND ts.submitted_at IS NOT NULL
       ORDER BY ts.submitted_at DESC
-    `, [userId]);
+    `,
+      [userId],
+    );
 
     // Group tryout sessions into ATTEMPTS: per package, sessions are walked chronologically;
     // a new attempt starts when we encounter a subtest already present in the current group,
@@ -285,12 +340,14 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
     const openGroupByPackage = new Map(); // package_id -> current open group
     const allGroups = [];
 
-    tryoutRes.rows.forEach(row => {
-      const subtest = row.subtest_name || 'Unknown';
+    tryoutRes.rows.forEach((row) => {
+      const subtest = row.subtest_name || "Unknown";
       const startedAt = new Date(row.started_at);
       let group = openGroupByPackage.get(row.package_id);
 
-      const timeSinceLast = group ? (startedAt - new Date(group.latestStartedAt)) / 3600000 : Infinity; // hours
+      const timeSinceLast = group
+        ? (startedAt - new Date(group.latestStartedAt)) / 3600000
+        : Infinity; // hours
       const subtestAlreadyUsed = group && group.subtestSet.has(subtest);
 
       if (!group || subtestAlreadyUsed || timeSinceLast > 12) {
@@ -310,8 +367,13 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
 
       group.sessions.push(row);
       group.subtestSet.add(subtest);
-      if (startedAt > new Date(group.latestStartedAt)) group.latestStartedAt = row.started_at;
-      if (row.submitted_at && (!group.latestSubmittedAt || new Date(row.submitted_at) > new Date(group.latestSubmittedAt))) {
+      if (startedAt > new Date(group.latestStartedAt))
+        group.latestStartedAt = row.started_at;
+      if (
+        row.submitted_at &&
+        (!group.latestSubmittedAt ||
+          new Date(row.submitted_at) > new Date(group.latestSubmittedAt))
+      ) {
         group.latestSubmittedAt = row.submitted_at;
       }
     });
@@ -319,19 +381,26 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
     const tryoutGroups = { values: () => allGroups };
 
     // Build aggregated tryout history: one entry per group, score = avg of subtest totalScores
-    const tryoutHistory = Array.from(tryoutGroups.values()).map(group => {
-      const breakdowns = group.sessions.map(s => {
+    const tryoutHistory = Array.from(tryoutGroups.values()).map((group) => {
+      const breakdowns = group.sessions.map((s) => {
         try {
-          return typeof s.score_breakdown === 'string' ? JSON.parse(s.score_breakdown) : (s.score_breakdown || {});
-        } catch { return {}; }
+          return typeof s.score_breakdown === "string"
+            ? JSON.parse(s.score_breakdown)
+            : s.score_breakdown || {};
+        } catch {
+          return {};
+        }
       });
 
       // Aggregate subjectScores from all sessions in this group
       const aggregatedSubjects = {};
-      breakdowns.forEach(b => {
+      breakdowns.forEach((b) => {
         if (b.subjectScores) {
           Object.entries(b.subjectScores).forEach(([subjName, subjData]) => {
-            if (!aggregatedSubjects[subjName] || (subjData.score || 0) > (aggregatedSubjects[subjName].score || 0)) {
+            if (
+              !aggregatedSubjects[subjName] ||
+              (subjData.score || 0) > (aggregatedSubjects[subjName].score || 0)
+            ) {
               aggregatedSubjects[subjName] = subjData;
             }
           });
@@ -339,43 +408,72 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
       });
 
       // Total = average of all subtest scores from aggregated subjects (real-time)
-      const subjScores = Object.values(aggregatedSubjects).map(s => s.score || 0);
-      const aggregatedScore = subjScores.length > 0
-        ? Math.round(subjScores.reduce((a, b) => a + b, 0) / subjScores.length)
-        : (breakdowns[0]?.totalScore || group.sessions[0]?.score || 0);
+      const subjScores = Object.values(aggregatedSubjects).map(
+        (s) => s.score || 0,
+      );
+      const aggregatedScore =
+        subjScores.length > 0
+          ? Math.round(
+              subjScores.reduce((a, b) => a + b, 0) / subjScores.length,
+            )
+          : breakdowns[0]?.totalScore || group.sessions[0]?.score || 0;
 
       // Average theta + percentile across sessions
-      const thetas = breakdowns.map(b => b.theta).filter(t => typeof t === 'number');
-      const percentiles = breakdowns.map(b => b.percentile).filter(p => typeof p === 'number');
-      const masteries = breakdowns.map(b => b.mastery).filter(m => typeof m === 'number');
+      const thetas = breakdowns
+        .map((b) => b.theta)
+        .filter((t) => typeof t === "number");
+      const percentiles = breakdowns
+        .map((b) => b.percentile)
+        .filter((p) => typeof p === "number");
+      const masteries = breakdowns
+        .map((b) => b.mastery)
+        .filter((m) => typeof m === "number");
 
       return {
         id: group.sessions[0].id, // use first session id as representative
-        sessionIds: group.sessions.map(s => s.id),
+        sessionIds: group.sessions.map((s) => s.id),
         packageId: group.package_id,
-        type: 'tryout',
+        type: "tryout",
         name: group.name,
         score: aggregatedScore,
-        theta: thetas.length > 0 ? thetas.reduce((a, b) => a + b, 0) / thetas.length : 0,
-        percentile: percentiles.length > 0 ? Math.round(percentiles.reduce((a, b) => a + b, 0) / percentiles.length) : 0,
-        mastery: masteries.length > 0 ? Math.round(masteries.reduce((a, b) => a + b, 0) / masteries.length) : 0,
+        theta:
+          thetas.length > 0
+            ? thetas.reduce((a, b) => a + b, 0) / thetas.length
+            : 0,
+        percentile:
+          percentiles.length > 0
+            ? Math.round(
+                percentiles.reduce((a, b) => a + b, 0) / percentiles.length,
+              )
+            : 0,
+        mastery:
+          masteries.length > 0
+            ? Math.round(
+                masteries.reduce((a, b) => a + b, 0) / masteries.length,
+              )
+            : 0,
         subtestCount: group.sessions.length,
         date: group.latestSubmittedAt || group.earliestStartedAt,
       };
     });
 
     // Format Ujian Mandiri tryout entries
-    const umTryoutHistory = umTryoutRes.rows.map(row => {
+    const umTryoutHistory = umTryoutRes.rows.map((row) => {
       let b = {};
       try {
-        b = typeof row.score_breakdown === 'string' ? JSON.parse(row.score_breakdown) : (row.score_breakdown || {});
-      } catch { b = {}; }
+        b =
+          typeof row.score_breakdown === "string"
+            ? JSON.parse(row.score_breakdown)
+            : row.score_breakdown || {};
+      } catch {
+        b = {};
+      }
 
       return {
         id: row.id,
         packageId: row.package_id,
         ujianId: row.ujian_id,
-        type: 'ujian_mandiri_tryout',
+        type: "ujian_mandiri_tryout",
         name: `${row.ujian_name} - ${row.name}`,
         score: row.score || 0,
         theta: 0,
@@ -388,40 +486,50 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
     });
 
     // Format latihan entries
-    const latihanHistory = latihanRes.rows.map(row => ({
+    const latihanHistory = latihanRes.rows.map((row) => ({
       id: row.id,
-      type: 'latihan',
-      name: row.name || 'Latihan',
+      type: "latihan",
+      name: row.name || "Latihan",
       subject_id: row.subject_id,
       topic_id: row.topic_id,
       score: row.score || 0,
       theta: row.theta || 0,
       percentile: row.percentile || 0,
-      mastery: row.correct_count && row.total_questions ? Math.round((row.correct_count / row.total_questions) * 100) : 0,
+      mastery:
+        row.correct_count && row.total_questions
+          ? Math.round((row.correct_count / row.total_questions) * 100)
+          : 0,
       date: row.submitted_at || row.started_at,
       correct: row.correct_count,
       total: row.total_questions,
     }));
 
     // Combine and sort by date
-    const allHistory = [...tryoutHistory, ...latihanHistory, ...umTryoutHistory]
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    const allHistory = [
+      ...tryoutHistory,
+      ...latihanHistory,
+      ...umTryoutHistory,
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     // Calculate summary stats
-    const allScores = allHistory.filter(h => h.score > 0).map(h => h.score);
-    const avgScore = allScores.length > 0 ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
+    const allScores = allHistory.filter((h) => h.score > 0).map((h) => h.score);
+    const avgScore =
+      allScores.length > 0
+        ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+        : 0;
     const totalTryouts = tryoutHistory.length + umTryoutHistory.length;
     const totalLatihan = latihanHistory.length;
 
     // Best percentile from the latest entry
-    const latestPercentile = allHistory.find(h => h.percentile > 0)?.percentile || 0;
+    const latestPercentile =
+      allHistory.find((h) => h.percentile > 0)?.percentile || 0;
 
     // Score trend (last 10 entries with scores, chronological)
     const scoreTrend = allHistory
-      .filter(h => h.score > 0)
+      .filter((h) => h.score > 0)
       .slice(0, 10)
       .reverse()
-      .map(h => ({
+      .map((h) => ({
         date: h.date,
         score: h.score,
         type: h.type,
@@ -430,19 +538,36 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
 
     // Score change from previous month
     const now = new Date();
-    const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    const thisMonthScores = allScores.filter((_, i) => new Date(allHistory[i]?.date) >= oneMonthAgo);
+    const oneMonthAgo = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      now.getDate(),
+    );
+    const thisMonthScores = allScores.filter(
+      (_, i) => new Date(allHistory[i]?.date) >= oneMonthAgo,
+    );
     const prevMonthScores = allScores.filter((_, i) => {
       const d = new Date(allHistory[i]?.date);
       return d < oneMonthAgo;
     });
-    const thisMonthAvg = thisMonthScores.length > 0 ? thisMonthScores.reduce((a, b) => a + b, 0) / thisMonthScores.length : 0;
-    const prevMonthAvg = prevMonthScores.length > 0 ? prevMonthScores.reduce((a, b) => a + b, 0) / prevMonthScores.length : 0;
-    const scoreChange = prevMonthAvg > 0 ? Math.round(((thisMonthAvg - prevMonthAvg) / prevMonthAvg) * 100 * 10) / 10 : 0;
+    const thisMonthAvg =
+      thisMonthScores.length > 0
+        ? thisMonthScores.reduce((a, b) => a + b, 0) / thisMonthScores.length
+        : 0;
+    const prevMonthAvg =
+      prevMonthScores.length > 0
+        ? prevMonthScores.reduce((a, b) => a + b, 0) / prevMonthScores.length
+        : 0;
+    const scoreChange =
+      prevMonthAvg > 0
+        ? Math.round(
+            ((thisMonthAvg - prevMonthAvg) / prevMonthAvg) * 100 * 10,
+          ) / 10
+        : 0;
 
     // Subject strength breakdown (from latihan data)
     const subjectMap = {};
-    latihanHistory.forEach(h => {
+    latihanHistory.forEach((h) => {
       if (!subjectMap[h.name]) {
         subjectMap[h.name] = { scores: [], correct: 0, total: 0 };
       }
@@ -450,12 +575,17 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
       subjectMap[h.name].correct += h.correct || 0;
       subjectMap[h.name].total += h.total || 0;
     });
-    const subjectStrength = Object.entries(subjectMap).map(([name, data]) => ({
-      name,
-      avgScore: Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length),
-      mastery: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
-      attempts: data.scores.length,
-    })).sort((a, b) => b.avgScore - a.avgScore);
+    const subjectStrength = Object.entries(subjectMap)
+      .map(([name, data]) => ({
+        name,
+        avgScore: Math.round(
+          data.scores.reduce((a, b) => a + b, 0) / data.scores.length,
+        ),
+        mastery:
+          data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+        attempts: data.scores.length,
+      }))
+      .sort((a, b) => b.avgScore - a.avgScore);
 
     res.json({
       success: true,
@@ -471,16 +601,16 @@ router.get('/riwayat', verifyToken, async (req, res, next) => {
         scoreTrend,
         history: allHistory,
         subjectStrength,
-      }
+      },
     });
   } catch (error) {
-    console.error('Riwayat error:', error);
+    console.error("Riwayat error:", error);
     next(error);
   }
 });
 
 // Get user's recent activities (tryout & latihan)
-router.get('/', verifyToken, async (req, res, next) => {
+router.get("/", verifyToken, async (req, res, next) => {
   try {
     const userId = req.user.id;
 
@@ -558,70 +688,112 @@ router.get('/', verifyToken, async (req, res, next) => {
     const [tryoutResult, latihanResult, umTryoutResult] = await Promise.all([
       pool.query(tryoutSql, [userId]),
       pool.query(latihanSql, [userId]),
-      pool.query(umTryoutSql, [userId])
+      pool.query(umTryoutSql, [userId]),
     ]);
 
     // Group recent tryout sessions into ATTEMPTS (same logic as /riwayat)
     const openByPkg = new Map();
     const recentGroupsArr = [];
-    tryoutResult.rows.forEach(row => {
-      const subtest = row.subtest_name || 'Unknown';
+    tryoutResult.rows.forEach((row) => {
+      const subtest = row.subtest_name || "Unknown";
       const startedAt = new Date(row.started_at);
       let g = openByPkg.get(row.package_id);
-      const timeSinceLast = g ? (startedAt - new Date(g.latestStartedAt)) / 3600000 : Infinity;
+      const timeSinceLast = g
+        ? (startedAt - new Date(g.latestStartedAt)) / 3600000
+        : Infinity;
       const subtestUsed = g && g.subtestSet.has(subtest);
       if (!g || subtestUsed || timeSinceLast > 12) {
-        g = { package_id: row.package_id, name: row.name, sessions: [], subtestSet: new Set(), latestStartedAt: row.started_at, latestSubmittedAt: row.submitted_at };
+        g = {
+          package_id: row.package_id,
+          name: row.name,
+          sessions: [],
+          subtestSet: new Set(),
+          latestStartedAt: row.started_at,
+          latestSubmittedAt: row.submitted_at,
+        };
         openByPkg.set(row.package_id, g);
         recentGroupsArr.push(g);
       }
       g.sessions.push(row);
       g.subtestSet.add(subtest);
-      if (startedAt > new Date(g.latestStartedAt)) g.latestStartedAt = row.started_at;
-      if (row.submitted_at && (!g.latestSubmittedAt || new Date(row.submitted_at) > new Date(g.latestSubmittedAt))) g.latestSubmittedAt = row.submitted_at;
+      if (startedAt > new Date(g.latestStartedAt))
+        g.latestStartedAt = row.started_at;
+      if (
+        row.submitted_at &&
+        (!g.latestSubmittedAt ||
+          new Date(row.submitted_at) > new Date(g.latestSubmittedAt))
+      )
+        g.latestSubmittedAt = row.submitted_at;
     });
 
-    const tryoutActivities = recentGroupsArr.map(group => {
-      const breakdowns = group.sessions.map(s => {
-        try { return typeof s.score_breakdown === 'string' ? JSON.parse(s.score_breakdown) : (s.score_breakdown || {}); } catch { return {}; }
+    const tryoutActivities = recentGroupsArr.map((group) => {
+      const breakdowns = group.sessions.map((s) => {
+        try {
+          return typeof s.score_breakdown === "string"
+            ? JSON.parse(s.score_breakdown)
+            : s.score_breakdown || {};
+        } catch {
+          return {};
+        }
       });
       // Aggregate subjectScores (best of)
       const aggregatedSubjects = {};
-      breakdowns.forEach(b => {
+      breakdowns.forEach((b) => {
         if (b.subjectScores) {
           Object.entries(b.subjectScores).forEach(([k, v]) => {
-            if (!aggregatedSubjects[k] || (v.score || 0) > (aggregatedSubjects[k].score || 0)) aggregatedSubjects[k] = v;
+            if (
+              !aggregatedSubjects[k] ||
+              (v.score || 0) > (aggregatedSubjects[k].score || 0)
+            )
+              aggregatedSubjects[k] = v;
           });
         }
       });
-      const subjScores = Object.values(aggregatedSubjects).map(s => s.score || 0);
-      const score = subjScores.length > 0
-        ? Math.round(subjScores.reduce((a, b) => a + b, 0) / subjScores.length)
-        : (breakdowns[0]?.totalScore || group.sessions[0]?.score || null);
-      const masteries = breakdowns.map(b => b.mastery).filter(m => typeof m === 'number');
-      const progress = masteries.length > 0 ? Math.round(masteries.reduce((a, b) => a + b, 0) / masteries.length) : 0;
+      const subjScores = Object.values(aggregatedSubjects).map(
+        (s) => s.score || 0,
+      );
+      const score =
+        subjScores.length > 0
+          ? Math.round(
+              subjScores.reduce((a, b) => a + b, 0) / subjScores.length,
+            )
+          : breakdowns[0]?.totalScore || group.sessions[0]?.score || null;
+      const masteries = breakdowns
+        .map((b) => b.mastery)
+        .filter((m) => typeof m === "number");
+      const progress =
+        masteries.length > 0
+          ? Math.round(masteries.reduce((a, b) => a + b, 0) / masteries.length)
+          : 0;
 
       return {
         id: group.sessions[0].id,
-        sessionIds: group.sessions.map(s => s.id),
+        sessionIds: group.sessions.map((s) => s.id),
         packageId: group.package_id,
-        type: 'tryout',
+        type: "tryout",
         name: group.name,
         progress,
         score,
         subtestCount: group.sessions.length,
         startedAt: group.latestStartedAt,
         submittedAt: group.latestSubmittedAt,
-        bgColor: '#dae1ff',
-        iconColor: '#0050cb',
-        icon: 'quiz'
+        bgColor: "#dae1ff",
+        iconColor: "#0050cb",
+        icon: "quiz",
       };
     });
 
     // Format Ujian Mandiri tryouts
-    const umActivities = umTryoutResult.rows.map(row => {
+    const umActivities = umTryoutResult.rows.map((row) => {
       let b = {};
-      try { b = typeof row.score_breakdown === 'string' ? JSON.parse(row.score_breakdown) : (row.score_breakdown || {}); } catch { b = {}; }
+      try {
+        b =
+          typeof row.score_breakdown === "string"
+            ? JSON.parse(row.score_breakdown)
+            : row.score_breakdown || {};
+      } catch {
+        b = {};
+      }
       const correct = b.benar || 0;
       const total = b.total || 1;
       const progress = Math.round((correct / total) * 100);
@@ -630,108 +802,121 @@ router.get('/', verifyToken, async (req, res, next) => {
         id: row.id,
         packageId: row.package_id,
         ujianId: row.ujian_id,
-        type: 'ujian_mandiri_tryout',
+        type: "ujian_mandiri_tryout",
         name: `${row.ujian_name} - ${row.name}`,
         progress,
         score: row.score,
         startedAt: row.started_at,
         submittedAt: row.submitted_at,
-        bgColor: '#e8eeff',
-        iconColor: '#0050cb',
-        icon: 'school'
+        bgColor: "#e8eeff",
+        iconColor: "#0050cb",
+        icon: "school",
       };
     });
 
     // Format Latihan results
-    const latihanActivities = latihanResult.rows.map(row => {
-      const progress = row.total_questions > 0
-        ? Math.round((row.correct_count / row.total_questions) * 100)
-        : 0;
+    const latihanActivities = latihanResult.rows.map((row) => {
+      const progress =
+        row.total_questions > 0
+          ? Math.round((row.correct_count / row.total_questions) * 100)
+          : 0;
       return {
         id: row.id,
-        type: 'latihan',
-        name: row.name || 'Latihan Topik',
+        type: "latihan",
+        name: row.name || "Latihan Topik",
         progress,
         score: row.score,
         subjectId: row.subject_id,
         topicId: row.topic_id,
         startedAt: row.started_at,
         submittedAt: row.submitted_at,
-        bgColor: row.bg_color || '#ffdbd0',
-        iconColor: row.icon_color || '#a33200',
-        icon: row.icon || 'school'
+        bgColor: row.bg_color || "#ffdbd0",
+        iconColor: row.icon_color || "#a33200",
+        icon: row.icon || "school",
       };
     });
 
     // Combine and sort by date
-    const allActivities = [...tryoutActivities, ...latihanActivities, ...umActivities]
+    const allActivities = [
+      ...tryoutActivities,
+      ...latihanActivities,
+      ...umActivities,
+    ]
       .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
       .slice(0, 5);
 
     res.json({
       success: true,
-      data: allActivities
+      data: allActivities,
     });
   } catch (error) {
-    console.error('Activity error:', error);
+    console.error("Activity error:", error);
     res.json({ success: true, data: [] });
   }
 });
 
 // Get latihan session result (for UTBK Latihan)
-router.get('/latihan/result/:sessionId', verifyToken, async (req, res, next) => {
-  try {
-    const userId = req.user.id;
-    const { sessionId } = req.params;
+router.get(
+  "/latihan/result/:sessionId",
+  verifyToken,
+  async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const { sessionId } = req.params;
 
-    const sessionRes = await pool.query(
-      `SELECT ls.*
+      const sessionRes = await pool.query(
+        `SELECT ls.*
        FROM latihan_sessions ls
        WHERE ls.id = $1 AND ls.user_id = $2`,
-      [sessionId, userId]
-    );
+        [sessionId, userId],
+      );
 
-    if (sessionRes.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Session not found' });
-    }
+      if (sessionRes.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Session not found" });
+      }
 
-    const session = sessionRes.rows[0];
-    const breakdown = typeof session.score_breakdown === 'string'
-      ? JSON.parse(session.score_breakdown)
-      : session.score_breakdown;
+      const session = sessionRes.rows[0];
+      const breakdown =
+        typeof session.score_breakdown === "string"
+          ? JSON.parse(session.score_breakdown)
+          : session.score_breakdown;
 
-    const itemAnalysis = breakdown?.itemAnalysis || [];
+      const itemAnalysis = breakdown?.itemAnalysis || [];
 
-    if (itemAnalysis.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          subjectName: session.subject_name,
-          subjectId: session.subject_id,
-          topicId: session.topic_id,
-          score_breakdown: breakdown,
-          questions: [],
-        }
-      });
-    }
+      if (itemAnalysis.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            subjectName: session.subject_name,
+            subjectId: session.subject_id,
+            topicId: session.topic_id,
+            score_breakdown: breakdown,
+            questions: [],
+          },
+        });
+      }
 
-    // Fetch questions and their choices from the questions table
-    const questionIds = itemAnalysis.map(item => item.questionId).filter(Boolean);
-    if (questionIds.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          subjectName: session.subject_name,
-          subjectId: session.subject_id,
-          topicId: session.topic_id,
-          score_breakdown: breakdown,
-          questions: [],
-        }
-      });
-    }
+      // Fetch questions and their choices from the questions table
+      const questionIds = itemAnalysis
+        .map((item) => item.questionId)
+        .filter(Boolean);
+      if (questionIds.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            subjectName: session.subject_name,
+            subjectId: session.subject_id,
+            topicId: session.topic_id,
+            score_breakdown: breakdown,
+            questions: [],
+          },
+        });
+      }
 
-    const questionsRes = await pool.query(
-      `SELECT q.id, q.content, q.image_url, q.image_position, q.difficulty, q.subject_id, q.question_type,
+      const questionsRes = await pool.query(
+        `SELECT q.id, q.content, q.image_url, q.image_position, q.difficulty, q.subject_id, q.question_type,
               json_agg(
                 json_build_object(
                   'id', ac.id,
@@ -746,45 +931,49 @@ router.get('/latihan/result/:sessionId', verifyToken, async (req, res, next) => 
        WHERE q.id = ANY($1::uuid[])
        GROUP BY q.id
        ORDER BY array_position($1::uuid[], q.id)`,
-      [questionIds]
-    );
+        [questionIds],
+      );
 
-    const questions = questionsRes.rows.map(q => ({
-      ...q,
-      choices: q.choices.filter(c => c.id !== null),
-    }));
-
-    // Merge itemAnalysis data into each question
-    const enrichedQuestions = questions.map(q => {
-      const analysis = itemAnalysis.find(item => item.questionId === q.id) || {};
-      const chosenChoiceId = analysis.chosenChoiceId || null;
-      const chosenChoice = chosenChoiceId ? q.choices.find(c => c.id === chosenChoiceId) : null;
-      const correctChoice = q.choices.find(c => c.is_correct) || null;
-      return {
+      const questions = questionsRes.rows.map((q) => ({
         ...q,
-        chosenChoiceId,
-        chosenChoice: chosenChoice || null,
-        correctChoice,
-        isCorrect: analysis.isCorrect === true,
-        isAnswered: !!chosenChoiceId,
-        difficulty: analysis.difficulty || q.difficulty || 'medium',
-      };
-    });
+        choices: q.choices.filter((c) => c.id !== null),
+      }));
 
-    res.json({
-      success: true,
-      data: {
-        subjectName: session.subject_name,
-        subjectId: session.subject_id,
-        topicId: session.topic_id,
-        score_breakdown: breakdown,
-        questions: enrichedQuestions,
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching latihan result:', error);
-    next(error);
-  }
-});
+      // Merge itemAnalysis data into each question
+      const enrichedQuestions = questions.map((q) => {
+        const analysis =
+          itemAnalysis.find((item) => item.questionId === q.id) || {};
+        const chosenChoiceId = analysis.chosenChoiceId || null;
+        const chosenChoice = chosenChoiceId
+          ? q.choices.find((c) => c.id === chosenChoiceId)
+          : null;
+        const correctChoice = q.choices.find((c) => c.is_correct) || null;
+        return {
+          ...q,
+          chosenChoiceId,
+          chosenChoice: chosenChoice || null,
+          correctChoice,
+          isCorrect: analysis.isCorrect === true,
+          isAnswered: !!chosenChoiceId,
+          difficulty: analysis.difficulty || q.difficulty || "medium",
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          subjectName: session.subject_name,
+          subjectId: session.subject_id,
+          topicId: session.topic_id,
+          score_breakdown: breakdown,
+          questions: enrichedQuestions,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching latihan result:", error);
+      next(error);
+    }
+  },
+);
 
 module.exports = router;
