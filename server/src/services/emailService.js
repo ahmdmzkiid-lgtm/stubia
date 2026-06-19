@@ -297,65 +297,7 @@ async function sendPremiumPlanActivatedEmail(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. TRYOUT REGISTRATION SUBMITTED — dikirim saat user mengirim bukti verifikasi
-// ─────────────────────────────────────────────────────────────────────────────
-async function sendTryoutRegistrationSubmittedEmail(
-  contactEmail,
-  userName,
-  packageTitle,
-  packageType,
-  platform,
-) {
-  const firstName = userName.split(" ")[0];
-  const typeLabel = packageType === "um" ? "Ujian Mandiri" : "UTBK";
-  const platformLabel = platform === "x" ? "X (Twitter)" : "Instagram";
-  const subject = `Bukti verifikasimu sudah kami terima, ${firstName}! ⏳`;
-  const html = baseTemplate({
-    preheader: `Pendaftaran tryout ${packageTitle} sudah masuk. Admin kami sedang memproses verifikasimu.`,
-    body: `
-      <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#191b24;line-height:1.2;">
-        Bukti diterima, <span style="color:#f59e0b;">${firstName}!</span> ⏳
-      </h1>
-      <p style="margin:0 0 20px;font-size:15px;color:#424656;line-height:1.7;">
-        Kami sudah menerima bukti verifikasi sosial media kamu untuk tryout berikut.
-        Tim admin Stubia akan memproses dan memverifikasinya secepatnya — biasanya
-        <strong>dalam 1×24 jam</strong>.
-      </p>
-
-      ${infoBox({
-        borderColor: "#f59e0b",
-        bgColor: "#fffbeb",
-        rows: [
-          ["Paket Tryout", packageTitle],
-          ["Tipe", typeLabel],
-          ["Platform", platformLabel],
-          ["Status", "⏳ Menunggu Verifikasi Admin"],
-        ],
-      })}
-
-      <p style="margin:20px 0;font-size:14px;color:#424656;line-height:1.7;">
-        Kamu akan mendapat email konfirmasi di alamat ini begitu verifikasi selesai.
-        Pastikan kamu <strong>tetap mem-follow akun Stubia</strong> dan <strong>link komentarmu aktif</strong>
-        selama proses berlangsung.
-      </p>
-
-      <p style="margin:0;font-size:14px;color:#424656;line-height:1.7;">
-        Sambil menunggu, kamu masih bisa belajar dan latihan soal gratis di dashboard Stubia!
-      </p>
-
-      ${ctaButton({ href: "https://stubia.id/dashboard", label: "Buka Dashboard →", color: "#f59e0b" })}
-
-      <p style="margin:24px 0 0;font-size:13px;color:#8b95b0;text-align:center;line-height:1.6;">
-        Pertanyaan? Hubungi kami di
-        <a href="https://stubia.id/contact-us" style="color:#0050cb;text-decoration:none;">stubia.id/contact-us</a>.
-      </p>
-    `,
-  });
-  return sendEmail({ toEmail: contactEmail, toName: userName, subject, html });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. TRYOUT REGISTRATION APPROVED — dikirim saat admin menyetujui
+// 3. TRYOUT REGISTRATION APPROVED — dikirim saat admin menyetujui
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendTryoutRegistrationApprovedEmail(
   userEmail,
@@ -398,7 +340,10 @@ async function sendTryoutRegistrationApprovedEmail(
       <p style="margin:0;font-size:14px;color:#424656;line-height:1.7;">
         Ingin akses tryout tanpa batas? Upgrade ke paket Premium atau Sultan kapan saja.
       </p>
-
+      <p style="margin:0;font-size:14px;color:#424656;line-height:1.7;">
+        KAMU MENDAPATKAN KODE VOUCHER 65% Upgrade ke paket Premium Ujian Mandiri kapan saja.
+        KODE VOUCHER: <strong>STUBIA65</strong>
+      </p>
       ${ctaButton({ href: `https://stubia.id${linkPath}`, label: "Kerjakan Tryout Sekarang →", color: "#10b981" })}
 
       <p style="margin:24px 0 0;font-size:13px;color:#8b95b0;text-align:center;line-height:1.6;">
