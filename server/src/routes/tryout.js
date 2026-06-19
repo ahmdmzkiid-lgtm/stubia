@@ -125,12 +125,10 @@ router.post("/packages", [verifyToken, verifyAdmin], async (req, res, next) => {
       error.code === "23505" &&
       error.constraint === "tryout_packages_title_key"
     ) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error: `Judul "${title}" sudah digunakan. Gunakan judul yang berbeda.`,
-        });
+      return res.status(409).json({
+        success: false,
+        error: `Judul "${title}" sudah digunakan. Gunakan judul yang berbeda.`,
+      });
     }
     next(error);
   }
@@ -182,12 +180,10 @@ router.patch(
         error.code === "23505" &&
         error.constraint === "tryout_packages_title_key"
       ) {
-        return res
-          .status(409)
-          .json({
-            success: false,
-            error: `Judul "${title}" sudah digunakan. Gunakan judul yang berbeda.`,
-          });
+        return res.status(409).json({
+          success: false,
+          error: `Judul "${title}" sudah digunakan. Gunakan judul yang berbeda.`,
+        });
       }
       next(error);
     }
@@ -279,13 +275,11 @@ router.post("/register", verifyToken, async (req, res, next) => {
       !platform ||
       !contact_email
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error:
-            "Data pendaftaran tidak lengkap. Isi username, link komentar, pilih platform, dan isi email.",
-        });
+      return res.status(400).json({
+        success: false,
+        error:
+          "Data pendaftaran tidak lengkap. Isi username, link komentar, pilih platform, dan isi email.",
+      });
     }
 
     if (!["utbk", "um"].includes(package_type)) {
@@ -295,12 +289,10 @@ router.post("/register", verifyToken, async (req, res, next) => {
     }
 
     if (!["instagram", "x"].includes(platform)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Platform tidak valid. Pilih Instagram atau X.",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Platform tidak valid. Pilih Instagram atau X.",
+      });
     }
 
     // Verify user is on a free plan
@@ -310,12 +302,10 @@ router.post("/register", verifyToken, async (req, res, next) => {
     );
     const currentPlan = userRes.rows[0]?.current_plan || "gratis";
     if (currentPlan === "premium" || currentPlan === "sultan") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Pengguna Premium tidak memerlukan pendaftaran sosial media.",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Pengguna Premium tidak memerlukan pendaftaran sosial media.",
+      });
     }
 
     // Check if user has already completed this specific tryout package (free plan limit)
@@ -354,19 +344,15 @@ router.post("/register", verifyToken, async (req, res, next) => {
     if (check.rows.length > 0) {
       const existing = check.rows[0];
       if (existing.status === "pending") {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "Anda sudah mendaftar dan sedang menunggu verifikasi admin.",
-          });
+        return res.status(400).json({
+          success: false,
+          error: "Anda sudah mendaftar dan sedang menunggu verifikasi admin.",
+        });
       } else if (existing.status === "approved") {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "Pendaftaran Anda sudah disetujui. Silakan mulai tryout.",
-          });
+        return res.status(400).json({
+          success: false,
+          error: "Pendaftaran Anda sudah disetujui. Silakan mulai tryout.",
+        });
       } else {
         // If rejected, delete and allow re-registration
         await pool.query("DELETE FROM tryout_registrations WHERE id = $1", [
@@ -391,32 +377,6 @@ router.post("/register", verifyToken, async (req, res, next) => {
         comment_link,
         platform,
       ],
-    );
-
-    // Send confirmation email to the contact_email provided
-    const userNameRes = await pool.query(
-      "SELECT name FROM users WHERE id = $1",
-      [req.user.id],
-    );
-    const userName = userNameRes.rows[0]?.name || "Pengguna";
-    const pkgRes = await pool.query(
-      package_type === "utbk"
-        ? "SELECT title FROM tryout_packages WHERE id = $1"
-        : "SELECT title FROM um_tryout_packages WHERE id = $1",
-      [package_id],
-    );
-    const packageTitle = pkgRes.rows[0]?.title || "Paket Tryout";
-    const {
-      sendTryoutRegistrationSubmittedEmail,
-    } = require("../services/emailService");
-    sendTryoutRegistrationSubmittedEmail(
-      contact_email,
-      userName,
-      packageTitle,
-      package_type,
-      platform,
-    ).catch((err) =>
-      console.error("Tryout registration submitted email error:", err),
     );
 
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -478,12 +438,10 @@ router.post("/complete-package", verifyToken, async (req, res, next) => {
   try {
     const { package_type, package_id } = req.body;
     if (!package_type || !package_id) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "package_type dan package_id wajib diisi.",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "package_type dan package_id wajib diisi.",
+      });
     }
     if (!["utbk", "um"].includes(package_type)) {
       return res
@@ -1430,13 +1388,11 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
     });
   } catch (error) {
     console.error("Error in get result:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: "Internal server error",
-        details: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details: error.message,
+    });
   }
 });
 
@@ -1811,13 +1767,11 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
     });
   } catch (error) {
     console.error("Error in combined result:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: "Internal server error",
-        details: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details: error.message,
+    });
   }
 });
 
@@ -1856,12 +1810,10 @@ router.post("/submit", verifyToken, async (req, res, next) => {
       );
     } catch (qError) {
       console.error("[SUBMIT] Error querying answers:", qError);
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: "Error fetching answers: " + qError.message,
-        });
+      return res.status(500).json({
+        success: false,
+        error: "Error fetching answers: " + qError.message,
+      });
     }
 
     // For short answer questions, evaluate correctness by text comparison

@@ -30,12 +30,10 @@ router.post("/verify", verifyToken, async (req, res, next) => {
 
     if (hasNewFormat) {
       if (!["instagram", "x"].includes(platform)) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "Platform tidak valid. Pilih Instagram atau X.",
-          });
+        return res.status(400).json({
+          success: false,
+          error: "Platform tidak valid. Pilih Instagram atau X.",
+        });
       }
       const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email);
       if (!emailOk) {
@@ -52,13 +50,11 @@ router.post("/verify", verifyToken, async (req, res, next) => {
       [userId],
     );
     if (pendingRes.rows.length > 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error:
-            "Anda sudah mengajukan verifikasi dan sedang menunggu persetujuan admin.",
-        });
+      return res.status(400).json({
+        success: false,
+        error:
+          "Anda sudah mengajukan verifikasi dan sedang menunggu persetujuan admin.",
+      });
     }
 
     const approvedRes = await pool.query(
@@ -68,12 +64,10 @@ router.post("/verify", verifyToken, async (req, res, next) => {
       [userId],
     );
     if (approvedRes.rows.length > 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Verifikasi latihan Anda sudah disetujui.",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Verifikasi latihan Anda sudah disetujui.",
+      });
     }
 
     const rejectedRes = await pool.query(
@@ -202,28 +196,6 @@ router.patch(
           .json({ success: false, error: "Request not found" });
       }
 
-      // Send email to contact_email if approved
-      if (status === "approved") {
-        const verif = result.rows[0];
-        if (verif.contact_email) {
-          const userRes = await pool.query(
-            "SELECT name FROM users WHERE id = $1",
-            [verif.user_id],
-          );
-          const userName = userRes.rows[0]?.name || "Pengguna";
-          const {
-            sendLatihanVerificationApprovedEmail,
-          } = require("../services/emailService");
-          sendLatihanVerificationApprovedEmail(
-            verif.contact_email,
-            userName,
-            verif.platform || "instagram",
-          ).catch((err) =>
-            console.error("Latihan verification approved email error:", err),
-          );
-        }
-      }
-
       console.log("Social Review Success:", result.rows[0]);
       res.json({ success: true, data: result.rows[0] });
     } catch (error) {
@@ -280,13 +252,11 @@ router.delete(
       }
 
       if (check.rows[0].status === "pending") {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error:
-              "Tidak bisa menghapus verifikasi yang masih pending. Setujui atau tolak terlebih dahulu.",
-          });
+        return res.status(400).json({
+          success: false,
+          error:
+            "Tidak bisa menghapus verifikasi yang masih pending. Setujui atau tolak terlebih dahulu.",
+        });
       }
 
       await pool.query("DELETE FROM user_social_verifications WHERE id = $1", [

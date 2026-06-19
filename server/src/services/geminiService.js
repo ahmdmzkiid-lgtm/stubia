@@ -84,7 +84,7 @@ FORMAT JAWABAN (WAJIB DIPATUHI):
 ATURAN KETAT:
 1. TOLAK pertanyaan di luar konteks Stubia atau UTBK/SNBT
 2. JANGAN mengarang info (harga, fitur, janji yang tidak ada)
-3. Jika tidak tahu, sarankan email ke stubiasupport@gmail.com
+3. Jika tidak tahu, sarankan whatsapp ke 085183147625 stubia.id
 4. JANGAN menjawab soal akademik, pembahasan materi, rekomendasi belajar, atau info PTN (itu bukan tugasmu sebagai CS)`;
 
     const chat = model.startChat({
