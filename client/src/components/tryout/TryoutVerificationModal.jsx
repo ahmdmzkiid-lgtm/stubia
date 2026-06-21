@@ -44,7 +44,7 @@ const TryoutVerificationModal = ({
 
   const handleOpenSocialMedia = () => {
     const socialMediaLinks = {
-      instagram: "https://stubia.id",
+      instagram: "https://instagram.com/stubia.id",
       x: "https://x.com/eduzet",
     };
     window.open(socialMediaLinks[selectedPlatform], "_blank");
