@@ -40,8 +40,8 @@ export default function SocialFollowModal({ open, onClose, onVerified }) {
 
   const handleOpenSocialMedia = () => {
     const links = {
-      instagram: 'https://instagram.com/stubia.my.id',
-      x: 'https://twitter.com/stubia',
+      instagram: 'https://instagram.com/stubia.id',
+      x: 'https://twitter.com/stubia.id',
     };
     window.open(links[selectedPlatform], '_blank');
   };
