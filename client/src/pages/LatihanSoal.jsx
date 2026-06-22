@@ -17,7 +17,7 @@ const SUBJECT_ORDER = [
   'penalaran matematika',
 ];
 
-const PLAN_RANK = { gratis: 0, premium_um: 0, premium: 1, sultan: 2 };
+const PLAN_RANK = { gratis: 0, premium_um: 0, premium: 1, sultan: 2, utbk_3m: 1, utbk_6m: 1, utbk_9m: 1, utbk_12m: 1, utbk_to_5x: 1, utbk_to_8x: 1, utbk_to_10x: 1 };
 
 export default function LatihanSoal() {
   const { user, isAdmin, logout } = useAuth();
