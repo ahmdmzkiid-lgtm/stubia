@@ -144,4 +144,69 @@ router.get('/me', verifyToken, async (req, res, next) => {
   }
 });
 
+// Update Profile Name
+router.put('/update-profile', verifyToken, async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      return res.status(400).json({ success: false, error: 'Nama tidak boleh kosong.' });
+    }
+
+    if (name.length > 255) {
+      return res.status(400).json({ success: false, error: 'Nama tidak boleh melebihi 255 karakter.' });
+    }
+
+    const result = await pool.query(
+      'UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name, email, role, current_plan, created_at',
+      [name.trim(), req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User tidak ditemukan.' });
+    }
+
+    res.json({ success: true, data: result.rows[0], message: 'Profil berhasil diperbarui.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update Password
+router.put('/update-password', verifyToken, async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Password lama dan password baru harus diisi.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Password baru harus minimal 6 karakter.' });
+    }
+
+    // Ambil user dari DB untuk mencocokkan password lama
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User tidak ditemukan.' });
+    }
+
+    const user = result.rows[0];
+    const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, error: 'Password lama tidak sesuai.' });
+    }
+
+    // Hash password baru
+    const saltRounds = 12;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newPasswordHash, req.user.id]);
+
+    res.json({ success: true, message: 'Password berhasil diperbarui.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
+

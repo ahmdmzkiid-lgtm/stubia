@@ -41,6 +41,8 @@ export const authService = {
   loginWithGoogle: (accessToken) => api.post('/auth/google', { access_token: accessToken }),
   register: (userData) => api.post('/auth/register', userData),
   me: () => api.get('/auth/me'),
+  updateProfile: (data) => api.put('/auth/update-profile', data),
+  updatePassword: (data) => api.put('/auth/update-password', data),
 };
 
 export const soalService = {

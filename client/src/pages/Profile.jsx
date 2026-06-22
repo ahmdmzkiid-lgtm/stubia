@@ -1,15 +1,30 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { subscriptionService } from '../services/api';
+import { subscriptionService, authService } from '../services/api';
 import Footer from '../components/Footer';
 import toast from 'react-hot-toast';
 
 export default function Profile() {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, refreshUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [activePlans, setActivePlans] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Form States
+  const [name, setName] = useState('');
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -25,6 +40,56 @@ export default function Profile() {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error('Nama tidak boleh kosong.');
+      return;
+    }
+    setIsSubmittingProfile(true);
+    try {
+      const res = await authService.updateProfile({ name });
+      if (res.data.success) {
+        toast.success('Profil berhasil diperbarui!');
+        await refreshUser();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmittingProfile(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error('Semua field password harus diisi.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Password baru minimal 6 karakter.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Konfirmasi password baru tidak cocok.');
+      return;
+    }
+    setIsSubmittingPassword(true);
+    try {
+      const res = await authService.updatePassword({ oldPassword, newPassword });
+      if (res.data.success) {
+        toast.success('Password berhasil diperbarui!');
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmittingPassword(false);
+    }
   };
 
   const formatDate = (dateStr) => {
@@ -244,6 +309,118 @@ export default function Profile() {
               <span className="font-semibold text-[#191b24] text-left sm:text-right">{user?.created_at ? formatDate(user.created_at) : '-'}</span>
             </div>
           </div>
+        </section>
+
+        {/* ── Ubah Nama Profil ── */}
+        <section className="bg-white rounded-2xl p-6 sm:p-8 border border-[#c2c6d8]/30 shadow-sm">
+          <h2 className="text-lg font-bold text-[#191b24] mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#0050cb]">manage_accounts</span>
+            Ubah Nama Profil
+          </h2>
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div>
+              <label htmlFor="name-input" className="block text-xs font-semibold text-[#727687] mb-1.5">
+                Nama Lengkap / Username
+              </label>
+              <input
+                id="name-input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/50 text-sm focus:outline-none focus:border-[#0050cb] focus:ring-1 focus:ring-[#0050cb] transition-all bg-[#faf8ff] text-[#191b24] font-medium"
+                placeholder="Masukkan nama baru"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmittingProfile}
+                className="bg-[#0050cb] hover:bg-[#003fa4] disabled:bg-[#0050cb]/50 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-md flex items-center gap-2"
+              >
+                {isSubmittingProfile ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Menyimpan...
+                  </>
+                ) : (
+                  'Simpan Perubahan'
+                )}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        {/* ── Ganti Kata Sandi ── */}
+        <section className="bg-white rounded-2xl p-6 sm:p-8 border border-[#c2c6d8]/30 shadow-sm">
+          <h2 className="text-lg font-bold text-[#191b24] mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#0050cb]">lock_reset</span>
+            Ganti Kata Sandi
+          </h2>
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <div>
+              <label htmlFor="old-password-input" className="block text-xs font-semibold text-[#727687] mb-1.5">
+                Kata Sandi Sekarang
+              </label>
+              <input
+                id="old-password-input"
+                type="password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/50 text-sm focus:outline-none focus:border-[#0050cb] focus:ring-1 focus:ring-[#0050cb] transition-all bg-[#faf8ff] text-[#191b24] font-medium"
+                placeholder="Masukkan kata sandi saat ini"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="new-password-input" className="block text-xs font-semibold text-[#727687] mb-1.5">
+                  Kata Sandi Baru
+                </label>
+                <input
+                  id="new-password-input"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/50 text-sm focus:outline-none focus:border-[#0050cb] focus:ring-1 focus:ring-[#0050cb] transition-all bg-[#faf8ff] text-[#191b24] font-medium"
+                  placeholder="Minimal 6 karakter"
+                />
+              </div>
+              <div>
+                <label htmlFor="confirm-password-input" className="block text-xs font-semibold text-[#727687] mb-1.5">
+                  Konfirmasi Kata Sandi Baru
+                </label>
+                <input
+                  id="confirm-password-input"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/50 text-sm focus:outline-none focus:border-[#0050cb] focus:ring-1 focus:ring-[#0050cb] transition-all bg-[#faf8ff] text-[#191b24] font-medium"
+                  placeholder="Ulangi kata sandi baru"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmittingPassword}
+                className="bg-[#0050cb] hover:bg-[#003fa4] disabled:bg-[#0050cb]/50 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-md flex items-center gap-2"
+              >
+                {isSubmittingPassword ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Memperbarui...
+                  </>
+                ) : (
+                  'Perbarui Kata Sandi'
+                )}
+              </button>
+            </div>
+          </form>
         </section>
 
         {/* ── Quick Links ── */}
