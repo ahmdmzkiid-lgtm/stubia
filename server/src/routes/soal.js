@@ -34,6 +34,17 @@ router.get("/", verifyToken, async (req, res, next) => {
       !tryout_package_id &&
       !(await isAdminUser(req.user.id, req.user.role))
     ) {
+      // Check if global UTBK Latihan Soal is active
+      const settingsRes = await pool.query("SELECT value FROM site_settings WHERE key = 'latihan_utbk_active'");
+      const isLatihanActive = settingsRes.rows.length === 0 || settingsRes.rows[0].value !== 'false';
+      if (!isLatihanActive) {
+        return res.status(403).json({
+          success: false,
+          error: "Latihan Soal UTBK sedang tidak aktif untuk sementara.",
+          code: "LATIHAN_UTBK_INACTIVE"
+        });
+      }
+
       const hasUtbkUnlimited = await hasActiveUtbkSubscription(req.user.id);
 
       if (!hasUtbkUnlimited) {

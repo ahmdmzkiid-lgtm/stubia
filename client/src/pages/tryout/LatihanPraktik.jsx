@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { soalService, subjectService, activityService } from '../../services/api';
+import { soalService, subjectService, activityService, settingsService } from '../../services/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import QuestionGrid from '../../components/tryout/QuestionGrid';
@@ -16,7 +16,7 @@ const LatihanPraktik = () => {
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
   const topicId = searchParams.get('topic_id');
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [questions, setQuestions] = useState([]);
   const [subjectName, setSubjectName] = useState('');
@@ -36,6 +36,7 @@ const LatihanPraktik = () => {
   const [showExitModal, setShowExitModal] = useState(false);
   const [pendingExitPath, setPendingExitPath] = useState(null);
   const [excludeCompleted, setExcludeCompleted] = useState(true);
+  const [isFeatureActive, setIsFeatureActive] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,10 +46,19 @@ const LatihanPraktik = () => {
         const params = { subject_id: subjectId, limit: 100, exclude_completed: excludeCompleted ? 'true' : 'false' };
         if (topicId) params.topic_id = topicId;
 
-        const [soalRes, subRes] = await Promise.all([
+        const [soalRes, subRes, settingsRes] = await Promise.all([
           soalService.list(params),
-          subjectService.list()
+          subjectService.list(),
+          settingsService.get()
         ]);
+
+        const settings = settingsRes.data?.data;
+        if (settings && settings.latihan_utbk_active === 'false' && !isAdmin) {
+          setIsFeatureActive(false);
+        } else {
+          setIsFeatureActive(true);
+        }
+
         // Backend returns { success: true, data: [...] } — data is a direct array
         const qs = Array.isArray(soalRes.data?.data) ? soalRes.data.data : [];
         setQuestions(qs);
@@ -211,6 +221,23 @@ const LatihanPraktik = () => {
         <div className="text-center">
           <div className="w-14 h-14 border-4 border-[#0050cb] border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="mt-5 text-[#424656] font-medium text-[15px]">Memuat soal...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loading && !isFeatureActive) {
+    return (
+      <div className="min-h-screen bg-[#faf8ff] text-[#191b24] flex flex-col items-center justify-center p-6">
+        <div className="bg-white rounded-3xl p-8 border border-[#c2c6d8]/30 shadow-lg text-center max-w-md w-full animate-fade-in">
+          <span className="material-symbols-outlined text-[64px] text-yellow-500 mb-4 animate-bounce">warning</span>
+          <h2 className="text-[24px] font-bold text-[#191b24] mb-3">Latihan UTBK Non-Aktif</h2>
+          <p className="text-[15px] text-[#424656] leading-relaxed mb-6">
+            Fitur latihan soal UTBK saat ini sedang dinonaktifkan sementara oleh administrator. Silakan hubungi admin atau kembali lagi nanti.
+          </p>
+          <button onClick={() => navigate('/')} className="w-full bg-[#0050cb] text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all">
+            Kembali ke Dashboard
+          </button>
         </div>
       </div>
     );

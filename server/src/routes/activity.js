@@ -61,8 +61,18 @@ router.post("/latihan/submit", verifyToken, async (req, res, next) => {
               code: access.code || "FREE_LIMIT_REQUIRE_SOCIAL",
             });
           }
-        }
       } else {
+        // Check if global UTBK Latihan Soal is active
+        const settingsRes = await pool.query("SELECT value FROM site_settings WHERE key = 'latihan_utbk_active'");
+        const isLatihanActive = settingsRes.rows.length === 0 || settingsRes.rows[0].value !== 'false';
+        if (!isLatihanActive) {
+          return res.status(403).json({
+            success: false,
+            error: "Latihan Soal UTBK sedang tidak aktif untuk sementara.",
+            code: "LATIHAN_UTBK_INACTIVE"
+          });
+        }
+
         const hasUtbk = await hasActiveUtbkSubscription(userId);
         if (!hasUtbk) {
           const planBlock = await assertUtbkGratisContentAccess(

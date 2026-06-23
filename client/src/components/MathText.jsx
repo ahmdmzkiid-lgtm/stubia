@@ -63,6 +63,68 @@ function tokenize(input) {
 
 const preventEvent = (e) => { e.preventDefault(); return false; };
 
+function renderFormattedText(text) {
+  if (!text) return '';
+  
+  // Normalize HTML tags and other delimiters to a standard set
+  let normalized = text
+    .replace(/<\/?b>/gi, '**')
+    .replace(/<\/?strong>/gi, '**')
+    .replace(/<\/?i>/gi, '*')
+    .replace(/<\/?em>/gi, '*')
+    .replace(/<u>/gi, '__u__')
+    .replace(/<\/u>/gi, '__u__')
+    .replace(/_([^_]+)_/g, '*$1*'); // Normalize markdown _italic_ to *italic*
+
+  // Recursive parser to support nesting
+  function parseNode(str) {
+    if (!str) return [];
+    
+    // Match first occurrence of bold (**...**), underline (__u__...__u__), or italic (*...*)
+    const regex = /(\*\*([^*]+)\*\*|__u__([^_]+)__u__|\*([^*]+)\*)/;
+    const match = str.match(regex);
+    
+    if (!match) {
+      return [str];
+    }
+    
+    const index = match.index;
+    const matchStr = match[0];
+    const prefix = str.substring(0, index);
+    const suffix = str.substring(index + matchStr.length);
+    
+    let content = '';
+    let type = '';
+    
+    if (matchStr.startsWith('**')) {
+      type = 'bold';
+      content = match[2];
+    } else if (matchStr.startsWith('__u__')) {
+      type = 'underline';
+      content = match[3];
+    } else if (matchStr.startsWith('*')) {
+      type = 'italic';
+      content = match[4];
+    }
+    
+    const prefixNodes = prefix ? [prefix] : [];
+    const suffixNodes = parseNode(suffix);
+    
+    let matchNode;
+    if (type === 'bold') {
+      matchNode = <strong key={index} className="font-bold">{parseNode(content)}</strong>;
+    } else if (type === 'italic') {
+      matchNode = <em key={index} className="italic">{parseNode(content)}</em>;
+    } else if (type === 'underline') {
+      matchNode = <u key={index} className="underline">{parseNode(content)}</u>;
+    }
+    
+    return [...prefixNodes, matchNode, ...suffixNodes];
+  }
+
+  return parseNode(normalized);
+}
+
 const MathText = ({ text = '', as: As = 'div', className = '' }) => {
   const parts = tokenize(text);
   return (
@@ -83,7 +145,7 @@ const MathText = ({ text = '', as: As = 'div', className = '' }) => {
       onSelectStart={preventEvent}
     >
       {parts.length === 0 ? null : parts.map((p, idx) => {
-        if (p.type === 'text') return <React.Fragment key={idx}>{p.text}</React.Fragment>;
+        if (p.type === 'text') return <React.Fragment key={idx}>{renderFormattedText(p.text)}</React.Fragment>;
         if (p.type === 'inline') {
           try {
             return <InlineMath key={idx} math={p.latex} />;

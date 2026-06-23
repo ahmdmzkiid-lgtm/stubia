@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { subjectService } from '../services/api';
+import { subjectService, settingsService } from '../services/api';
 import toast from 'react-hot-toast';
 import ChatWidget from '../components/ChatWidget';
 import Footer from '../components/Footer';
@@ -25,6 +25,7 @@ export default function LatihanSoal() {
   const [subjects, setSubjects] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isFeatureActive, setIsFeatureActive] = useState(true);
 
 
 
@@ -35,8 +36,18 @@ export default function LatihanSoal() {
   async function fetchData() {
     setLoading(true);
     try {
-      const res = await subjectService.list();
-      setSubjects(res.data?.data || []);
+      const [subjectRes, settingsRes] = await Promise.all([
+        subjectService.list(),
+        settingsService.get()
+      ]);
+      setSubjects(subjectRes.data?.data || []);
+      
+      const settings = settingsRes.data?.data;
+      if (settings && settings.latihan_utbk_active === 'false' && !isAdmin) {
+        setIsFeatureActive(false);
+      } else {
+        setIsFeatureActive(true);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -60,6 +71,30 @@ export default function LatihanSoal() {
   }
 
 
+
+  if (!loading && !isFeatureActive) {
+    return (
+      <div className="min-h-screen bg-[#faf8ff] text-[#191b24] flex flex-col justify-between">
+        <div>
+          <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
+          <main className="pt-20 max-w-md mx-auto px-6 text-center">
+            <div className="bg-white rounded-3xl p-8 border border-[#c2c6d8]/30 shadow-lg mt-10">
+              <span className="material-symbols-outlined text-[64px] text-yellow-500 mb-4 animate-bounce">warning</span>
+              <h2 className="text-[24px] font-bold text-[#191b24] mb-3">Latihan UTBK Non-Aktif</h2>
+              <p className="text-[15px] text-[#424656] leading-relaxed mb-6">
+                Fitur latihan soal UTBK saat ini sedang dinonaktifkan sementara oleh administrator. Silakan hubungi admin atau kembali lagi nanti.
+              </p>
+              <Link to="/" className="inline-block w-full bg-[#0050cb] text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all">
+                Kembali ke Dashboard
+              </Link>
+            </div>
+          </main>
+        </div>
+        <Footer />
+        <ChatWidget />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24]">

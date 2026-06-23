@@ -20,6 +20,7 @@ const AdminSettings = () => {
   const [tryoutBannerUrl, setTryoutBannerUrl] = useState('');
   const [tryoutTitle, setTryoutTitle] = useState('');
   const [tryoutStartTime, setTryoutStartTime] = useState('');
+  const [latihanUtbkActive, setLatihanUtbkActive] = useState(true);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,7 @@ const AdminSettings = () => {
       setTryoutBannerUrl(d.tryout_banner_url || '');
       setTryoutTitle(d.tryout_title || '');
       setTryoutStartTime(d.tryout_start_time || '');
+      setLatihanUtbkActive(d.latihan_utbk_active !== 'false');
 
       // Parse schedule from settings
       if (d.schedule_json) {
@@ -97,6 +99,21 @@ const AdminSettings = () => {
       toast.success('Pengaturan tryout berhasil diperbarui!');
     } catch (err) {
       toast.error('Gagal menyimpan pengaturan tryout. Silakan coba lagi.');
+      console.error(err);
+    }
+    finally { setSaving(false); }
+  };
+
+  const handleSaveLatihanUtbkActive = async (newValue) => {
+    setSaving(true);
+    try {
+      await settingsService.update({
+        latihan_utbk_active: String(newValue),
+      });
+      setLatihanUtbkActive(newValue);
+      toast.success(`Latihan Soal UTBK berhasil ${newValue ? 'diaktifkan' : 'dinonaktifkan'}!`);
+    } catch (err) {
+      toast.error('Gagal memperbarui status Latihan Soal UTBK.');
       console.error(err);
     }
     finally { setSaving(false); }
@@ -297,6 +314,38 @@ const AdminSettings = () => {
           >
             {saving ? <><span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>Menyimpan...</> : <><span className="material-symbols-outlined text-[20px]">save</span>Simpan Perubahan Tryout</>}
           </button>
+        </div>
+
+        {/* Latihan UTBK Form */}
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 shadow-sm space-y-6 flex flex-col justify-between">
+          <div>
+            <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4 mb-6">Pengaturan Latihan Soal UTBK</h3>
+            <p className="text-on-surface-variant font-body-md mb-6">
+              Mengontrol status aktif/non-aktif fitur Latihan Soal UTBK untuk siswa. Jika dinonaktifkan, siswa tidak dapat mengakses latihan soal.
+            </p>
+            
+            <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6 flex items-center justify-between">
+              <div>
+                <p className="font-label-lg text-label-lg text-on-surface font-bold">Status Fitur Latihan UTBK</p>
+                <p className="text-[12px] text-on-surface-variant mt-1">
+                  Saat ini: <strong className={latihanUtbkActive ? 'text-green-600' : 'text-red-500'}>{latihanUtbkActive ? 'AKTIF' : 'NON-AKTIF'}</strong>
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={latihanUtbkActive}
+                  onChange={e => handleSaveLatihanUtbkActive(e.target.checked)}
+                  disabled={saving}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+          </div>
+          <div className="text-on-surface-variant font-body-sm text-xs pt-4 border-t border-outline-variant/50">
+            * Perubahan status akan langsung berdampak pada seluruh siswa yang sedang membuka halaman Latihan Soal UTBK.
+          </div>
         </div>
       </div>
     </div>

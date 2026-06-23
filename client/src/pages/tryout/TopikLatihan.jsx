@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { subjectService } from '../../services/api';
+import { subjectService, settingsService } from '../../services/api';
 import toast from 'react-hot-toast';
 import StudentNavbar from '../../components/layout/StudentNavbar';
 import StartConfirmationModal from '../../components/StartConfirmationModal';
@@ -17,6 +17,7 @@ const TopikLatihan = () => {
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmData, setConfirmData] = useState(null);
+  const [isFeatureActive, setIsFeatureActive] = useState(true);
 
   useEffect(() => {
     fetchContent();
@@ -25,10 +26,18 @@ const TopikLatihan = () => {
   const fetchContent = async () => {
     setLoading(true);
     try {
-      // We don't have a getSubjectById but we can find it in the list or add it to API
-      // For now let's just get list and filter, or I should've added getById to API.
-      // I'll update api.js to include getSubjectById.
-      const subjectsRes = await subjectService.list();
+      const [subjectsRes, settingsRes] = await Promise.all([
+        subjectService.list(),
+        settingsService.get()
+      ]);
+      
+      const settings = settingsRes.data?.data;
+      if (settings && settings.latihan_utbk_active === 'false' && !isAdmin) {
+        setIsFeatureActive(false);
+      } else {
+        setIsFeatureActive(true);
+      }
+
       const currentSubject = subjectsRes.data.data.find(s => s.id === subjectId);
       setSubject(currentSubject);
 
@@ -44,6 +53,28 @@ const TopikLatihan = () => {
         return acc + p;
       }, 0) / topics.length)
     : 0;
+
+  if (!loading && !isFeatureActive) {
+    return (
+      <div className="min-h-screen bg-[#faf8ff] text-[#191b24] flex flex-col justify-between">
+        <div>
+          <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
+          <main className="pt-20 max-w-md mx-auto px-6 text-center flex-grow flex items-center justify-center">
+            <div className="bg-white rounded-3xl p-8 border border-[#c2c6d8]/30 shadow-lg my-10 animate-fade-in">
+              <span className="material-symbols-outlined text-[64px] text-yellow-500 mb-4 animate-bounce">warning</span>
+              <h2 className="text-[24px] font-bold text-[#191b24] mb-3">Latihan UTBK Non-Aktif</h2>
+              <p className="text-[15px] text-[#424656] leading-relaxed mb-6">
+                Fitur latihan soal UTBK saat ini sedang dinonaktifkan sementara oleh administrator. Silakan hubungi admin atau kembali lagi nanti.
+              </p>
+              <Link to="/" className="inline-block w-full bg-[#0050cb] text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all">
+                Kembali ke Dashboard
+              </Link>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (!loading && !subject) {
     return (
