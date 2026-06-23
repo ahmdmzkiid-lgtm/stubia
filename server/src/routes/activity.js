@@ -61,6 +61,7 @@ router.post("/latihan/submit", verifyToken, async (req, res, next) => {
               code: access.code || "FREE_LIMIT_REQUIRE_SOCIAL",
             });
           }
+        }
       } else {
         // Check if global UTBK Latihan Soal is active
         const settingsRes = await pool.query("SELECT value FROM site_settings WHERE key = 'latihan_utbk_active'");
