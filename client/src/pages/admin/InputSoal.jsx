@@ -50,8 +50,14 @@ const InputSoal = () => {
   };
 
   const handleCorrectChange = (index) => {
-    const updated = formData.choices.map((c, i) => ({ ...c, is_correct: i === index }));
-    setFormData({ ...formData, choices: updated });
+    if (formData.question_type === 'complex_mc_tf') {
+      const updated = [...formData.choices];
+      updated[index].is_correct = !updated[index].is_correct;
+      setFormData({ ...formData, choices: updated });
+    } else {
+      const updated = formData.choices.map((c, i) => ({ ...c, is_correct: i === index }));
+      setFormData({ ...formData, choices: updated });
+    }
   };
 
   const addOption = () => {
@@ -253,7 +259,7 @@ const InputSoal = () => {
                       <div className="flex flex-col items-end gap-2 flex-shrink-0">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <span className={`font-label-sm text-label-sm ${choice.is_correct ? 'text-primary' : 'text-on-surface-variant'}`}>
-                            Correct
+                            {formData.question_type === 'complex_mc_tf' ? (choice.is_correct ? 'Benar' : 'Salah') : 'Correct'}
                           </span>
                           <Toggle checked={choice.is_correct} onChange={() => handleCorrectChange(index)} />
                         </label>
@@ -345,6 +351,20 @@ const InputSoal = () => {
                       {formData.question_type === 'short_answer' ? 'radio_button_checked' : 'radio_button_unchecked'}
                     </span>
                     Short Answer (Isian Singkat)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, question_type: 'complex_mc_tf' })}
+                    className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
+                      formData.question_type === 'complex_mc_tf'
+                        ? 'border-primary bg-[#dae1ff]/10 text-primary font-label-md text-label-md'
+                        : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {formData.question_type === 'complex_mc_tf' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                    </span>
+                    Pernyataan Benar/Salah (PG Kompleks)
                   </button>
                 </div>
               </div>

@@ -25,6 +25,8 @@ const LandingPage = () => {
               src="/stubiabrandicon.png"
               alt="Stubia"
               className="h-10 sm:h-14"
+              width="865"
+              height="288"
             />
           </div>
           <div className="landing-nav-actions">
@@ -67,7 +69,13 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="hero-image">
-              <img src="/landingpage-hero.webp" alt="Students collaborating" />
+              <img 
+                src="/landingpage-hero.webp" 
+                alt="Students collaborating" 
+                width="1536" 
+                height="1024"
+                fetchpriority="high"
+              />
             </div>
           </div>
         </section>
@@ -362,6 +370,9 @@ const LandingPage = () => {
                 src="/stubiabrandicon.png"
                 alt="Stubia"
                 className="h-10 sm:h-14"
+                width="865"
+                height="288"
+                loading="lazy"
               />
             </div>
             <p>Platform persiapan UTBK terbaik untuk raih PTN impianmu.</p>
@@ -404,7 +415,7 @@ const TestimonialCard = ({ text, avatar, name, role }) => (
     <span className="material-symbols-outlined quote-icon">format_quote</span>
     <p className="testimonial-text">{text}</p>
     <div className="testimonial-author">
-      <img src={avatar} alt={name} />
+      <img src={avatar} alt={name} width="40" height="40" loading="lazy" />
       <div>
         <p className="author-name">{name}</p>
         <p className="author-role">{role}</p>

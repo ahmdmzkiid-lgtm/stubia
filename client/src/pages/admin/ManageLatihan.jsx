@@ -187,6 +187,7 @@ const ManageLatihan = () => {
         content: editingQuestion.content,
         difficulty: editingQuestion.difficulty,
         image_url: editingQuestion.image_url || null,
+        image_position: editingQuestion.image_position || 'after',
       });
       toast.success("Soal berhasil disimpan");
       setShowEditQuestionModal(false);
@@ -786,16 +787,16 @@ const ManageLatihan = () => {
                               <div
                                 key={c.id}
                                 className={`p-3 rounded-xl border text-[14px] flex items-start gap-3 ${
-                                  c.is_correct
-                                    ? "border-green-300 bg-green-50"
-                                    : "border-[#c2c6d8]/30 bg-[#f2f3ff]/50"
+                                  q.question_type === 'complex_mc_tf'
+                                    ? (c.is_correct ? "border-green-300 bg-green-50/30" : "border-red-200 bg-red-50/30")
+                                    : (c.is_correct ? "border-green-300 bg-green-50" : "border-[#c2c6d8]/30 bg-[#f2f3ff]/50")
                                 }`}
                               >
                                 <span
                                   className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0 ${
-                                    c.is_correct
-                                      ? "bg-green-500 text-white"
-                                      : "bg-[#c2c6d8]/30 text-[#424656]"
+                                    q.question_type === 'complex_mc_tf'
+                                      ? (c.is_correct ? "bg-green-500 text-white" : "bg-red-500 text-white")
+                                      : (c.is_correct ? "bg-green-500 text-white" : "bg-[#c2c6d8]/30 text-[#424656]")
                                   }`}
                                 >
                                   {c.label}
@@ -803,13 +804,18 @@ const ManageLatihan = () => {
                                 <div className="flex-1 min-w-0">
                                   <MathText
                                     className={
-                                      c.is_correct
-                                        ? "text-green-800 font-medium"
-                                        : "text-[#191b24]"
+                                      q.question_type === 'complex_mc_tf'
+                                        ? (c.is_correct ? "text-green-800 font-medium" : "text-red-800 font-medium")
+                                        : (c.is_correct ? "text-green-800 font-medium" : "text-[#191b24]")
                                     }
                                     text={c.content || ""}
                                   />
-                                  {c.is_correct && c.explanation && (
+                                  {q.question_type === 'complex_mc_tf' && (
+                                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded mt-1 inline-block ${c.is_correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                      {c.is_correct ? 'BENAR' : 'SALAH'}
+                                    </span>
+                                  )}
+                                  {c.is_correct && c.explanation && q.question_type !== 'complex_mc_tf' && (
                                     <MathText
                                       className="text-[12px] text-green-700 mt-1 italic block"
                                       text={c.explanation}
@@ -1519,6 +1525,36 @@ const ManageLatihan = () => {
                 folder="latihan/soal"
                 aspectRatio="aspect-video"
               />
+
+              {editingQuestion.image_url && (
+                <div>
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-2">
+                    Posisi Gambar
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="image_position"
+                        className="accent-[#0050cb]"
+                        checked={(editingQuestion.image_position || 'after') === 'after'}
+                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'after' })}
+                      />
+                      <span className="text-[14px] text-[#191b24]">Setelah Teks</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="image_position"
+                        className="accent-[#0050cb]"
+                        checked={editingQuestion.image_position === 'before'}
+                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'before' })}
+                      />
+                      <span className="text-[14px] text-[#191b24]">Sebelum Teks</span>
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[14px] font-bold text-[#191b24] mb-2">

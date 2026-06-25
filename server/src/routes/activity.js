@@ -132,6 +132,15 @@ router.post("/latihan/submit", verifyToken, async (req, res, next) => {
           correctChoice.content.trim().toLowerCase() ===
             String(chosenId).trim().toLowerCase()
         );
+      } else if (q.question_type === "complex_mc_tf") {
+        let userAnswersObj = {};
+        try {
+          userAnswersObj = chosenId ? (typeof chosenId === "object" ? chosenId : JSON.parse(chosenId)) : {};
+        } catch (e) {}
+        isCorrect = (q.choices || []).length > 0 && (q.choices || []).every((c) => {
+          const studentAns = userAnswersObj[c.label];
+          return studentAns !== undefined && studentAns === c.is_correct;
+        });
       } else {
         chosenChoice = chosenId
           ? (q.choices || []).find((c) => c.id === chosenId)
@@ -140,9 +149,11 @@ router.post("/latihan/submit", verifyToken, async (req, res, next) => {
       }
 
       return {
-        chosen_choice_id: q.question_type === "short_answer" ? null : chosenId,
+        chosen_choice_id: (q.question_type === "short_answer" || q.question_type === "complex_mc_tf") ? null : chosenId,
+        answer_text: (q.question_type === "short_answer" || q.question_type === "complex_mc_tf") ? chosenId : null,
         is_correct: isCorrect,
         question_id: q.id,
+        question_type: q.question_type || "multiple_choice",
         difficulty: q.difficulty || "medium",
         subject_name: subject_name || "Latihan",
         time_spent_sec: 0,
@@ -164,9 +175,12 @@ router.post("/latihan/submit", verifyToken, async (req, res, next) => {
       const ptUnanswered = latihanRes.rows[0]?.points_unanswered ?? 0;
 
       const correctCount = irtAnswers.filter((a) => a.is_correct).length;
-      const unansweredCount = irtAnswers.filter(
-        (a) => !a.chosen_choice_id,
-      ).length;
+      const unansweredCount = irtAnswers.filter((a) => {
+        const isTextBased = a.question_type === "short_answer" || a.question_type === "complex_mc_tf";
+        return isTextBased
+          ? (!a.answer_text || String(a.answer_text).trim() === '')
+          : !a.chosen_choice_id;
+      }).length;
       const incorrectCount = totalQuestions - correctCount - unansweredCount;
       const customScore =
         correctCount * ptCorrect +
@@ -198,6 +212,7 @@ router.post("/latihan/submit", verifyToken, async (req, res, next) => {
           difficulty: a.difficulty || "medium",
           isCorrect: a.is_correct,
           chosenChoiceId: a.chosen_choice_id,
+          answerText: a.answer_text || null,
           subjectName: a.subject_name || "Latihan",
         })),
       };
@@ -955,6 +970,7 @@ router.get(
         const analysis =
           itemAnalysis.find((item) => item.questionId === q.id) || {};
         const chosenChoiceId = analysis.chosenChoiceId || null;
+        const answerText = analysis.answerText || null;
         const chosenChoice = chosenChoiceId
           ? q.choices.find((c) => c.id === chosenChoiceId)
           : null;
@@ -962,10 +978,11 @@ router.get(
         return {
           ...q,
           chosenChoiceId,
+          answerText,
           chosenChoice: chosenChoice || null,
           correctChoice,
           isCorrect: analysis.isCorrect === true,
-          isAnswered: !!chosenChoiceId,
+          isAnswered: (q.question_type === "short_answer" || q.question_type === "complex_mc_tf") ? !!answerText : !!chosenChoiceId,
           difficulty: analysis.difficulty || q.difficulty || "medium",
         };
       });

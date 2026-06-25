@@ -45,6 +45,8 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
     kunci:         ['kunci jawaban', 'kunci', 'correct_label', 'answer', 'jawaban', 'kunci_jawaban'],
     pembahasan:    ['pembahasan', 'explanation', 'penjelasan'],
     image_url:     ['gambar', 'image', 'image_url', 'url gambar', 'foto'],
+    tipe_soal:     ['tipe soal', 'tipe', 'question_type', 'type', 'tipe_soal'],
+    image_position:['posisi gambar', 'posisi_gambar', 'image_position', 'image position'],
   };
 
   const resolve = (row, key) => {
@@ -110,9 +112,11 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
       const opsiC      = resolve(row, 'opsi_c');
       const opsiD      = resolve(row, 'opsi_d');
       const opsiE      = resolve(row, 'opsi_e');
-      const kunci      = resolve(row, 'kunci').toUpperCase();
+      const kunci      = resolve(row, 'kunci');
       const pembahasan = resolve(row, 'pembahasan');
       const imageUrl   = resolve(row, 'image_url');
+      const rawTipe    = resolve(row, 'tipe_soal').toLowerCase();
+      const imagePosition = resolve(row, 'image_position').toLowerCase() === 'before' ? 'before' : 'after';
 
       // ── Validation ──────────────────────────────────────────────
       if (!soal) {
@@ -121,15 +125,68 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
         continue;
       }
 
-      // Detect question type: if ALL options are empty → short_answer
-      const isShortAnswer = !opsiA && !opsiB && !opsiC && !opsiD && !opsiE;
+      // Determine question type
+      let questionType = 'multiple_choice';
+      if (rawTipe === 'complex_mc_tf' || rawTipe === 'pilihan_ganda_kompleks' || rawTipe === 'benar_salah' || rawTipe === 'benar salah') {
+        questionType = 'complex_mc_tf';
+      } else if (rawTipe === 'short_answer' || rawTipe === 'isian') {
+        questionType = 'short_answer';
+      } else if (!opsiA && !opsiB && !opsiC && !opsiD && !opsiE) {
+        questionType = 'short_answer';
+      }
 
-      if (isShortAnswer) {
-        // Short answer: KUNCI JAWABAN contains the correct text answer
-        if (!kunci && !resolve(row, 'kunci')) {
+      let choices = [];
+      let correctnessMap = { A: false, B: false, C: false, D: false, E: false };
+
+      if (questionType === 'short_answer') {
+        // Short answer validation
+        if (!kunci) {
           errors.push(`Baris ${rowNum}: Soal isian singkat harus memiliki KUNCI JAWABAN`);
           rejectedCount++;
           continue;
+        }
+      } else if (questionType === 'complex_mc_tf') {
+        // Complex MC true/false validation
+        if (!opsiA || !opsiB) {
+          errors.push(`Baris ${rowNum}: Soal benar/salah minimal harus memiliki OPSI A dan OPSI B`);
+          rejectedCount++;
+          continue;
+        }
+        if (!kunci) {
+          errors.push(`Baris ${rowNum}: Soal benar/salah harus memiliki KUNCI JAWABAN`);
+          rejectedCount++;
+          continue;
+        }
+
+        choices = [
+          { label: 'A', content: opsiA },
+          { label: 'B', content: opsiB },
+          { label: 'C', content: opsiC },
+          { label: 'D', content: opsiD },
+          { label: 'E', content: opsiE },
+        ].filter(c => c.content !== '');
+
+        const cleanKunci = kunci.toUpperCase().replace(/\s+/g, '');
+        if (cleanKunci.includes(':')) {
+          // Format "A:B,B:S"
+          const pairs = cleanKunci.split(',');
+          for (const pair of pairs) {
+            const [lbl, val] = pair.split(':');
+            if (lbl && val) {
+              const isTrue = val.startsWith('B') || val.startsWith('T') || val === 'BENAR' || val === 'TRUE';
+              correctnessMap[lbl] = isTrue;
+            }
+          }
+        } else {
+          // Format "B,S,B"
+          const parts = cleanKunci.split(',');
+          const labels = ['A', 'B', 'C', 'D', 'E'];
+          parts.forEach((part, idx) => {
+            if (idx < labels.length) {
+              const isTrue = part.startsWith('B') || part.startsWith('T') || part === 'BENAR' || part === 'TRUE';
+              correctnessMap[labels[idx]] = isTrue;
+            }
+          });
         }
       } else {
         // Multiple choice validation
@@ -138,19 +195,14 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
           rejectedCount++;
           continue;
         }
-        if (!['A', 'B', 'C', 'D', 'E'].includes(kunci)) {
+        const upperKunci = kunci.toUpperCase().trim();
+        if (!['A', 'B', 'C', 'D', 'E'].includes(upperKunci)) {
           errors.push(`Baris ${rowNum}: KUNCI JAWABAN '${kunci}' tidak valid (harus A/B/C/D/E)`);
           rejectedCount++;
           continue;
         }
-      }
-      // PEMBAHASAN opsional — tidak wajib diisi
 
-      const questionType = isShortAnswer ? 'short_answer' : 'multiple_choice';
-
-      if (!isShortAnswer) {
-        // Build choices — skip empty options (multiple choice)
-        var choices = [
+        choices = [
           { label: 'A', content: opsiA },
           { label: 'B', content: opsiB },
           { label: 'C', content: opsiC },
@@ -158,17 +210,17 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
           { label: 'E', content: opsiE },
         ].filter(c => c.content !== '');
 
-        const correctExists = choices.some(c => c.label === kunci);
+        const correctExists = choices.some(c => c.label === upperKunci);
         if (!correctExists) {
-          errors.push(`Baris ${rowNum}: KUNCI '${kunci}' tidak ada di opsi yang tersedia`);
+          errors.push(`Baris ${rowNum}: KUNCI '${upperKunci}' tidak ada di opsi yang tersedia`);
           rejectedCount++;
           continue;
         }
       }
 
       // Compute content hash
-      const hashChoices = isShortAnswer
-        ? [resolve(row, 'kunci') || kunci]
+      const hashChoices = questionType === 'short_answer'
+        ? [kunci]
         : choices;
       const hash = generateQuestionHash(soal, hashChoices, imageUrl);
 
@@ -176,23 +228,30 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
       const pkgId = destination === 'tryout' ? tryout_package_id : null;
       const qSource = destination === 'battle' ? 'battle' : 'manual';
       const qRes = await client.query(
-        'INSERT INTO questions (subject_id, topic_id, content, difficulty, tryout_package_id, display_order, source, image_url, question_type, content_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
-        [subject_id, topic_id || null, soal, difficulty, pkgId, nextDisplayOrder, qSource, imageUrl || null, questionType, hash]
+        'INSERT INTO questions (subject_id, topic_id, content, difficulty, tryout_package_id, display_order, source, image_url, image_position, question_type, content_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
+        [subject_id, topic_id || null, soal, difficulty, pkgId, nextDisplayOrder, qSource, imageUrl || null, imagePosition, questionType, hash]
       );
       const questionId = qRes.rows[0].id;
       nextDisplayOrder++;
 
       // ── Insert choices ───────────────────────────────────────────
-      if (isShortAnswer) {
-        // For short answer: store correct answer as a single choice with label 'A'
-        const correctAnswerText = resolve(row, 'kunci') || kunci;
+      if (questionType === 'short_answer') {
         await client.query(
           'INSERT INTO answer_choices (question_id, label, content, is_correct, explanation) VALUES ($1, $2, $3, $4, $5)',
-          [questionId, 'A', correctAnswerText, true, pembahasan || null]
+          [questionId, 'A', kunci, true, pembahasan || null]
         );
-      } else {
+      } else if (questionType === 'complex_mc_tf') {
         for (const choice of choices) {
-          const isCorrect = choice.label === kunci;
+          const isCorrect = correctnessMap[choice.label] === true;
+          await client.query(
+            'INSERT INTO answer_choices (question_id, label, content, is_correct, explanation) VALUES ($1, $2, $3, $4, $5)',
+            [questionId, choice.label, choice.content, isCorrect, pembahasan || null]
+          );
+        }
+      } else {
+        const upperKunci = kunci.toUpperCase().trim();
+        for (const choice of choices) {
+          const isCorrect = choice.label === upperKunci;
           await client.query(
             'INSERT INTO answer_choices (question_id, label, content, is_correct, explanation) VALUES ($1, $2, $3, $4, $5)',
             [questionId, choice.label, choice.content, isCorrect, isCorrect ? (pembahasan || null) : null]

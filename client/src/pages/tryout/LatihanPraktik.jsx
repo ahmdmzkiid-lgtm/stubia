@@ -488,8 +488,13 @@ const LatihanPraktik = () => {
               {currentQuestion.difficulty === 'easy' ? 'Mudah' : currentQuestion.difficulty === 'hard' ? 'Sulit' : 'Sedang'}
             </span>
           </div>
+          {currentQuestion.image_url && currentQuestion.image_position === 'before' && (
+            <div className="mb-4">
+              <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
+            </div>
+          )}
           <MathText className="text-[15px] text-[#191b24] leading-relaxed" text={currentQuestion.content || ''} />
-          {currentQuestion.image_url && (
+          {currentQuestion.image_url && currentQuestion.image_position !== 'before' && (
             <div className="mt-4">
               <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
             </div>
@@ -498,7 +503,55 @@ const LatihanPraktik = () => {
 
         {/* Answer Options */}
         <div className="flex flex-col gap-3 mb-6">
-          {currentQuestion?.question_type === 'short_answer' ? (
+          {currentQuestion?.question_type === 'complex_mc_tf' ? (
+            /* Complex MC True/False - Pernyataan Benar/Salah */
+            <div className="bg-white rounded-2xl p-5 border border-[#e0e2f0] shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined text-[20px] text-[#0050cb]">fact_check</span>
+                <span className="text-[13px] font-semibold text-[#727687]">Tentukan Benar atau Salah untuk setiap pernyataan</span>
+              </div>
+              <div className="space-y-3">
+                {(currentQuestion?.choices || []).map((choice) => {
+                  let studentAnswer = null;
+                  try {
+                    const parsed = answers[currentIndex] ? (typeof answers[currentIndex] === 'string' ? JSON.parse(answers[currentIndex]) : answers[currentIndex]) : {};
+                    studentAnswer = parsed[choice.label];
+                  } catch(e) {}
+                  return (
+                    <div key={choice.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border border-[#e0e2f0] bg-[#faf8ff]">
+                      <div className="flex-1 min-w-0">
+                        <MathText className="text-[14px] text-[#191b24] leading-relaxed" text={choice.content || ''} />
+                      </div>
+                      <div className="flex gap-2 self-end sm:self-center flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            const current = answers[currentIndex] ? (typeof answers[currentIndex] === 'string' ? JSON.parse(answers[currentIndex]) : answers[currentIndex]) : {};
+                            const updated = { ...current, [choice.label]: true };
+                            handleOptionSelect(JSON.stringify(updated));
+                          }}
+                          className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all flex items-center gap-1.5 ${studentAnswer === true ? 'bg-[#0050cb] text-white shadow-sm shadow-[#0050cb]/20' : 'bg-[#ecedfa] text-[#424656] hover:bg-[#dae1ff]'}`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{studentAnswer === true ? 'check_circle' : 'circle'}</span>
+                          Benar
+                        </button>
+                        <button
+                          onClick={() => {
+                            const current = answers[currentIndex] ? (typeof answers[currentIndex] === 'string' ? JSON.parse(answers[currentIndex]) : answers[currentIndex]) : {};
+                            const updated = { ...current, [choice.label]: false };
+                            handleOptionSelect(JSON.stringify(updated));
+                          }}
+                          className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all flex items-center gap-1.5 ${studentAnswer === false ? 'bg-[#ba1a1a] text-white shadow-sm shadow-[#ba1a1a]/20' : 'bg-[#ecedfa] text-[#424656] hover:bg-[#ffdad6]'}`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{studentAnswer === false ? 'cancel' : 'circle'}</span>
+                          Salah
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : currentQuestion?.question_type === 'short_answer' ? (
             /* Short Answer Input */
             <div className="bg-white rounded-2xl p-5 border border-[#e0e2f0] shadow-sm">
               <div className="flex items-center gap-2 mb-3">

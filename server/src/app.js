@@ -14,7 +14,13 @@ const app = express();
 
 // Middleware CORS Manual & Otomatis (Anti-Block Hostinger)
 app.use((req, res, next) => {
-  const allowedOrigins = ['https://stubia.id', 'https://www.stubia.id', 'http://localhost:5173'];
+  const allowedOrigins = [
+    'https://stubia.id', 
+    'https://www.stubia.id', 
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'http://localhost:3000'
+  ];
   
   if (process.env.CLIENT_URL) {
     allowedOrigins.push(process.env.CLIENT_URL);

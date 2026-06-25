@@ -246,7 +246,58 @@ const TryoutSessionNew = () => {
 
                     {/* ANSWER CHOICES OR INPUT */}
                     <div className="space-y-3">
-                      {question.question_type === 'short_answer' ? (
+                      {question.question_type === 'complex_mc_tf' ? (
+                        /* Complex MC True/False */
+                        <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-[13px] font-semibold text-gray-500">Tentukan Benar atau Salah untuk setiap pernyataan:</span>
+                          </div>
+                          <div className="space-y-2">
+                            {(question.choices || []).map((choice) => {
+                              let studentAnswer = null;
+                              try {
+                                const parsed = userAnswer?.answerText ? (typeof userAnswer.answerText === 'string' ? JSON.parse(userAnswer.answerText) : userAnswer.answerText) : {};
+                                studentAnswer = parsed[choice.label];
+                              } catch(e) {}
+                              return (
+                                <div key={choice.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white">
+                                  <div className="flex-1 text-[14px] text-gray-900 min-w-0">
+                                    <MathText text={choice.content || ''} />
+                                  </div>
+                                  <div className="flex gap-2 self-end sm:self-center flex-shrink-0">
+                                    <button
+                                      onClick={() => {
+                                        const current = userAnswer?.answerText ? (typeof userAnswer.answerText === 'string' ? JSON.parse(userAnswer.answerText) : userAnswer.answerText) : {};
+                                        const updated = { ...current, [choice.label]: true };
+                                        saveAnswer(question.id, undefined, {
+                                          sessionId,
+                                          answerText: JSON.stringify(updated),
+                                        });
+                                      }}
+                                      className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all ${studentAnswer === true ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-indigo-50'}`}
+                                    >
+                                      Benar
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const current = userAnswer?.answerText ? (typeof userAnswer.answerText === 'string' ? JSON.parse(userAnswer.answerText) : userAnswer.answerText) : {};
+                                        const updated = { ...current, [choice.label]: false };
+                                        saveAnswer(question.id, undefined, {
+                                          sessionId,
+                                          answerText: JSON.stringify(updated),
+                                        });
+                                      }}
+                                      className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all ${studentAnswer === false ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-red-50'}`}
+                                    >
+                                      Salah
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : question.question_type === 'short_answer' ? (
                         /* Short Answer Input */
                         <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-600/20 transition-all">
                           <div className="flex items-center gap-2 mb-2">

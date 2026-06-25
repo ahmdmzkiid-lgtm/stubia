@@ -77,20 +77,33 @@ const LatihanResult = () => {
   const questionResults = questions.map((q, idx) => {
     // If data came from API, use pre-computed analysis
     if (apiData) {
-      const isAnswered = !!q.chosenChoiceId;
+      const isAnswered = q.isAnswered !== undefined 
+        ? q.isAnswered 
+        : ((q.question_type === 'short_answer' || q.question_type === 'complex_mc_tf') ? !!q.answerText : !!q.chosenChoiceId);
       const isCorrect = q.isCorrect === true;
       if (isCorrect) correctCount++;
       return { ...q, idx, chosenId: q.chosenChoiceId, chosenChoice: q.chosenChoice, correctChoice: q.correctChoice, isCorrect, isAnswered };
     }
-    // Otherwise compute from state answers map
+     // Otherwise compute from state answers map
     const chosenId = answers[idx];
     const isShortAnswer = q.question_type === 'short_answer';
+    const isComplexMcTf = q.question_type === 'complex_mc_tf';
     const correctChoice = q.choices?.find(c => c.is_correct) || null;
     let isCorrect = false;
     let chosenChoice = null;
 
     if (isShortAnswer) {
       isCorrect = !!(correctChoice && chosenId && correctChoice.content.trim().toLowerCase() === chosenId.trim().toLowerCase());
+    } else if (isComplexMcTf) {
+      try {
+        const studentAnswers = chosenId ? (typeof chosenId === 'string' ? JSON.parse(chosenId) : chosenId) : {};
+        isCorrect = (q.choices || []).every(c => {
+          const studentAns = studentAnswers[c.label];
+          return studentAns === c.is_correct;
+        });
+      } catch (e) {
+        isCorrect = false;
+      }
     } else {
       chosenChoice = q.choices?.find(c => c.id === chosenId) || null;
       isCorrect = chosenChoice?.is_correct === true;
@@ -288,11 +301,61 @@ const LatihanResult = () => {
                     </div>
 
                     {/* Question Content */}
+                    {qr.image_url && qr.image_position === 'before' && (
+                      <div className="mb-4">
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={qr.image_url} alt="Soal" />
+                      </div>
+                    )}
                     <MathText className="text-[14px] md:text-[15px] font-semibold mb-4 leading-relaxed" text={qr.content || ''} />
+                    {qr.image_url && qr.image_position !== 'before' && (
+                      <div className="mb-4">
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={qr.image_url} alt="Soal" />
+                      </div>
+                    )}
 
                     {/* Answer Choices */}
                     <div className="space-y-2 mb-4">
-                      {qr.question_type === 'short_answer' ? (
+                      {qr.question_type === 'complex_mc_tf' ? (
+                        <div className="space-y-2.5">
+                          {(qr.choices || []).map((choice) => {
+                            let studentAnswers = {};
+                            try {
+                              studentAnswers = qr.chosenId ? (typeof qr.chosenId === 'string' ? JSON.parse(qr.chosenId) : qr.chosenId) : {};
+                            } catch(e) {}
+                            const studentAns = studentAnswers[choice.label];
+                            const isCorrectAnswer = choice.is_correct;
+                            const studentGotIt = studentAns === isCorrectAnswer;
+                            return (
+                              <div key={choice.id} className={`relative flex items-start p-4 rounded-xl border-2 ${
+                                studentGotIt ? 'border-[#006688] bg-[#c2e8ff]/10' : 'border-[#ba1a1a] bg-[#ffdad6]/10'
+                              }`}>
+                                <div className="flex-1 min-w-0">
+                                  <MathText className="text-[13px] text-[#191b24]" text={choice.content || ''} />
+                                  <div className="flex flex-wrap items-center gap-3 mt-2">
+                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isCorrectAnswer ? 'bg-[#c2e8ff] text-[#006688]' : 'bg-[#ffdad6] text-[#ba1a1a]'}`}>
+                                      Kunci: {isCorrectAnswer ? 'BENAR' : 'SALAH'}
+                                    </span>
+                                    {studentAns !== undefined ? (
+                                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${studentAns ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        Jawabanmu: {studentAns ? 'BENAR' : 'SALAH'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500">
+                                        Jawabanmu: KOSONG
+                                      </span>
+                                    )}
+                                    <span className="flex-shrink-0">
+                                      <span className="material-symbols-outlined text-[18px] align-middle" style={{ fontVariationSettings: "'FILL' 1", color: studentGotIt ? '#006688' : '#ba1a1a' }}>
+                                        {studentGotIt ? 'check_circle' : 'cancel'}
+                                      </span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : qr.question_type === 'short_answer' ? (
                         <div className="space-y-2">
                           <div className={`relative flex items-center p-3 rounded-xl border-2 ${
                             qr.isCorrect

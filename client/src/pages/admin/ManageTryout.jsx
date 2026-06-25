@@ -929,8 +929,9 @@ const ManageTryout = () => {
                             {q.choices && q.choices.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {q.choices.map((choice) => (
-                                  <span key={choice.id} className={`text-[11px] px-2 py-1 rounded-md font-medium flex items-center gap-1 ${choice.is_correct ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-600'}`}>
+                                  <span key={choice.id} className={`text-[11px] px-2 py-1 rounded-md font-medium flex items-center gap-1 ${choice.is_correct ? 'bg-green-100 text-green-700 border border-green-300' : (q.question_type === 'complex_mc_tf' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-gray-100 text-gray-600')}`}>
                                     <strong>{choice.label}.</strong> <MathText text={choice.content.substring(0, 30) + (choice.content.length > 30 ? '...' : '')} />
+                                    {q.question_type === 'complex_mc_tf' && <span className="ml-1 font-bold">{choice.is_correct ? '✓' : '✗'}</span>}
                                   </span>
                                 ))}
                               </div>

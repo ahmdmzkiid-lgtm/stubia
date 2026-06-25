@@ -1075,38 +1075,58 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
         }
 
         const isShortAnswer = q.question_type === "short_answer";
+        const isComplex = q.question_type === "complex_mc_tf";
 
         // Find user's answer label
         let userAnswerLabel = null;
-        if (!isShortAnswer && q.chosen_choice_id) {
+        if (isShortAnswer || isComplex) {
+          userAnswerLabel = q.answer_text || null;
+        } else if (q.chosen_choice_id) {
           const chosenChoice = choices.find((c) => c.id === q.chosen_choice_id);
           if (chosenChoice) {
             userAnswerLabel = chosenChoice.label;
           }
-        } else if (isShortAnswer) {
-          userAnswerLabel = q.answer_text || null;
         }
 
         // Find correct answer label and its explanation
         let correctAnswerLabel = null;
         let questionExplanation = null;
-        const correctChoice = choices.find((c) => c.is_correct === true);
-        if (correctChoice) {
-          correctAnswerLabel = isShortAnswer
-            ? correctChoice.content
-            : correctChoice.label;
-          questionExplanation = correctChoice.explanation;
+        if (isComplex) {
+          const correctObj = {};
+          choices.forEach((c) => {
+            correctObj[c.label] = c.is_correct === true;
+          });
+          correctAnswerLabel = JSON.stringify(correctObj);
+          questionExplanation = choices.find((c) => c.explanation)?.explanation || null;
+        } else {
+          const correctChoice = choices.find((c) => c.is_correct === true);
+          if (correctChoice) {
+            correctAnswerLabel = isShortAnswer
+              ? correctChoice.content
+              : correctChoice.label;
+            questionExplanation = correctChoice.explanation;
+          }
         }
 
         // Evaluate correctness
         let isCorrect = false;
         if (isShortAnswer) {
+          const correctChoice = choices.find((c) => c.is_correct === true);
           isCorrect = !!(
             correctChoice &&
             q.answer_text &&
             correctChoice.content.trim().toLowerCase() ===
               q.answer_text.trim().toLowerCase()
           );
+        } else if (isComplex) {
+          let userAnswersObj = {};
+          try {
+            userAnswersObj = q.answer_text ? JSON.parse(q.answer_text) : {};
+          } catch (e) {}
+          isCorrect = choices.length > 0 && choices.every((c) => {
+            const studentAns = userAnswersObj[c.label];
+            return studentAns !== undefined && studentAns === c.is_correct;
+          });
         } else {
           isCorrect = q.chosen_choice_id
             ? choices.find((c) => c.id === q.chosen_choice_id)?.is_correct ===
@@ -1193,6 +1213,19 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
               correctRes.rows[0].content.trim().toLowerCase() ===
               ans.answer_text.trim().toLowerCase();
           }
+        } else if (ans.question_type === "complex_mc_tf") {
+          const choicesRes = await pool.query(
+            `SELECT label, is_correct FROM answer_choices WHERE question_id = $1`,
+            [ans.question_id],
+          );
+          let userAnswersObj = {};
+          try {
+            userAnswersObj = ans.answer_text ? JSON.parse(ans.answer_text) : {};
+          } catch (e) {}
+          ans.is_correct = choicesRes.rows.length > 0 && choicesRes.rows.every((c) => {
+            const studentAns = userAnswersObj[c.label];
+            return studentAns !== undefined && studentAns === c.is_correct;
+          });
         }
       }
 
@@ -1587,6 +1620,19 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
               correctRes.rows[0].content.trim().toLowerCase() ===
               ans.answer_text.trim().toLowerCase();
           }
+        } else if (ans.question_type === "complex_mc_tf") {
+          const choicesRes = await pool.query(
+            `SELECT label, is_correct FROM answer_choices WHERE question_id = $1`,
+            [ans.question_id],
+          );
+          let userAnswersObj = {};
+          try {
+            userAnswersObj = ans.answer_text ? JSON.parse(ans.answer_text) : {};
+          } catch (e) {}
+          ans.is_correct = choicesRes.rows.length > 0 && choicesRes.rows.every((c) => {
+            const studentAns = userAnswersObj[c.label];
+            return studentAns !== undefined && studentAns === c.is_correct;
+          });
         }
       }
 
@@ -1816,7 +1862,7 @@ router.post("/submit", verifyToken, async (req, res, next) => {
       });
     }
 
-    // For short answer questions, evaluate correctness by text comparison
+    // For short answer and complex true/false questions, evaluate correctness
     for (const ans of answersRes.rows) {
       if (ans.question_type === "short_answer" && ans.answer_text) {
         const correctRes = await pool.query(
@@ -1828,6 +1874,19 @@ router.post("/submit", verifyToken, async (req, res, next) => {
             correctRes.rows[0].content.trim().toLowerCase() ===
             ans.answer_text.trim().toLowerCase();
         }
+      } else if (ans.question_type === "complex_mc_tf") {
+        const choicesRes = await pool.query(
+          `SELECT label, is_correct FROM answer_choices WHERE question_id = $1`,
+          [ans.question_id],
+        );
+        let userAnswersObj = {};
+        try {
+          userAnswersObj = ans.answer_text ? JSON.parse(ans.answer_text) : {};
+        } catch (e) {}
+        ans.is_correct = choicesRes.rows.length > 0 && choicesRes.rows.every((c) => {
+          const studentAns = userAnswersObj[c.label];
+          return studentAns !== undefined && studentAns === c.is_correct;
+        });
       }
     }
 
@@ -2018,7 +2077,7 @@ router.post("/submit-bulk", verifyToken, async (req, res, next) => {
         [sessionId],
       );
 
-      // For short answer questions, evaluate correctness by text comparison
+      // For short answer and complex true/false questions, evaluate correctness
       for (const ans of answersRes.rows) {
         if (ans.question_type === "short_answer" && ans.answer_text) {
           const correctRes = await pool.query(
@@ -2030,6 +2089,19 @@ router.post("/submit-bulk", verifyToken, async (req, res, next) => {
               correctRes.rows[0].content.trim().toLowerCase() ===
               ans.answer_text.trim().toLowerCase();
           }
+        } else if (ans.question_type === "complex_mc_tf") {
+          const choicesRes = await pool.query(
+            `SELECT label, is_correct FROM answer_choices WHERE question_id = $1`,
+            [ans.question_id],
+          );
+          let userAnswersObj = {};
+          try {
+            userAnswersObj = ans.answer_text ? JSON.parse(ans.answer_text) : {};
+          } catch (e) {}
+          ans.is_correct = choicesRes.rows.length > 0 && choicesRes.rows.every((c) => {
+            const studentAns = userAnswersObj[c.label];
+            return studentAns !== undefined && studentAns === c.is_correct;
+          });
         }
       }
 

@@ -6,56 +6,56 @@ import { AuthProvider } from './context/AuthContext';
 import { AdminRoute, PublicRoute, StudentRoute, StudentRouteWrapped } from './components/layout/ProtectedRoute';
 
 // Pages
-import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import LatihanSoal from './pages/LatihanSoal';
-import PusatTryout from './pages/tryout/PusatTryout';
-import TryoutSession from './pages/TryoutSession';
-import TryoutSessionNew from './pages/TryoutSessionNew';
-import TryoutSubtesSelect from './pages/tryout/TryoutSubtesSelect';
-import Bookmark from './pages/Bookmark';
-import Riwayat from './pages/Riwayat';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import InputSoal from './pages/admin/InputSoal';
-import ImportCSV from './pages/admin/ImportCSV';
-import UserManagement from './pages/admin/UserManagement';
-import AdminSettings from './pages/admin/AdminSettings';
-import ManageTodos from './pages/admin/ManageTodos';
-import ManageLatihan from './pages/admin/ManageLatihan';
-import LatihanPraktik from './pages/tryout/LatihanPraktik';
-import LatihanResult from './pages/tryout/LatihanResult';
-import TryoutResult from './pages/tryout/TryoutResult';
-import TopikLatihan from './pages/tryout/TopikLatihan';
-import ManageTryout from './pages/admin/ManageTryout';
-import ManageBattleSoal from './pages/admin/ManageBattleSoal';
-import PricingPage from './pages/PricingPage';
-import PaketBelajar from './pages/PaketBelajar';
-import Cart from './pages/Cart';
-import ManageVouchers from './pages/admin/ManageVouchers';
-import KonsultasiKakZ from './pages/KonsultasiKakZ';
-import BattleLobby from './pages/BattleLobby';
-import BattleGame from './pages/BattleGame';
-import BattleLeaderboard from './pages/BattleLeaderboard';
-import PrediksiSkor from './pages/PrediksiSkor';
-import UjianMandiri from './pages/UjianMandiri';
-import UjianMandiriDetail from './pages/UjianMandiriDetail';
-import ManageUjianMandiri from './pages/admin/ManageUjianMandiri';
-import ManageTryoutRegistrations from './pages/admin/ManageTryoutRegistrations';
-import ManageSocialVerifications from './pages/admin/ManageSocialVerifications';
-import LatihanSoalUM from './pages/LatihanSoalUM';
-import LatihanSoalUMResult from './pages/LatihanSoalUMResult';
-import TryoutSessionUM from './pages/TryoutSessionUM';
-import TryoutUMResult from './pages/TryoutUMResult';
-import AdminActivity from './pages/admin/AdminActivity';
-import Profile from './pages/Profile';
-import ManageDuplicates from './pages/admin/ManageDuplicates';
-import LeaderboardPage from './pages/LeaderboardPage';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsAndConditions from './pages/TermsAndConditions';
-import ContactUs from './pages/ContactUs';
-import Careers from './pages/Careers';
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+const Login = React.lazy(() => import('./pages/Login'));
+const Register = React.lazy(() => import('./pages/Register'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const LatihanSoal = React.lazy(() => import('./pages/LatihanSoal'));
+const PusatTryout = React.lazy(() => import('./pages/tryout/PusatTryout'));
+const TryoutSession = React.lazy(() => import('./pages/TryoutSession'));
+const TryoutSessionNew = React.lazy(() => import('./pages/TryoutSessionNew'));
+const TryoutSubtesSelect = React.lazy(() => import('./pages/tryout/TryoutSubtesSelect'));
+const Bookmark = React.lazy(() => import('./pages/Bookmark'));
+const Riwayat = React.lazy(() => import('./pages/Riwayat'));
+const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
+const InputSoal = React.lazy(() => import('./pages/admin/InputSoal'));
+const ImportCSV = React.lazy(() => import('./pages/admin/ImportCSV'));
+const UserManagement = React.lazy(() => import('./pages/admin/UserManagement'));
+const AdminSettings = React.lazy(() => import('./pages/admin/AdminSettings'));
+const ManageTodos = React.lazy(() => import('./pages/admin/ManageTodos'));
+const ManageLatihan = React.lazy(() => import('./pages/admin/ManageLatihan'));
+const LatihanPraktik = React.lazy(() => import('./pages/tryout/LatihanPraktik'));
+const LatihanResult = React.lazy(() => import('./pages/tryout/LatihanResult'));
+const TryoutResult = React.lazy(() => import('./pages/tryout/TryoutResult'));
+const TopikLatihan = React.lazy(() => import('./pages/tryout/TopikLatihan'));
+const ManageTryout = React.lazy(() => import('./pages/admin/ManageTryout'));
+const ManageBattleSoal = React.lazy(() => import('./pages/admin/ManageBattleSoal'));
+const PricingPage = React.lazy(() => import('./pages/PricingPage'));
+const PaketBelajar = React.lazy(() => import('./pages/PaketBelajar'));
+const Cart = React.lazy(() => import('./pages/Cart'));
+const ManageVouchers = React.lazy(() => import('./pages/admin/ManageVouchers'));
+const KonsultasiKakZ = React.lazy(() => import('./pages/KonsultasiKakZ'));
+const BattleLobby = React.lazy(() => import('./pages/BattleLobby'));
+const BattleGame = React.lazy(() => import('./pages/BattleGame'));
+const BattleLeaderboard = React.lazy(() => import('./pages/BattleLeaderboard'));
+const PrediksiSkor = React.lazy(() => import('./pages/PrediksiSkor'));
+const UjianMandiri = React.lazy(() => import('./pages/UjianMandiri'));
+const UjianMandiriDetail = React.lazy(() => import('./pages/UjianMandiriDetail'));
+const ManageUjianMandiri = React.lazy(() => import('./pages/admin/ManageUjianMandiri'));
+const ManageTryoutRegistrations = React.lazy(() => import('./pages/admin/ManageTryoutRegistrations'));
+const ManageSocialVerifications = React.lazy(() => import('./pages/admin/ManageSocialVerifications'));
+const LatihanSoalUM = React.lazy(() => import('./pages/LatihanSoalUM'));
+const LatihanSoalUMResult = React.lazy(() => import('./pages/LatihanSoalUMResult'));
+const TryoutSessionUM = React.lazy(() => import('./pages/TryoutSessionUM'));
+const TryoutUMResult = React.lazy(() => import('./pages/TryoutUMResult'));
+const AdminActivity = React.lazy(() => import('./pages/admin/AdminActivity'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const ManageDuplicates = React.lazy(() => import('./pages/admin/ManageDuplicates'));
+const LeaderboardPage = React.lazy(() => import('./pages/LeaderboardPage'));
+const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
+const TermsAndConditions = React.lazy(() => import('./pages/TermsAndConditions'));
+const ContactUs = React.lazy(() => import('./pages/ContactUs'));
+const Careers = React.lazy(() => import('./pages/Careers'));
 import ScrollToTop from './components/ScrollToTop';
 
 
@@ -67,78 +67,88 @@ function App() {
       <AuthProvider>
         <Router>
           <ScrollToTop />
-          <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-          <Route path="/contact-us" element={<ContactUs />} />
-          <Route path="/careers" element={<Careers />} />
-          <Route element={<PublicRoute />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-          </Route>
-          
-          {/* Student routes — pages have their own navbar/layout */}
-          <Route element={<StudentRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/latihan" element={<LatihanSoal />} />
-            <Route path="/tryout/packages" element={<PusatTryout />} />
-            <Route path="/latihan/praktik/:subjectId" element={<LatihanPraktik />} />
-            <Route path="/latihan/hasil" element={<LatihanResult />} />
-            <Route path="/latihan/hasil/:sessionId" element={<LatihanResult />} />
-            <Route path="/latihan/:subjectId" element={<TopikLatihan />} />
-            <Route path="/tryout/select/:packageId" element={<TryoutSubtesSelect />} />
-            <Route path="/tryout/:sessionId" element={<TryoutSession />} />
-            <Route path="/tryout/new/:sessionId" element={<TryoutSessionNew />} />
-            <Route path="/tryout/hasil/:sessionId" element={<TryoutResult />} />
-            <Route path="/riwayat" element={<Riwayat />} />
-            <Route path="/konsultasi" element={<KonsultasiKakZ />} />
-            <Route path="/battle" element={<BattleLobby />} />
-            <Route path="/battle/game/:matchId" element={<BattleGame />} />
-            <Route path="/battle/leaderboard/:subjectId" element={<BattleLeaderboard />} />
-            <Route path="/prediksi-skor" element={<PrediksiSkor />} />
-            <Route path="/ujian-mandiri" element={<UjianMandiri />} />
-            <Route path="/ujian-mandiri/:id" element={<UjianMandiriDetail />} />
-            <Route path="/ujian-mandiri/:ujianId/latihan/:latihanId" element={<LatihanSoalUM />} />
-            <Route path="/ujian-mandiri/:ujianId/latihan/:latihanId/hasil" element={<LatihanSoalUMResult />} />
-            <Route path="/ujian-mandiri/:ujianId/latihan/:latihanId/hasil/:sessionId" element={<LatihanSoalUMResult />} />
-            <Route path="/ujian-mandiri/:ujianId/tryout/:tryoutId" element={<TryoutSessionUM />} />
-            <Route path="/ujian-mandiri/:ujianId/tryout/:tryoutId/hasil/:sessionId" element={<TryoutUMResult />} />
-            <Route path="/leaderboard/:type/:id" element={<LeaderboardPage />} />
-            <Route path="/paket-belajar" element={<PaketBelajar />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/profile" element={<Profile />} />
-          </Route>
-
-          {/* Student routes that need PageWrapper (no own navbar) */}
-          <Route element={<StudentRouteWrapped />}>
-            <Route path="/bookmark" element={<Bookmark />} />
-          </Route>
-          
-          {/* Admin Routes */}
-          <Route element={<AdminRoute />}>
-            <Route path="/admin" element={<AdminDashboard />}>
-              <Route path="input" element={<InputSoal />} />
-              <Route path="import" element={<ImportCSV />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="todos" element={<ManageTodos />} />
-              <Route path="settings" element={<AdminSettings />} />
-              <Route path="latihan" element={<ManageLatihan />} />
-              <Route path="tryout" element={<ManageTryout />} />
-              <Route path="battle" element={<ManageBattleSoal />} />
-              <Route path="ujian-mandiri" element={<ManageUjianMandiri />} />
-              <Route path="tryout-registrations" element={<ManageTryoutRegistrations />} />
-              <Route path="social-verifications" element={<ManageSocialVerifications />} />
-              <Route path="activity" element={<AdminActivity />} />
-              <Route path="duplicates" element={<ManageDuplicates />} />
-              <Route path="vouchers" element={<ManageVouchers />} />
+          <React.Suspense fallback={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf8ff' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: '40px', height: '40px', border: '3px solid #0050cb', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }}></div>
+                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                <p style={{ color: '#424656', fontSize: '14px', fontFamily: 'sans-serif', margin: 0 }}>Memuat halaman...</p>
+              </div>
+            </div>
+          }>
+            <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+            <Route path="/contact-us" element={<ContactUs />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route element={<PublicRoute />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
             </Route>
-          </Route>
-          
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+            
+            {/* Student routes — pages have their own navbar/layout */}
+            <Route element={<StudentRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/latihan" element={<LatihanSoal />} />
+              <Route path="/tryout/packages" element={<PusatTryout />} />
+              <Route path="/latihan/praktik/:subjectId" element={<LatihanPraktik />} />
+              <Route path="/latihan/hasil" element={<LatihanResult />} />
+              <Route path="/latihan/hasil/:sessionId" element={<LatihanResult />} />
+              <Route path="/latihan/:subjectId" element={<TopikLatihan />} />
+              <Route path="/tryout/select/:packageId" element={<TryoutSubtesSelect />} />
+              <Route path="/tryout/:sessionId" element={<TryoutSession />} />
+              <Route path="/tryout/new/:sessionId" element={<TryoutSessionNew />} />
+              <Route path="/tryout/hasil/:sessionId" element={<TryoutResult />} />
+              <Route path="/riwayat" element={<Riwayat />} />
+              <Route path="/konsultasi" element={<KonsultasiKakZ />} />
+              <Route path="/battle" element={<BattleLobby />} />
+              <Route path="/battle/game/:matchId" element={<BattleGame />} />
+              <Route path="/battle/leaderboard/:subjectId" element={<BattleLeaderboard />} />
+              <Route path="/prediksi-skor" element={<PrediksiSkor />} />
+              <Route path="/ujian-mandiri" element={<UjianMandiri />} />
+              <Route path="/ujian-mandiri/:id" element={<UjianMandiriDetail />} />
+              <Route path="/ujian-mandiri/:ujianId/latihan/:latihanId" element={<LatihanSoalUM />} />
+              <Route path="/ujian-mandiri/:ujianId/latihan/:latihanId/hasil" element={<LatihanSoalUMResult />} />
+              <Route path="/ujian-mandiri/:ujianId/latihan/:latihanId/hasil/:sessionId" element={<LatihanSoalUMResult />} />
+              <Route path="/ujian-mandiri/:ujianId/tryout/:tryoutId" element={<TryoutSessionUM />} />
+              <Route path="/ujian-mandiri/:ujianId/tryout/:tryoutId/hasil/:sessionId" element={<TryoutUMResult />} />
+              <Route path="/leaderboard/:type/:id" element={<LeaderboardPage />} />
+              <Route path="/paket-belajar" element={<PaketBelajar />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+
+            {/* Student routes that need PageWrapper (no own navbar) */}
+            <Route element={<StudentRouteWrapped />}>
+              <Route path="/bookmark" element={<Bookmark />} />
+            </Route>
+            
+            {/* Admin Routes */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminDashboard />}>
+                <Route path="input" element={<InputSoal />} />
+                <Route path="import" element={<ImportCSV />} />
+                <Route path="users" element={<UserManagement />} />
+                <Route path="todos" element={<ManageTodos />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="latihan" element={<ManageLatihan />} />
+                <Route path="tryout" element={<ManageTryout />} />
+                <Route path="battle" element={<ManageBattleSoal />} />
+                <Route path="ujian-mandiri" element={<ManageUjianMandiri />} />
+                <Route path="tryout-registrations" element={<ManageTryoutRegistrations />} />
+                <Route path="social-verifications" element={<ManageSocialVerifications />} />
+                <Route path="activity" element={<AdminActivity />} />
+                <Route path="duplicates" element={<ManageDuplicates />} />
+                <Route path="vouchers" element={<ManageVouchers />} />
+              </Route>
+            </Route>
+            
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </React.Suspense>
         <Toaster
           position="top-right"
           containerStyle={{

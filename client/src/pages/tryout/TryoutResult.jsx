@@ -522,11 +522,59 @@ const TryoutResult = () => {
                     </span>
                   </div>
                   <div className="max-w-4xl">
+                    {question.image_url && question.image_position === 'before' && (
+                      <div className="mb-4">
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
+                      </div>
+                    )}
                     <MathText className="text-[15px] font-semibold text-[#191b24] mb-4 leading-relaxed" text={question.content || ''} />
+                    {question.image_url && question.image_position !== 'before' && (
+                      <div className="mb-4">
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
+                      </div>
+                    )}
 
                     {/* Answer Choices */}
                     <div className="mb-4">
-                      {question.question_type === 'short_answer' ? (
+                      {question.question_type === 'complex_mc_tf' ? (
+                        <div className="space-y-2.5">
+                          {(question.choices || []).map((choice) => {
+                            let studentAnswers = {};
+                            try {
+                              studentAnswers = question.userAnswer ? (typeof question.userAnswer === 'string' ? JSON.parse(question.userAnswer) : question.userAnswer) : {};
+                            } catch(e) {}
+                            const studentAns = studentAnswers[choice.label];
+                            const isCorrectAnswer = choice.is_correct;
+                            const studentGotIt = studentAns === isCorrectAnswer;
+                            return (
+                              <div key={choice.id || choice.label} className={`flex items-start p-4 rounded-xl border-2 ${
+                                studentGotIt ? 'border-[#0050cb] bg-[#dae1ff]/5' : 'border-[#ba1a1a] bg-[#ffdad6]/10'
+                              }`}>
+                                <div className="flex-1 min-w-0">
+                                  <MathText className="text-[13px] text-[#191b24]" text={choice.content || ''} />
+                                  <div className="flex flex-wrap items-center gap-3 mt-2">
+                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isCorrectAnswer ? 'bg-[#dae1ff] text-[#0050cb]' : 'bg-[#ffdad6] text-[#ba1a1a]'}`}>
+                                      Kunci: {isCorrectAnswer ? 'BENAR' : 'SALAH'}
+                                    </span>
+                                    {studentAns !== undefined ? (
+                                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${studentAns ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        Jawabanmu: {studentAns ? 'BENAR' : 'SALAH'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500">
+                                        Jawabanmu: KOSONG
+                                      </span>
+                                    )}
+                                    <span className="material-symbols-outlined text-[18px] align-middle" style={{ fontVariationSettings: "'FILL' 1", color: studentGotIt ? '#0050cb' : '#ba1a1a' }}>
+                                      {studentGotIt ? 'check' : 'close'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : question.question_type === 'short_answer' ? (
                         <div className="space-y-2">
                           <div className={`relative flex items-center p-3 rounded-xl border-2 ${
                             question.isCorrect

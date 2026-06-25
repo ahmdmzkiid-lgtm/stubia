@@ -183,7 +183,7 @@ function calculateIRTScore(answers) {
     const difficulty = ans.difficulty || 'medium';
     const irtParams = ans.irtParams || DEFAULT_IRT_PARAMS[difficulty] || DEFAULT_IRT_PARAMS.medium;
 
-    const isAnswered = ans.question_type === 'short_answer'
+    const isAnswered = (ans.question_type === 'short_answer' || ans.question_type === 'complex_mc_tf')
       ? (ans.answer_text !== null && ans.answer_text !== undefined && String(ans.answer_text).trim() !== '')
       : (ans.chosen_choice_id !== null && ans.chosen_choice_id !== undefined);
 
@@ -200,7 +200,8 @@ function calculateIRTScore(answers) {
       difficulty,
       irtParams,
       questionId: ans.question_id,
-      chosenChoiceId: ans.chosen_choice_id
+      chosenChoiceId: ans.chosen_choice_id,
+      answerText: ans.answer_text || null
     };
   });
 
@@ -215,7 +216,7 @@ function calculateIRTScore(answers) {
     const difficulty = ans.difficulty || 'medium';
     const weight = WEIGHTS[difficulty] || 3;
 
-    const isAnswered = ans.question_type === 'short_answer'
+    const isAnswered = (ans.question_type === 'short_answer' || ans.question_type === 'complex_mc_tf')
       ? (ans.answer_text !== null && ans.answer_text !== undefined && String(ans.answer_text).trim() !== '')
       : (ans.chosen_choice_id !== null && ans.chosen_choice_id !== undefined);
 
@@ -246,6 +247,7 @@ function calculateIRTScore(answers) {
       difficulty: resp.difficulty,
       isCorrect: resp.isCorrect,
       chosenChoiceId: resp.chosenChoiceId || null,
+      answerText: resp.answerText || null,
       probabilityCorrect: Math.round(pCorrect * 100),
       informationValue: Math.round(info * 100) / 100,
       status: resp.isCorrect ? 'correct' : 'incorrect'
