@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { tryoutService, subjectService, subscriptionService } from '../../services/api';
@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import TryoutVerificationModal from '../../components/tryout/TryoutVerificationModal';
 import StudentNavbar from '../../components/layout/StudentNavbar';
 import StartConfirmationModal from '../../components/StartConfirmationModal';
+import { PTN_DATA } from '../../data/ptnData';
 
 
 const ICON_MAP = {
@@ -51,6 +52,17 @@ const TryoutSubtesSelect = () => {
   const [selectedSubtest, setSelectedSubtest] = useState(null);
   const [activePlans, setActivePlans] = useState([]);
 
+  // PTN/Major selection state
+  const [showPtnModal, setShowPtnModal] = useState(false);
+  const [ptnSearch, setPtnSearch] = useState('');
+  const [selectedPtn, setSelectedPtn] = useState(null);
+  const [majorSearch, setMajorSearch] = useState('');
+  const [selectedMajor, setSelectedMajor] = useState(null);
+  const [ptnStep, setPtnStep] = useState(1); // 1 = select PTN, 2 = select major
+  const [savedPtn, setSavedPtn] = useState(null);
+  const [savedMajor, setSavedMajor] = useState(null);
+  const [pendingSubtestName, setPendingSubtestName] = useState(null);
+
   // Check if user has any active UTBK plan (subscription, access, or quota with remaining)
   const hasActiveUtbkPlan = () => {
     return activePlans.some(p => {
@@ -71,6 +83,11 @@ const TryoutSubtesSelect = () => {
         const status = regRes.data?.data;
         setRegistrationStatus(status);
         setPackageCompleted(status?.completed === true);
+        // Load saved PTN/major from registration status
+        if (status?.target_ptn) {
+          setSavedPtn(status.target_ptn);
+          setSavedMajor(status.target_major);
+        }
       }
     } catch (err) {
       console.error('Error fetching registration status:', err);
@@ -123,6 +140,21 @@ const TryoutSubtesSelect = () => {
           setRegistrationStatus(status);
           setPackageCompleted(status?.completed === true);
           setHasConfirmedStart(sessionStorage.getItem(getTryoutConfirmedKey('utbk', packageId)) === 'true');
+          // Load saved PTN/major from registration status
+          if (status?.target_ptn) {
+            setSavedPtn(status.target_ptn);
+            setSavedMajor(status.target_major);
+          }
+        } else {
+          // For premium users, check if PTN/major has been saved already
+          try {
+            const regRes = await tryoutService.getRegistrationStatus('utbk', packageId);
+            const status = regRes.data?.data;
+            if (status?.target_ptn) {
+              setSavedPtn(status.target_ptn);
+              setSavedMajor(status.target_major);
+            }
+          } catch {}
         }
       } catch (err) {
         toast.error('Gagal memuat data paket');
@@ -134,10 +166,52 @@ const TryoutSubtesSelect = () => {
     fetchData();
   }, [packageId, navigate, user?.current_plan]);
 
+  // Filtered PTN list based on search
+  const filteredPtnList = useMemo(() => {
+    if (!ptnSearch.trim()) return PTN_DATA;
+    const q = ptnSearch.toLowerCase();
+    return PTN_DATA.filter(p =>
+      p.nama.toLowerCase().includes(q) ||
+      (p.singkatan || '').toLowerCase().includes(q) ||
+      (p.lokasi || '').toLowerCase().includes(q)
+    );
+  }, [ptnSearch]);
+
+  // Filtered major list for selected PTN
+  const filteredMajorList = useMemo(() => {
+    if (!selectedPtn) return [];
+    const prodi = selectedPtn.prodi || [];
+    if (!majorSearch.trim()) return prodi;
+    const q = majorSearch.toLowerCase();
+    return prodi.filter(m => m.nama.toLowerCase().includes(q));
+  }, [selectedPtn, majorSearch]);
+
+  const handlePtnConfirm = () => {
+    if (!selectedPtn || !selectedMajor) return;
+    const ptnName = `${selectedPtn.nama} (${selectedPtn.singkatan})`;
+    const majorName = selectedMajor.nama;
+    setSavedPtn(ptnName);
+    setSavedMajor(majorName);
+    setShowPtnModal(false);
+    setPtnStep(1);
+    setPtnSearch('');
+    setMajorSearch('');
+
+    // Continue to start confirmation
+    if (pendingSubtestName) {
+      const subObj = subjects.find(s => s.name === pendingSubtestName);
+      setSelectedSubtest(subObj);
+      setConfirmOpen(true);
+    }
+  };
+
   const startSubtestDirectly = async (subtestName) => {
     setStartingSubtest(subtestName);
     try {
-      const res = await tryoutService.start(packageId, [subtestName]);
+      const opts = {};
+      if (savedPtn) opts.target_ptn = savedPtn;
+      if (savedMajor) opts.target_major = savedMajor;
+      const res = await tryoutService.start(packageId, [subtestName], opts);
       const sessionId = res.data.data.session_id;
 
       // Mark which subtest is being worked on
@@ -172,6 +246,13 @@ const TryoutSubtesSelect = () => {
         setShowVerificationModal(true);
         return;
       }
+    }
+
+    // Check if PTN/major has been set; if not, show PTN selection modal
+    if (!savedPtn || !savedMajor) {
+      setPendingSubtestName(subtestName);
+      setShowPtnModal(true);
+      return;
     }
 
     const subObj = subjects.find(s => s.name === subtestName);
@@ -259,6 +340,14 @@ const TryoutSubtesSelect = () => {
           <p className="text-base sm:text-[18px] text-[#424656] max-w-2xl leading-relaxed">
             Kerjakan subtes satu per satu. Klik kartu untuk mulai mengerjakan, lalu submit setelah selesai semua.
           </p>
+          {savedPtn && savedMajor && (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#e8eeff] border border-[#0050cb]/15 text-[#0050cb]">
+              <span className="material-symbols-outlined text-[18px]">school</span>
+              <span className="text-[13px] font-semibold">{savedPtn}</span>
+              <span className="text-[#c2c6d8]">·</span>
+              <span className="text-[13px] font-medium">{savedMajor}</span>
+            </div>
+          )}
         </div>
 
         {/* Summary Bar */}
@@ -394,9 +483,15 @@ const TryoutSubtesSelect = () => {
             setHasConfirmedStart(true);
             setShowVerificationModal(false);
             if (subtestToStart) {
-              const subObj = subjects.find(s => s.name === subtestToStart);
-              setSelectedSubtest(subObj);
-              setConfirmOpen(true);
+              // Check if PTN/major needs to be set first
+              if (!savedPtn || !savedMajor) {
+                setPendingSubtestName(subtestToStart);
+                setShowPtnModal(true);
+              } else {
+                const subObj = subjects.find(s => s.name === subtestToStart);
+                setSelectedSubtest(subObj);
+                setConfirmOpen(true);
+              }
             }
           }}
         />
@@ -415,9 +510,146 @@ const TryoutSubtesSelect = () => {
         subtitle={selectedSubtest?.name}
         details={[
           { label: 'Jumlah Soal', value: `${selectedSubtest?.questionCount || 0} soal`, icon: 'description' },
-          { label: 'Durasi', value: `${selectedSubtest?.durationMin || 0} menit`, icon: 'schedule' }
+          { label: 'Durasi', value: `${selectedSubtest?.durationMin || 0} menit`, icon: 'schedule' },
+          ...(savedPtn ? [{ label: 'Target PTN', value: savedPtn, icon: 'school' }] : []),
+          ...(savedMajor ? [{ label: 'Jurusan', value: savedMajor, icon: 'menu_book' }] : []),
         ]}
       />
+
+      {/* PTN/Major Selection Modal */}
+      {showPtnModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => { setShowPtnModal(false); setPendingSubtestName(null); }}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-5 pb-4 border-b border-[#e6e7f4]">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-[20px] font-bold text-[#191b24]">
+                  {ptnStep === 1 ? 'Pilih Universitas Tujuan' : 'Pilih Jurusan'}
+                </h3>
+                <button onClick={() => { setShowPtnModal(false); setPendingSubtestName(null); }} className="w-8 h-8 rounded-full hover:bg-[#f0f1f7] flex items-center justify-center text-[#727687] transition-colors">
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+              <p className="text-[13px] text-[#727687]">
+                {ptnStep === 1
+                  ? 'Pilih PTN yang kamu targetkan untuk perbandingan leaderboard jurusan'
+                  : `Program studi di ${selectedPtn?.singkatan || selectedPtn?.nama}`}
+              </p>
+
+              {/* Search */}
+              <div className="relative mt-3">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#727687]">search</span>
+                <input
+                  type="text"
+                  value={ptnStep === 1 ? ptnSearch : majorSearch}
+                  onChange={e => ptnStep === 1 ? setPtnSearch(e.target.value) : setMajorSearch(e.target.value)}
+                  placeholder={ptnStep === 1 ? 'Cari universitas...' : 'Cari jurusan...'}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#c2c6d8]/40 bg-[#faf8ff] text-[14px] text-[#191b24] placeholder-[#a0a4b8] focus:outline-none focus:border-[#0050cb]/50 focus:ring-2 focus:ring-[#0050cb]/10 transition-all"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-3" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
+              {ptnStep === 1 ? (
+                filteredPtnList.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {filteredPtnList.map(ptn => {
+                      const isSelected = selectedPtn?.id === ptn.id;
+                      return (
+                        <button
+                          key={ptn.id}
+                          onClick={() => { setSelectedPtn(ptn); setSelectedMajor(null); setMajorSearch(''); setPtnStep(2); }}
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
+                            isSelected
+                              ? 'bg-[#0050cb]/10 border border-[#0050cb]/30'
+                              : 'hover:bg-[#f5f5ff] border border-transparent'
+                          }`}
+                        >
+                          <img src={ptn.logo} alt={ptn.singkatan} className="w-10 h-10 rounded-lg object-contain bg-white border border-[#e6e7f4] p-1 shrink-0" onError={e => { e.target.style.display='none'; }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-semibold text-[#191b24] truncate">{ptn.nama}</p>
+                            <p className="text-[12px] text-[#727687]">{ptn.singkatan} · {ptn.lokasi}</p>
+                          </div>
+                          <span className="text-[11px] font-medium text-[#727687] bg-[#f0f1f7] px-2 py-0.5 rounded-full shrink-0">{(ptn.prodi || []).length} prodi</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <span className="material-symbols-outlined text-[40px] text-[#c2c6d8] mb-2">search_off</span>
+                    <p className="text-[13px] text-[#727687]">Universitas tidak ditemukan</p>
+                  </div>
+                )
+              ) : (
+                filteredMajorList.length > 0 ? (
+                  <div className="space-y-1">
+                    {filteredMajorList.map((major, idx) => {
+                      const isSelected = selectedMajor?.nama === major.nama;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedMajor(major)}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition-all ${
+                            isSelected
+                              ? 'bg-[#0050cb]/10 border border-[#0050cb]/30'
+                              : 'hover:bg-[#f5f5ff] border border-transparent'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-medium text-[#191b24]">{major.nama}</p>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-[11px] text-[#727687]">{major.jenjang}</span>
+                              {major.skor && <span className="text-[11px] font-semibold text-[#0050cb]">Skor: {major.skor}</span>}
+                              {major.daya_tampung && <span className="text-[11px] text-[#727687]">Daya Tampung: {major.daya_tampung}</span>}
+                            </div>
+                          </div>
+                          {isSelected && <span className="material-symbols-outlined text-[20px] text-[#0050cb] shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <span className="material-symbols-outlined text-[40px] text-[#c2c6d8] mb-2">search_off</span>
+                    <p className="text-[13px] text-[#727687]">Jurusan tidak ditemukan</p>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-[#e6e7f4] flex items-center gap-3">
+              {ptnStep === 2 && (
+                <button
+                  onClick={() => { setPtnStep(1); setSelectedMajor(null); setMajorSearch(''); }}
+                  className="px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#424656] hover:bg-[#f0f1f7] transition-colors flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                  Ganti PTN
+                </button>
+              )}
+              <div className="flex-1" />
+              {ptnStep === 2 && (
+                <button
+                  onClick={handlePtnConfirm}
+                  disabled={!selectedMajor}
+                  className={`px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-1.5 ${
+                    selectedMajor
+                      ? 'bg-[#0050cb] text-white hover:bg-[#003fa4] shadow-md'
+                      : 'bg-[#c2c6d8] text-[#727687] cursor-not-allowed'
+                  }`}
+                >
+                  Konfirmasi
+                  <span className="material-symbols-outlined text-[16px]">check</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

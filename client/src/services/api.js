@@ -62,7 +62,7 @@ export const tryoutService = {
   updatePackage: (id, data) => api.patch(`/tryout/packages/${id}`, data),
   deletePackage: (id) => api.delete(`/tryout/packages/${id}`),
   getPackageStats: (id) => api.get(`/tryout/packages/${id}/stats`),
-  start: (packageId, selectedSubjects) => api.post('/tryout/start', { package_id: packageId, selected_subjects: selectedSubjects }),
+  start: (packageId, selectedSubjects, options = {}) => api.post('/tryout/start', { package_id: packageId, selected_subjects: selectedSubjects, target_ptn: options.target_ptn || undefined, target_major: options.target_major || undefined }),
   getQuestions: (sessionId) => api.get(`/tryout/session/${sessionId}/questions`),
   answer: (data) => api.post('/tryout/answer', data),
   answerBatch: (data) => api.post('/tryout/answer-batch', data),

@@ -36,6 +36,7 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
 
   // Flexible column name resolver (handles BOM, extra spaces, case differences)
   const ALIASES = {
+    stimulus:      ['stimulus', 'wacana', 'bacaan', 'stimulus/wacana', 'stimulus/wacana (opsional)'],
     soal:          ['soal', 'content', 'question', 'pertanyaan'],
     opsi_a:        ['opsi a', 'opsia', 'choice_a', 'pilihan a', 'a'],
     opsi_b:        ['opsi b', 'opsib', 'choice_b', 'pilihan b', 'b'],
@@ -106,6 +107,7 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
       const row = results[i];
       const rowNum = i + 2; // row 1 = header
 
+      const stimulus   = resolve(row, 'stimulus');
       const soal       = resolve(row, 'soal');
       const opsiA      = resolve(row, 'opsi_a');
       const opsiB      = resolve(row, 'opsi_b');
@@ -116,7 +118,10 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
       const pembahasan = resolve(row, 'pembahasan');
       const imageUrl   = resolve(row, 'image_url');
       const rawTipe    = resolve(row, 'tipe_soal').toLowerCase();
-      const imagePosition = resolve(row, 'image_position').toLowerCase() === 'before' ? 'before' : 'after';
+      const rawPos     = resolve(row, 'image_position').toLowerCase();
+      const imagePosition = ['before', 'atas', 'top'].includes(rawPos) ? 'top' :
+                            ['middle', 'ditengah', 'tengah'].includes(rawPos) ? 'middle' :
+                            ['after', 'bawah', 'bottom'].includes(rawPos) ? 'bottom' : 'bottom';
 
       // ── Validation ──────────────────────────────────────────────
       if (!soal) {
@@ -222,14 +227,14 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
       const hashChoices = questionType === 'short_answer'
         ? [kunci]
         : choices;
-      const hash = generateQuestionHash(soal, hashChoices, imageUrl);
+      const hash = generateQuestionHash(soal, hashChoices, imageUrl, stimulus);
 
       // ── Insert question ──────────────────────────────────────────
       const pkgId = destination === 'tryout' ? tryout_package_id : null;
       const qSource = destination === 'battle' ? 'battle' : 'manual';
       const qRes = await client.query(
-        'INSERT INTO questions (subject_id, topic_id, content, difficulty, tryout_package_id, display_order, source, image_url, image_position, question_type, content_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
-        [subject_id, topic_id || null, soal, difficulty, pkgId, nextDisplayOrder, qSource, imageUrl || null, imagePosition, questionType, hash]
+        'INSERT INTO questions (subject_id, topic_id, content, difficulty, tryout_package_id, display_order, source, image_url, image_position, question_type, content_hash, stimulus) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id',
+        [subject_id, topic_id || null, soal, difficulty, pkgId, nextDisplayOrder, qSource, imageUrl || null, imagePosition, questionType, hash, stimulus || null]
       );
       const questionId = qRes.rows[0].id;
       nextDisplayOrder++;

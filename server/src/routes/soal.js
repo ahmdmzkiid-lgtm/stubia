@@ -106,7 +106,7 @@ router.get("/", verifyToken, async (req, res, next) => {
     }
 
     let query =
-      "SELECT id, subject_id, topic_id, content, image_url, image_position, difficulty, source, display_order, tryout_package_id, question_type, created_at FROM questions WHERE 1=1";
+      "SELECT id, subject_id, topic_id, content, image_url, image_position, difficulty, source, display_order, tryout_package_id, question_type, stimulus, created_at FROM questions WHERE 1=1";
     const values = [];
 
     // Filter out completed questions by content_hash if exclude_completed is true
@@ -236,11 +236,12 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
       image_position,
       question_type,
       correct_answer_text,
+      stimulus,
     } = req.body;
     const qType = question_type || "multiple_choice";
 
     // Calculate content hash and check for duplicates
-    const hash = generateQuestionHash(content, choices, image_url);
+    const hash = generateQuestionHash(content, choices, image_url, stimulus);
     const existingRes = await client.query(
       `SELECT q.id, s.name as subject_name FROM questions q
        LEFT JOIN subjects s ON q.subject_id = s.id
@@ -260,7 +261,7 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
     const nextDisplayOrder = (maxOrderRes.rows[0]?.max_order || 0) + 1;
 
     const qRes = await client.query(
-      "INSERT INTO questions (subject_id, content, difficulty, display_order, image_url, image_position, question_type, content_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+      "INSERT INTO questions (subject_id, content, difficulty, display_order, image_url, image_position, question_type, content_hash, stimulus) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
       [
         subject_id,
         content,
@@ -270,6 +271,7 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
         image_position || "after",
         qType,
         hash,
+        stimulus || null,
       ],
     );
     const question = qRes.rows[0];
@@ -496,7 +498,7 @@ router.patch(
 router.patch("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { content, difficulty, image_url, image_position } = req.body;
+    const { content, difficulty, image_url, image_position, stimulus } = req.body;
 
     const updates = [];
     const values = [];
@@ -521,6 +523,11 @@ router.patch("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
       paramCount++;
       updates.push(`image_position = $${paramCount}`);
       values.push(image_position);
+    }
+    if (stimulus !== undefined) {
+      paramCount++;
+      updates.push(`stimulus = $${paramCount}`);
+      values.push(stimulus);
     }
 
     if (updates.length === 0) {

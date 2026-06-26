@@ -98,11 +98,27 @@ const Bookmark = () => {
 
                   {isExpanded && (
                     <div className="bg-gray-50 border-t border-gray-200 p-5">
-                      {q.image_url && q.image_position === 'before' && (
+                      {/* TOP IMAGE */}
+                      {q.image_url && ['top', 'before', 'atas'].includes(q.image_position) && (
                         <ZoomableImage src={q.image_url} alt="Question" className="max-h-64 object-contain mb-5 rounded-lg border border-gray-200" />
                       )}
+
+                      {/* STIMULUS */}
+                      {q.stimulus && (
+                        <div className="mb-5 text-[15px] text-gray-700 leading-relaxed whitespace-pre-wrap">
+                          <MathText text={q.stimulus} />
+                        </div>
+                      )}
+
+                      {/* MIDDLE IMAGE */}
+                      {q.image_url && ['middle', 'ditengah', 'tengah'].includes(q.image_position) && (
+                        <ZoomableImage src={q.image_url} alt="Question" className="max-h-64 object-contain mb-5 rounded-lg border border-gray-200" />
+                      )}
+
                       <MathText className="text-gray-800 mb-5" text={q.content || ''} />
-                      {q.image_url && q.image_position !== 'before' && (
+
+                      {/* BOTTOM IMAGE */}
+                      {q.image_url && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(q.image_position) && (
                         <ZoomableImage src={q.image_url} alt="Question" className="max-h-64 object-contain mb-5 rounded-lg border border-gray-200" />
                       )}
 

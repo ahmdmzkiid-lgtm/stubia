@@ -206,8 +206,24 @@ const TryoutSessionNew = () => {
                       ${isFlagged ? 'border-l-yellow-500 bg-yellow-50' : 'border-l-indigo-500'}
                     `}
                   >
-                    {/* QUESTION IMAGE (BEFORE) */}
-                    {question.image_url && question.image_position === 'before' && (
+                    {/* TOP IMAGE */}
+                    {question.image_url && ['top', 'before', 'atas'].includes(question.image_position) && (
+                      <ZoomableImage
+                        src={question.image_url}
+                        alt="Question"
+                        className="mb-4 max-w-full rounded-lg max-h-64 object-contain"
+                      />
+                    )}
+
+                    {/* STIMULUS */}
+                    {question.stimulus && (
+                      <div className="mb-4 text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        <MathText text={question.stimulus} />
+                      </div>
+                    )}
+
+                    {/* MIDDLE IMAGE */}
+                    {question.image_url && ['middle', 'ditengah', 'tengah'].includes(question.image_position) && (
                       <ZoomableImage
                         src={question.image_url}
                         alt="Question"
@@ -235,8 +251,8 @@ const TryoutSessionNew = () => {
                       </button>
                     </div>
 
-                    {/* QUESTION IMAGE (AFTER) */}
-                    {question.image_url && question.image_position !== 'before' && (
+                    {/* BOTTOM IMAGE */}
+                    {question.image_url && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(question.image_position) && (
                       <ZoomableImage
                         src={question.image_url}
                         alt="Question"

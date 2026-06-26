@@ -9,7 +9,17 @@ const crypto = require('crypto');
  * @param {string} imageUrl Optional image URL linked to the question
  * @returns {string} SHA-256 hex digest hash
  */
-function generateQuestionHash(content, choices, imageUrl) {
+/**
+ * Generates a SHA-256 hash for a question based on its text content, 
+ * choices (sorted to ensure order-independence), image URL, and optional stimulus.
+ * 
+ * @param {string} content The main text of the question
+ * @param {Array|string[]} choices Array of choice objects (with .content) or raw choice strings
+ * @param {string} imageUrl Optional image URL linked to the question
+ * @param {string} stimulus Optional stimulus text for the question
+ * @returns {string} SHA-256 hex digest hash
+ */
+function generateQuestionHash(content, choices, imageUrl, stimulus) {
   // Normalize main question content
   const cleanContent = (content || '')
     .trim()
@@ -31,7 +41,10 @@ function generateQuestionHash(content, choices, imageUrl) {
         .join('|')
     : '';
 
-  const combined = `${cleanContent}::${cleanImage}::${cleanChoices}`;
+  // Normalize stimulus wacana
+  const cleanStimulus = stimulus ? stimulus.trim().toLowerCase().replace(/\s+/g, ' ') : '';
+
+  const combined = `${cleanContent}::${cleanImage}::${cleanChoices}::${cleanStimulus}`;
   return crypto.createHash('sha256').update(combined).digest('hex');
 }
 
@@ -47,9 +60,10 @@ function generateQuestionHash(content, choices, imageUrl) {
 async function updateQuestionHash(client, questionId, isUM = false) {
   const table = isUM ? 'um_questions' : 'questions';
   const choicesTable = isUM ? 'um_answer_choices' : 'answer_choices';
+  const stimulusField = isUM ? 'NULL as stimulus' : 'q.stimulus';
 
   const qRes = await client.query(`
-    SELECT q.content, q.image_url, 
+    SELECT q.content, q.image_url, ${stimulusField},
            COALESCE(
              json_agg(
                json_build_object('content', ac.content)
@@ -64,7 +78,7 @@ async function updateQuestionHash(client, questionId, isUM = false) {
 
   if (qRes.rows.length === 0) return null;
   const q = qRes.rows[0];
-  const hash = generateQuestionHash(q.content, q.choices, q.image_url);
+  const hash = generateQuestionHash(q.content, q.choices, q.image_url, q.stimulus);
 
   await client.query(`
     UPDATE ${table} SET content_hash = $1 WHERE id = $2

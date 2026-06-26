@@ -488,13 +488,27 @@ const LatihanPraktik = () => {
               {currentQuestion.difficulty === 'easy' ? 'Mudah' : currentQuestion.difficulty === 'hard' ? 'Sulit' : 'Sedang'}
             </span>
           </div>
-          {currentQuestion.image_url && currentQuestion.image_position === 'before' && (
+          {/* TOP IMAGE */}
+          {currentQuestion.image_url && ['top', 'before', 'atas'].includes(currentQuestion.image_position) && (
+            <div className="mb-4">
+              <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
+            </div>
+          )}
+          {/* STIMULUS */}
+          {currentQuestion.stimulus && (
+            <div className="mb-4 text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+              <MathText text={currentQuestion.stimulus} />
+            </div>
+          )}
+          {/* MIDDLE IMAGE */}
+          {currentQuestion.image_url && ['middle', 'ditengah', 'tengah'].includes(currentQuestion.image_position) && (
             <div className="mb-4">
               <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
             </div>
           )}
           <MathText className="text-[15px] text-[#191b24] leading-relaxed" text={currentQuestion.content || ''} />
-          {currentQuestion.image_url && currentQuestion.image_position !== 'before' && (
+          {/* BOTTOM IMAGE */}
+          {currentQuestion.image_url && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(currentQuestion.image_position) && (
             <div className="mt-4">
               <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
             </div>

@@ -187,7 +187,8 @@ const ManageLatihan = () => {
         content: editingQuestion.content,
         difficulty: editingQuestion.difficulty,
         image_url: editingQuestion.image_url || null,
-        image_position: editingQuestion.image_position || 'after',
+        image_position: editingQuestion.image_position || 'bottom',
+        stimulus: editingQuestion.stimulus || null,
       });
       toast.success("Soal berhasil disimpan");
       setShowEditQuestionModal(false);
@@ -1502,6 +1503,23 @@ const ManageLatihan = () => {
             <div className="space-y-5">
               <div>
                 <label className="block text-[14px] font-bold text-[#191b24] mb-2">
+                  Stimulus / Wacana (opsional)
+                </label>
+                <textarea
+                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/40 focus:border-[#0050cb] focus:outline-none text-[15px] min-h-[80px] resize-y bg-slate-50"
+                  value={editingQuestion.stimulus || ''}
+                  onChange={(e) =>
+                    setEditingQuestion({
+                      ...editingQuestion,
+                      stimulus: e.target.value,
+                    })
+                  }
+                  placeholder="Masukkan stimulus/wacana di sini (opsional). Akan ditampilkan di atas pertanyaan."
+                />
+              </div>
+
+              <div>
+                <label className="block text-[14px] font-bold text-[#191b24] mb-2">
                   Pertanyaan
                 </label>
                 <textarea
@@ -1537,20 +1555,30 @@ const ManageLatihan = () => {
                         type="radio"
                         name="image_position"
                         className="accent-[#0050cb]"
-                        checked={(editingQuestion.image_position || 'after') === 'after'}
-                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'after' })}
+                        checked={['top', 'before', 'atas'].includes(editingQuestion.image_position)}
+                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'top' })}
                       />
-                      <span className="text-[14px] text-[#191b24]">Setelah Teks</span>
+                      <span className="text-[14px] text-[#191b24]">Atas</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
                         name="image_position"
                         className="accent-[#0050cb]"
-                        checked={editingQuestion.image_position === 'before'}
-                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'before' })}
+                        checked={['middle', 'ditengah', 'tengah'].includes(editingQuestion.image_position)}
+                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'middle' })}
                       />
-                      <span className="text-[14px] text-[#191b24]">Sebelum Teks</span>
+                      <span className="text-[14px] text-[#191b24]">Tengah</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="image_position"
+                        className="accent-[#0050cb]"
+                        checked={['bottom', 'after', 'bawah'].includes(editingQuestion.image_position) || !editingQuestion.image_position}
+                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'bottom' })}
+                      />
+                      <span className="text-[14px] text-[#191b24]">Bawah</span>
                     </label>
                   </div>
                 </div>

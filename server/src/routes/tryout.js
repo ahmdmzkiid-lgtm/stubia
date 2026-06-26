@@ -6,6 +6,8 @@ const { calculateScore } = require("../services/scoringService");
 const {
   calculateIRTScore,
   getStatusFromMastery,
+  batchUpdateItemStats,
+  getItemStatsForQuestions,
 } = require("../services/irtScoringService");
 const {
   isPackageCompleted,
@@ -417,15 +419,29 @@ router.get(
         );
         isCompleted = sessionRes.rows.length > 0;
       }
+      // Check if user has target_ptn / target_major set in any session for this package
+      let target_ptn = null;
+      let target_major = null;
+      if (packageType === "utbk") {
+        const sessionTargetRes = await pool.query(
+          "SELECT target_ptn, target_major FROM tryout_sessions WHERE user_id = $1 AND package_id = $2 AND target_ptn IS NOT NULL LIMIT 1",
+          [req.user.id, packageId]
+        );
+        if (sessionTargetRes.rows.length > 0) {
+          target_ptn = sessionTargetRes.rows[0].target_ptn;
+          target_major = sessionTargetRes.rows[0].target_major;
+        }
+      }
+
       if (regResult.rows.length === 0) {
         return res.json({
           success: true,
-          data: { status: null, completed: isCompleted },
+          data: { status: null, completed: isCompleted, target_ptn, target_major },
         });
       }
       res.json({
         success: true,
-        data: { ...regResult.rows[0], completed: isCompleted },
+        data: { ...regResult.rows[0], completed: isCompleted, target_ptn, target_major },
       });
     } catch (error) {
       next(error);
@@ -521,18 +537,43 @@ router.post("/start", verifyToken, async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { package_id, selected_subjects } = req.body;
+    const { package_id, selected_subjects, target_ptn, target_major } = req.body;
 
     // ── Resume existing active session if available (prevents duplicate quota deduction) ──
-    const existingSession = await client.query(
-      `SELECT ts.id, ts.started_at, COUNT(ua.id) as total_questions
-       FROM tryout_sessions ts
-       LEFT JOIN user_answers ua ON ua.session_id = ts.id
-       WHERE ts.user_id = $1 AND ts.package_id = $2 AND ts.submitted_at IS NULL
-       GROUP BY ts.id
-       ORDER BY ts.started_at DESC LIMIT 1`,
-      [req.user.id, package_id],
-    );
+    const selectedArray =
+      Array.isArray(selected_subjects) && selected_subjects.length > 0
+        ? selected_subjects
+        : null;
+
+    let existingSession;
+    if (selectedArray) {
+      const lowerSubjects = selectedArray.map((s) => s.toLowerCase());
+      existingSession = await client.query(
+        `SELECT ts.id, ts.started_at, COUNT(ua.id) as total_questions
+         FROM tryout_sessions ts
+         JOIN user_answers ua ON ua.session_id = ts.id
+         JOIN questions q ON ua.question_id = q.id
+         JOIN subjects s ON q.subject_id = s.id
+         WHERE ts.user_id = $1 
+           AND ts.package_id = $2 
+           AND ts.submitted_at IS NULL
+           AND LOWER(s.name) = ANY($3)
+         GROUP BY ts.id
+         ORDER BY ts.started_at DESC LIMIT 1`,
+        [req.user.id, package_id, lowerSubjects],
+      );
+    } else {
+      existingSession = await client.query(
+        `SELECT ts.id, ts.started_at, COUNT(ua.id) as total_questions
+         FROM tryout_sessions ts
+         LEFT JOIN user_answers ua ON ua.session_id = ts.id
+         WHERE ts.user_id = $1 AND ts.package_id = $2 AND ts.submitted_at IS NULL
+         GROUP BY ts.id
+         ORDER BY ts.started_at DESC LIMIT 1`,
+        [req.user.id, package_id],
+      );
+    }
+
     if (
       existingSession.rows.length > 0 &&
       parseInt(existingSession.rows[0].total_questions) > 0
@@ -639,10 +680,6 @@ router.post("/start", verifyToken, async (req, res, next) => {
     if (!Array.isArray(subjectConfig)) subjectConfig = [];
 
     // Filter and reorder by selected subjects if provided
-    const selectedArray =
-      Array.isArray(selected_subjects) && selected_subjects.length > 0
-        ? selected_subjects
-        : null;
 
     if (selectedArray) {
       // Create a map for quick lookup
@@ -657,10 +694,24 @@ router.post("/start", verifyToken, async (req, res, next) => {
         .filter(Boolean); // Remove undefined entries
     }
 
+    // Lookup existing target PTN and Major if not provided
+    let finalPtn = target_ptn || null;
+    let finalMajor = target_major || null;
+    if (!finalPtn || !finalMajor) {
+      const existingTargetRes = await client.query(
+        "SELECT target_ptn, target_major FROM tryout_sessions WHERE user_id = $1 AND package_id = $2 AND target_ptn IS NOT NULL LIMIT 1",
+        [req.user.id, package_id]
+      );
+      if (existingTargetRes.rows.length > 0) {
+        finalPtn = existingTargetRes.rows[0].target_ptn;
+        finalMajor = existingTargetRes.rows[0].target_major;
+      }
+    }
+
     // Create Session
     const sessionRes = await client.query(
-      "INSERT INTO tryout_sessions (user_id, package_id) VALUES ($1, $2) RETURNING id, started_at",
-      [req.user.id, package_id],
+      "INSERT INTO tryout_sessions (user_id, package_id, target_ptn, target_major) VALUES ($1, $2, $3, $4) RETURNING id, started_at",
+      [req.user.id, package_id, finalPtn, finalMajor],
     );
     const sessionId = sessionRes.rows[0].id;
 
@@ -770,7 +821,7 @@ router.get(
       // Include saved user answers for state restoration (handles localStorage loss)
       const result = await pool.query(
         `
-      SELECT q.id, q.content, q.image_url, q.difficulty, q.question_type,
+      SELECT q.id, q.content, q.image_url, q.image_position, q.difficulty, q.question_type, q.stimulus,
              s.name as subject_name, s.id as subject_id, ua.position,
              ua.chosen_choice_id, ua.is_flagged, ua.answer_text
       FROM user_answers ua
@@ -842,6 +893,7 @@ router.get(
         success: true,
         data: subjectsWithQuestions,
         started_at: sessionData.rows[0]?.started_at || null,
+        server_time: new Date().toISOString(),
       });
     } catch (error) {
       console.error("Error getting questions:", error);
@@ -1039,8 +1091,10 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
           q.id,
           q.content,
           q.image_url,
+          q.image_position,
           q.difficulty,
           q.question_type,
+          q.stimulus,
           COALESCE(s.name, 'Unknown') as subject_name,
           ua.chosen_choice_id,
           ua.answer_text,
@@ -1065,6 +1119,10 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
       `,
         [sessionId],
       );
+
+      // Fetch empirical stats for these questions
+      const questionIds = questionsRes.rows.map(q => q.id).filter(Boolean);
+      const itemStatsMap = await getItemStatsForQuestions(pool, questionIds);
 
       // Process questions and group by subject
       questions = questionsRes.rows.map((q) => {
@@ -1139,6 +1197,7 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
           questionNumber: 0, // Will be set later
           content: q.content,
           imageUrl: q.image_url,
+          image_position: q.image_position,
           difficulty: q.difficulty,
           question_type: q.question_type || "multiple_choice",
           subject: q.subject_name,
@@ -1149,6 +1208,8 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
           explanation: questionExplanation,
           timeSpentSec: q.time_spent_sec || 0,
           choices: choices,
+          stimulus: q.stimulus,
+          irtStats: itemStatsMap[q.id] || null,
         };
       });
     } catch (qError) {
@@ -1238,8 +1299,15 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
         time_spent_sec: ans.time_spent_sec || 0,
         question_type: ans.question_type,
         answer_text: ans.answer_text,
+        irtParams: itemStatsMap[ans.question_id] || undefined,
       }));
       liveIRT = calculateIRTScore(irtAnswers);
+      // Add calibration metadata
+      liveIRT.calibrationInfo = {
+        totalCalibrated: questionIds.filter(id => itemStatsMap[id]?.calibrated).length,
+        totalPartial: questionIds.filter(id => itemStatsMap[id]?.calibrated === 'partial').length,
+        totalDefault: questionIds.filter(id => !itemStatsMap[id] || !itemStatsMap[id].calibrated).length,
+      };
     } catch (irtErr) {
       console.error(
         "[GET RESULT] IRT recompute failed, using stored:",
@@ -1507,6 +1575,10 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
       [validSessionIds],
     );
 
+    // Fetch empirical stats for these questions
+    const questionIds = questionsRes.rows.map(q => q.id).filter(Boolean);
+    const itemStatsMap = await getItemStatsForQuestions(pool, questionIds);
+
     // Process all questions
     const questions = questionsRes.rows.map((q) => {
       let choices = q.choices;
@@ -1552,6 +1624,7 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
         questionNumber: 0,
         content: q.content,
         imageUrl: q.image_url,
+        image_position: q.image_position,
         difficulty: q.difficulty,
         question_type: q.question_type || "multiple_choice",
         subject: q.subject_name,
@@ -1562,6 +1635,8 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
         explanation: questionExplanation,
         timeSpentSec: q.time_spent_sec || 0,
         choices: choices,
+        stimulus: q.stimulus,
+        irtStats: itemStatsMap[q.id] || null,
       };
     });
 
@@ -1645,8 +1720,15 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
         time_spent_sec: ans.time_spent_sec || 0,
         question_type: ans.question_type,
         answer_text: ans.answer_text,
+        irtParams: itemStatsMap[ans.question_id] || undefined,
       }));
       liveIRT = calculateIRTScore(irtAnswers);
+      // Add calibration metadata
+      liveIRT.calibrationInfo = {
+        totalCalibrated: questionIds.filter(id => itemStatsMap[id]?.calibrated).length,
+        totalPartial: questionIds.filter(id => itemStatsMap[id]?.calibrated === 'partial').length,
+        totalDefault: questionIds.filter(id => !itemStatsMap[id] || !itemStatsMap[id].calibrated).length,
+      };
     } catch (irtErr) {
       console.error("[COMBINED RESULT] IRT recompute failed:", irtErr.message);
       liveIRT = { totalScore: 200, theta: 0, percentile: 0, subjectScores: {} };
@@ -1890,7 +1972,11 @@ router.post("/submit", verifyToken, async (req, res, next) => {
       }
     }
 
-    // Format answers for IRT scoring
+    // Fetch calibrated IRT parameters from empirical data
+    const questionIds = answersRes.rows.map(a => a.question_id).filter(Boolean);
+    const itemStatsMap = await getItemStatsForQuestions(pool, questionIds);
+
+    // Format answers for IRT scoring with calibrated params
     const formattedAnswers = answersRes.rows.map((ans) => ({
       chosen_choice_id: ans.chosen_choice_id,
       is_correct: ans.is_correct === true,
@@ -1900,11 +1986,23 @@ router.post("/submit", verifyToken, async (req, res, next) => {
       time_spent_sec: ans.time_spent_sec || 0,
       question_type: ans.question_type,
       answer_text: ans.answer_text,
+      irtParams: itemStatsMap[ans.question_id] || undefined,
     }));
 
-    // Calculate IRT score
-    console.log("[SUBMIT] Calculating IRT score...");
+    // Calculate IRT score with calibrated parameters
+    console.log("[SUBMIT] Calculating IRT score with calibrated params...");
     const irtResults = calculateIRTScore(formattedAnswers);
+    // Add calibration metadata
+    irtResults.calibrationInfo = {
+      totalCalibrated: questionIds.filter(id => itemStatsMap[id]?.calibrated).length,
+      totalPartial: questionIds.filter(id => itemStatsMap[id]?.calibrated === 'partial').length,
+      totalDefault: questionIds.filter(id => !itemStatsMap[id] || !itemStatsMap[id].calibrated).length,
+    };
+
+    // Update item statistics (non-blocking)
+    batchUpdateItemStats(pool, formattedAnswers).catch(err =>
+      console.error('[SUBMIT] Error updating item stats:', err.message)
+    );
     console.log(
       "[SUBMIT] IRT results:",
       JSON.stringify({
@@ -2105,7 +2203,11 @@ router.post("/submit-bulk", verifyToken, async (req, res, next) => {
         }
       }
 
-      // Format for IRT scoring
+      // Fetch calibrated IRT parameters from empirical data
+      const questionIds = answersRes.rows.map(a => a.question_id).filter(Boolean);
+      const itemStatsMap = await getItemStatsForQuestions(pool, questionIds);
+
+      // Format for IRT scoring with calibrated params
       const formattedAnswers = answersRes.rows.map((ans) => ({
         chosen_choice_id: ans.chosen_choice_id,
         is_correct: ans.is_correct === true,
@@ -2115,11 +2217,23 @@ router.post("/submit-bulk", verifyToken, async (req, res, next) => {
         time_spent_sec: ans.time_spent_sec || 0,
         question_type: ans.question_type,
         answer_text: ans.answer_text,
+        irtParams: itemStatsMap[ans.question_id] || undefined,
       }));
 
-      // Calculate IRT score
-      console.log("[SUBMIT-BULK] Calculating IRT score...");
+      // Calculate IRT score with calibrated params
+      console.log("[SUBMIT-BULK] Calculating IRT score with calibrated params...");
       const irtResults = calculateIRTScore(formattedAnswers);
+      // Add calibration metadata
+      irtResults.calibrationInfo = {
+        totalCalibrated: questionIds.filter(id => itemStatsMap[id]?.calibrated).length,
+        totalPartial: questionIds.filter(id => itemStatsMap[id]?.calibrated === 'partial').length,
+        totalDefault: questionIds.filter(id => !itemStatsMap[id] || !itemStatsMap[id].calibrated).length,
+      };
+
+      // Update item statistics (non-blocking)
+      batchUpdateItemStats(pool, formattedAnswers).catch(err =>
+        console.error('[SUBMIT-BULK] Error updating item stats:', err.message)
+      );
 
       // Also calculate classical score
       const classicalResults = calculateScore(
@@ -2182,14 +2296,27 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 100);
 
   try {
-    // Get latest score per user for this package (most recent submitted session)
+    // 1. Get current user's target PTN & Major if any
+    const targetRes = await pool.query(
+      `SELECT target_ptn, target_major 
+       FROM tryout_sessions 
+       WHERE user_id = $1 AND package_id = $2 AND target_ptn IS NOT NULL 
+       ORDER BY started_at DESC LIMIT 1`,
+      [req.user.id, packageId]
+    );
+    const userPtn = targetRes.rows[0]?.target_ptn || null;
+    const userMajor = targetRes.rows[0]?.target_major || null;
+
+    // 2. Query general leaderboard
     const leaderboardRes = await pool.query(
       `
       SELECT DISTINCT ON (ts.user_id)
         ts.user_id,
         u.name,
         ts.total_score,
-        ts.submitted_at
+        ts.submitted_at,
+        ts.target_ptn,
+        ts.target_major
       FROM tryout_sessions ts
       JOIN users u ON u.id = ts.user_id
       WHERE ts.package_id = $1
@@ -2200,22 +2327,20 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
       [packageId],
     );
 
-    // Sort by total_score descending and assign ranks
-    const sorted = leaderboardRes.rows
-      .sort((a, b) => (b.total_score || 0) - (a.total_score || 0))
-      .slice(0, limit)
-      .map((row, idx) => ({
-        rank: idx + 1,
-        user_id: row.user_id,
-        name: row.name,
-        score: Math.round(row.total_score || 0),
-        submitted_at: row.submitted_at,
-      }));
-
-    // Find current user's rank
     const allSorted = leaderboardRes.rows.sort(
       (a, b) => (b.total_score || 0) - (a.total_score || 0),
     );
+    
+    const sorted = allSorted.slice(0, limit).map((row, idx) => ({
+      rank: idx + 1,
+      user_id: row.user_id,
+      name: row.name,
+      score: Math.round(row.total_score || 0),
+      submitted_at: row.submitted_at,
+      target_ptn: row.target_ptn,
+      target_major: row.target_major,
+    }));
+
     const userIdx = allSorted.findIndex((r) => r.user_id === req.user.id);
     const userRank =
       userIdx >= 0
@@ -2226,12 +2351,66 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
           }
         : null;
 
+    // 3. Query major-specific leaderboard if user has selections
+    let majorSorted = [];
+    let userMajorRank = null;
+    
+    if (userPtn && userMajor) {
+      const majorRes = await pool.query(
+        `
+        SELECT DISTINCT ON (ts.user_id)
+          ts.user_id,
+          u.name,
+          ts.total_score,
+          ts.submitted_at,
+          ts.target_ptn,
+          ts.target_major
+        FROM tryout_sessions ts
+        JOIN users u ON u.id = ts.user_id
+        WHERE ts.package_id = $1
+          AND ts.target_ptn = $2
+          AND ts.target_major = $3
+          AND ts.submitted_at IS NOT NULL
+          AND ts.total_score IS NOT NULL
+        ORDER BY ts.user_id, ts.submitted_at DESC
+      `,
+        [packageId, userPtn, userMajor],
+      );
+
+      const allMajorSorted = majorRes.rows.sort(
+        (a, b) => (b.total_score || 0) - (a.total_score || 0),
+      );
+
+      majorSorted = allMajorSorted.slice(0, limit).map((row, idx) => ({
+        rank: idx + 1,
+        user_id: row.user_id,
+        name: row.name,
+        score: Math.round(row.total_score || 0),
+        submitted_at: row.submitted_at,
+        target_ptn: row.target_ptn,
+        target_major: row.target_major,
+      }));
+
+      const userMajorIdx = allMajorSorted.findIndex((r) => r.user_id === req.user.id);
+      if (userMajorIdx >= 0) {
+        userMajorRank = {
+          rank: userMajorIdx + 1,
+          score: Math.round(allMajorSorted[userMajorIdx].total_score || 0),
+          total_participants: allMajorSorted.length,
+        };
+      }
+    }
+
     res.json({
       success: true,
       data: {
         leaderboard: sorted,
         user_rank: userRank,
         total_participants: allSorted.length,
+        targetPtn: userPtn,
+        targetMajor: userMajor,
+        majorLeaderboard: majorSorted,
+        userMajorRank: userMajorRank,
       },
     });
   } catch (error) {

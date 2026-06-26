@@ -23,6 +23,9 @@ const ManageTryout = () => {
   const [importLoading, setImportLoading] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [showEditQuestionModal, setShowEditQuestionModal] = useState(false);
+  const [activeQuestionId, setActiveQuestionId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -205,16 +208,26 @@ const ManageTryout = () => {
     setManagingSubtest(subtest);
     setShowManageQuestionsModal(true);
     setQuestionsLoading(true);
+    setSearchQuery('');
+    setDifficultyFilter('all');
+    setEditingQuestion(null);
     try {
       const res = await soalService.list({ 
         subject_name: subtest.name,
         tryout_package_id: selectedPackage?.id
       });
       const questions = res.data?.data || [];
-      setSubtestQuestions(Array.isArray(questions) ? questions : []);
+      const qArray = Array.isArray(questions) ? questions : [];
+      setSubtestQuestions(qArray);
+      if (qArray.length > 0) {
+        setActiveQuestionId(qArray[0].id);
+      } else {
+        setActiveQuestionId(null);
+      }
     } catch {
       toast.error('Gagal memuat soal');
       setSubtestQuestions([]);
+      setActiveQuestionId(null);
     } finally {
       setQuestionsLoading(false);
     }
@@ -224,7 +237,20 @@ const ManageTryout = () => {
     if (!window.confirm('Hapus soal ini?')) return;
     try {
       await soalService.delete(questionId);
-      setSubtestQuestions(prev => prev.filter(q => q.id !== questionId));
+      setSubtestQuestions(prev => {
+        const filtered = prev.filter(q => q.id !== questionId);
+        if (activeQuestionId === questionId) {
+          if (filtered.length > 0) {
+            const oldIndex = prev.findIndex(q => q.id === questionId);
+            const nextActiveIndex = Math.min(oldIndex, filtered.length - 1);
+            setActiveQuestionId(filtered[nextActiveIndex].id);
+          } else {
+            setActiveQuestionId(null);
+          }
+        }
+        return filtered;
+      });
+      setEditingQuestion(null);
       toast.success('Soal dihapus');
     } catch {
       toast.error('Gagal menghapus soal');
@@ -243,6 +269,8 @@ const ManageTryout = () => {
     try {
       const res = await soalService.deleteAllBySubject(matchedSubject.id);
       setSubtestQuestions([]);
+      setActiveQuestionId(null);
+      setEditingQuestion(null);
       toast.success(res.data.message || 'Semua soal berhasil dihapus');
     } catch {
       toast.error('Gagal menghapus semua soal');
@@ -295,7 +323,14 @@ const ManageTryout = () => {
         tryout_package_id: selectedPackage?.id
       });
       const questions = res.data?.data || [];
-      setSubtestQuestions(Array.isArray(questions) ? questions : []);
+      const qArray = Array.isArray(questions) ? questions : [];
+      setSubtestQuestions(qArray);
+      if (qArray.length > 0) {
+        const updatedSelected = qArray.find(q => q.id === question.id);
+        if (updatedSelected) {
+          setActiveQuestionId(updatedSelected.id);
+        }
+      }
       toast.success('Urutan jawaban sudah diacak');
     } catch {
       toast.error('Gagal mengacak jawaban');
@@ -314,10 +349,11 @@ const ManageTryout = () => {
         content: editingQuestion.content,
         difficulty: editingQuestion.difficulty,
         image_url: editingQuestion.image_url || null,
-        image_position: editingQuestion.image_position || 'after'
+        image_position: editingQuestion.image_position || 'bottom',
+        stimulus: editingQuestion.stimulus || null
       });
       toast.success('Soal berhasil disimpan');
-      setShowEditQuestionModal(false);
+      const savedId = editingQuestion.id;
       setEditingQuestion(null);
       // Reload questions
       const res = await soalService.list({ 
@@ -325,7 +361,9 @@ const ManageTryout = () => {
         tryout_package_id: selectedPackage?.id
       });
       const questions = res.data?.data || [];
-      setSubtestQuestions(Array.isArray(questions) ? questions : []);
+      const qArray = Array.isArray(questions) ? questions : [];
+      setSubtestQuestions(qArray);
+      setActiveQuestionId(savedId);
     } catch {
       toast.error('Gagal menyimpan soal');
     }
@@ -403,7 +441,13 @@ const ManageTryout = () => {
         subject_id: matchedSubject.id,
         tryout_package_id: selectedPackage?.id
       });
-      setSubtestQuestions(Array.isArray(questionsRes.data?.data) ? questionsRes.data.data : []);
+      const qArray = Array.isArray(questionsRes.data?.data) ? questionsRes.data.data : [];
+      setSubtestQuestions(qArray);
+      if (qArray.length > 0) {
+        setActiveQuestionId(qArray[0].id);
+      } else {
+        setActiveQuestionId(null);
+      }
 
       // Reset import tab
       setImportPreview([]);
@@ -416,6 +460,19 @@ const ManageTryout = () => {
       setImportLoading(false);
     }
   };
+
+  const filteredQuestions = ensureArray(subtestQuestions).filter(q => {
+    if (difficultyFilter !== 'all' && q.difficulty !== difficultyFilter) {
+      return false;
+    }
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      const contentMatch = q.content && q.content.toLowerCase().includes(query);
+      const choiceMatch = q.choices && q.choices.some(choice => choice.content && choice.content.toLowerCase().includes(query));
+      return contentMatch || choiceMatch;
+    }
+    return true;
+  });
 
   return (
     <div className="animate-fade-in bg-surface min-h-screen pb-20">
@@ -801,11 +858,23 @@ const ManageTryout = () => {
       {/* Manage Questions Modal */}
       {showManageQuestionsModal && managingSubtest && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-5xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-10 border-b border-[#c2c6d8]/20 flex justify-between items-center bg-[#faf8ff]">
+          <div className="bg-[#f8fafc] w-full max-w-[96vw] xl:max-w-7xl h-[90vh] rounded-[32px] shadow-2xl overflow-hidden flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="px-8 py-5 border-b border-[#e2e8f0] flex justify-between items-center bg-white shrink-0">
               <div>
-                <h2 className="text-[28px] font-bold text-[#191b24]">Kelola Soal: {managingSubtest.name}</h2>
-                <p className="text-[14px] text-[#727687]">Kelola soal untuk subtes ini.</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#dae1ff] text-[#0050cb] text-[10px] font-bold uppercase tracking-wider">
+                    {selectedPackage?.title}
+                  </span>
+                  <span className="text-[12px] text-[#727687] font-semibold">•</span>
+                  <span className="text-[12px] text-[#727687] font-bold uppercase">
+                    Subtes {ensureArray(selectedPackage?.subject_config).findIndex(sub => sub.name === managingSubtest.name) + 1}
+                  </span>
+                </div>
+                <h2 className="text-[22px] sm:text-[24px] font-extrabold text-[#191b24] tracking-tight">
+                  Kelola Soal: {managingSubtest.name}
+                </h2>
               </div>
               <button
                 onClick={() => {
@@ -816,168 +885,496 @@ const ManageTryout = () => {
                   setImportPreview([]);
                   setImportFile(null);
                 }}
-                className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-white shadow-sm transition-all text-[#424656]"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex items-center justify-between border-b border-[#c2c6d8]/20 bg-[#faf8ff]/50 px-10">
-              <div className="flex">
-                <button
-                  onClick={() => setShowImportTab(false)}
-                  className={`px-6 py-4 font-bold text-[14px] border-b-2 transition-all ${
-                    !showImportTab
-                      ? 'border-[#0050cb] text-[#0050cb]'
-                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
-                  }`}
-                >
-                  <span className="material-symbols-outlined inline mr-2 text-[18px]">description</span>
-                  Daftar Soal ({ensureArray(subtestQuestions).length})
-                </button>
-                <button
-                  onClick={() => setShowImportTab(true)}
-                  className={`px-6 py-4 font-bold text-[14px] border-b-2 transition-all ${
-                    showImportTab
-                      ? 'border-[#0050cb] text-[#0050cb]'
-                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
-                  }`}
-                >
-                  <span className="material-symbols-outlined inline mr-2 text-[18px]">upload_file</span>
-                  Import Excel
-                </button>
-              </div>
-              <button
-                onClick={() => {
-                  setShowManageQuestionsModal(false);
-                  setManagingSubtest(null);
-                  setSubtestQuestions([]);
-                  setShowImportTab(false);
-                  setImportPreview([]);
-                  setImportFile(null);
-                }}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#f2f3ff] text-[#727687] hover:text-red-500 transition-all"
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-all text-[#424656]"
                 title="Tutup"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
-            <div className="overflow-y-auto p-10 flex-1 bg-[#faf8ff]/30 custom-scrollbar">
-              {/* Tab 1: Daftar Soal */}
+            {/* Modal Navigation (Tabs) */}
+            <div className="flex items-center justify-between border-b border-[#e2e8f0] bg-white px-8 shrink-0">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowImportTab(false)}
+                  className={`px-4 py-3 font-bold text-[13px] border-b-2 transition-all flex items-center gap-2 ${
+                    !showImportTab
+                      ? 'border-[#0050cb] text-[#0050cb]'
+                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+                  Daftar Soal ({ensureArray(subtestQuestions).length})
+                </button>
+                <button
+                  onClick={() => setShowImportTab(true)}
+                  className={`px-4 py-3 font-bold text-[13px] border-b-2 transition-all flex items-center gap-2 ${
+                    showImportTab
+                      ? 'border-[#0050cb] text-[#0050cb]'
+                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                  Import Excel
+                </button>
+              </div>
+
+            </div>
+
+            {/* Modal Body Container */}
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-[#f8fafc]">
+              
+              {/* Tab 1: Daftar Soal with Split Layout */}
               {!showImportTab && (
                 <>
                   {questionsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <span className="material-symbols-outlined animate-spin text-[24px] text-[#0050cb]">progress_activity</span>
-                      <span className="ml-3 text-[#727687]">Memuat soal...</span>
+                    <div className="flex-1 flex flex-col items-center justify-center py-12">
+                      <span className="material-symbols-outlined animate-spin text-[32px] text-[#0050cb]">progress_activity</span>
+                      <span className="mt-3 text-[14px] text-[#727687] font-semibold">Memuat soal subtes...</span>
                     </div>
                   ) : !ensureArray(subtestQuestions).length ? (
-                    <div className="text-center py-12">
-                      <span className="material-symbols-outlined text-[48px] text-[#c2c6d8] mb-4 block">description</span>
-                      <p className="text-[#727687] font-medium">Belum ada soal. Tambah soal via Generate AI atau Import.</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-white m-6 rounded-3xl border border-dashed border-[#c2c6d8]/40">
+                      <span className="material-symbols-outlined text-[56px] text-[#c2c6d8] mb-4">description</span>
+                      <h3 className="text-[18px] font-bold text-[#191b24] mb-1">Belum Ada Soal</h3>
+                      <p className="text-[14px] text-[#727687] max-w-sm mb-6">Subtes ini belum memiliki soal. Silakan tambah soal dengan mengimport file Excel templates.</p>
+                      <button
+                        onClick={() => setShowImportTab(true)}
+                        className="px-6 py-2.5 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all flex items-center gap-2 text-[13px] shadow-md shadow-[#0050cb]/10"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                        Import dari Excel
+                      </button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {/* Delete All Button */}
-                      <div className="flex justify-end">
-                        <button
-                          onClick={handleDeleteAllQuestions}
-                          className="px-4 py-2 rounded-xl bg-red-50 text-red-600 text-[12px] font-bold hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 border border-red-200"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
-                          Hapus Semua Soal
-                        </button>
-                      </div>
-                      {ensureArray(subtestQuestions).map((q, idx) => (
-                        <div key={q.id} className="bg-white p-6 rounded-[20px] border border-[#c2c6d8]/30 hover:shadow-md transition-all flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <span className="text-[12px] font-bold px-3 py-1 rounded-full bg-[#dae1ff] text-[#0050cb] uppercase tracking-wider">
-                                Soal {idx + 1}
-                              </span>
-                              <span className={`text-[11px] font-bold px-2 py-1 rounded-full uppercase ${
-                                q.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                                q.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                {q.difficulty}
-                              </span>
-                            </div>
-                            {q.image_url && q.image_position === 'before' && (
-                              <div className="mt-2">
-                                <ZoomableImage
-                                  src={q.image_url}
-                                  alt="Question"
-                                  className="max-w-[200px] max-h-[100px] rounded-lg object-cover"
-                                  onError={(e) => e.target.style.display = 'none'}
-                                />
-                              </div>
-                            )}
-                            <MathText className="text-[14px] font-semibold text-[#191b24] line-clamp-2" text={q.content || ''} />
-                            {q.image_url && q.image_position !== 'before' && (
-                              <div className="mt-2">
-                                <ZoomableImage
-                                  src={q.image_url}
-                                  alt="Question"
-                                  className="max-w-[200px] max-h-[100px] rounded-lg object-cover"
-                                  onError={(e) => e.target.style.display = 'none'}
-                                />
-                              </div>
-                            )}
-                            {q.choices && q.choices.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {q.choices.map((choice) => (
-                                  <span key={choice.id} className={`text-[11px] px-2 py-1 rounded-md font-medium flex items-center gap-1 ${choice.is_correct ? 'bg-green-100 text-green-700 border border-green-300' : (q.question_type === 'complex_mc_tf' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-gray-100 text-gray-600')}`}>
-                                    <strong>{choice.label}.</strong> <MathText text={choice.content.substring(0, 30) + (choice.content.length > 30 ? '...' : '')} />
-                                    {q.question_type === 'complex_mc_tf' && <span className="ml-1 font-bold">{choice.is_correct ? '✓' : '✗'}</span>}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex gap-2 ml-4">
-                            <button
-                              onClick={() => handleMoveQuestionUp(idx)}
-                              disabled={idx === 0}
-                              className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                              title="Naik"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
-                            </button>
-                            <button
-                              onClick={() => handleMoveQuestionDown(idx)}
-                              disabled={idx === ensureArray(subtestQuestions).length - 1}
-                              className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                              title="Turun"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">arrow_downward</span>
-                            </button>
-                            <button
-                              onClick={() => handleShuffleChoices(q)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                              title="Acak Jawaban"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">shuffle</span>
-                            </button>
-                            <button
-                              onClick={() => handleEditQuestion(q)}
-                              className="p-2 text-[#727687] hover:bg-[#f2f3ff] rounded-lg transition-all"
-                              title="Edit"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">edit</span>
-                            </button>
-                            <button
-                              onClick={() => handleRemoveQuestion(q.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                              title="Delete"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
-                            </button>
+                    /* Double Panel layout */
+                    <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0 w-full">
+                      
+                      {/* Left Panel: Number Navigation */}
+                      <div className="w-full lg:w-[260px] border-r border-[#e2e8f0] bg-slate-50 flex flex-col min-h-0 shrink-0">
+                        {/* Header */}
+                        <div className="p-4 bg-white border-b border-[#e2e8f0] shrink-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-[13px] font-bold text-[#191b24]">Navigasi Soal</h4>
+                            <span className="text-[11px] font-bold text-[#727687] bg-slate-100 px-2 py-0.5 rounded-full">
+                              {ensureArray(subtestQuestions).length} Soal
+                            </span>
                           </div>
                         </div>
-                      ))}
+
+                        {/* Number Grid */}
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar min-h-0">
+                          <div className="grid grid-cols-5 gap-2">
+                            {ensureArray(subtestQuestions).map((q, idx) => {
+                              const isSelected = q.id === activeQuestionId;
+                              const diffColor = q.difficulty === 'easy'
+                                ? 'bg-emerald-400'
+                                : q.difficulty === 'medium'
+                                  ? 'bg-amber-400'
+                                  : 'bg-red-400';
+                              return (
+                                <button
+                                  key={q.id}
+                                  onClick={() => {
+                                    setActiveQuestionId(q.id);
+                                    setEditingQuestion(null);
+                                  }}
+                                  className={`relative w-full aspect-square rounded-xl border text-[14px] font-bold transition-all flex items-center justify-center ${
+                                    isSelected
+                                      ? 'bg-[#0050cb] border-[#0050cb] text-white shadow-lg shadow-[#0050cb]/20 scale-105'
+                                      : 'bg-white border-slate-200 text-[#191b24] hover:border-[#0050cb]/40 hover:bg-[#f2f3ff]'
+                                  }`}
+                                  title={`Soal ${idx + 1} — ${q.difficulty === 'easy' ? 'Mudah' : q.difficulty === 'medium' ? 'Sedang' : 'Sulit'}`}
+                                >
+                                  {idx + 1}
+                                  <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${isSelected ? 'bg-white/60' : diffColor}`} />
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {ensureArray(subtestQuestions).length === 0 && (
+                            <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-[#c2c6d8]/30 p-6">
+                              <span className="material-symbols-outlined text-[28px] text-[#c2c6d8] mb-2">quiz</span>
+                              <p className="text-[12px] text-[#727687] font-bold">Belum ada soal</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Legend */}
+                        <div className="px-4 py-2.5 border-t border-[#e2e8f0] bg-white shrink-0">
+                          <div className="flex items-center justify-center gap-4 text-[10px] font-bold text-[#727687]">
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />Mudah</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Sedang</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />Sulit</span>
+                          </div>
+                        </div>
+
+                        {/* Sidebar Footer */}
+                        {ensureArray(subtestQuestions).length > 0 && (
+                          <div className="p-4 border-t border-[#e2e8f0] bg-white shrink-0">
+                            <button
+                              onClick={handleDeleteAllQuestions}
+                              className="w-full py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 border border-red-100 text-[12px] font-bold"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                              Hapus Semua Soal ({ensureArray(subtestQuestions).length})
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Panel: Selected Question Preview/Edit */}
+                      <div className="flex-1 bg-white flex flex-col min-h-0 overflow-hidden">
+                        {(() => {
+                          const selectedQuestion = ensureArray(subtestQuestions).find(q => q.id === activeQuestionId);
+                          if (!selectedQuestion) {
+                            return (
+                              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/50">
+                                <span className="material-symbols-outlined text-[64px] text-[#c2c6d8] mb-4">description</span>
+                                <h4 className="text-[16px] font-bold text-[#191b24]">Belum Ada Soal Terpilih</h4>
+                                <p className="text-[13px] text-[#727687] max-w-xs mt-1">Pilih salah satu soal di daftar sebelah kiri untuk melihat detail atau mengedit.</p>
+                              </div>
+                            );
+                          }
+                          const idx = ensureArray(subtestQuestions).findIndex(q => q.id === selectedQuestion.id);
+
+                          return (
+                            <>
+                              {/* Top Panel Bar */}
+                              <div className="px-6 py-4 border-b border-[#e2e8f0] bg-[#faf8ff]/50 flex flex-wrap justify-between items-center gap-4 shrink-0">
+                                <div className="flex items-center gap-3">
+                                  <h3 className="text-[16px] font-extrabold text-[#191b24]">
+                                    Detail Soal {idx + 1}
+                                  </h3>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                    selectedQuestion.difficulty === 'easy' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                    selectedQuestion.difficulty === 'medium' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                                    'bg-red-50 text-red-700 border border-red-200'
+                                  }`}>
+                                    {selectedQuestion.difficulty === 'easy' ? 'Mudah' : selectedQuestion.difficulty === 'medium' ? 'Sedang' : 'Sulit'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleMoveQuestionUp(idx)}
+                                    disabled={idx === 0}
+                                    className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Naikkan Urutan"
+                                  >
+                                    <span className="material-symbols-outlined text-[20px]">arrow_upward</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleMoveQuestionDown(idx)}
+                                    disabled={idx === ensureArray(subtestQuestions).length - 1}
+                                    className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Turunkan Urutan"
+                                  >
+                                    <span className="material-symbols-outlined text-[20px]">arrow_downward</span>
+                                  </button>
+
+                                  <div className="h-6 w-px bg-slate-200 mx-2"></div>
+
+                                  <button
+                                    onClick={() => handleShuffleChoices(selectedQuestion)}
+                                    className="px-3 py-1.5 rounded-xl text-[#0050cb] hover:bg-[#f2f3ff] transition-all flex items-center gap-1 text-[12px] font-bold"
+                                    title="Acak pilihan jawaban"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">shuffle</span>
+                                    Acak Opsi
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleRemoveQuestion(selectedQuestion.id)}
+                                    className="px-3 py-1.5 rounded-xl text-red-600 hover:bg-red-50 transition-all flex items-center gap-1 text-[12px] font-bold"
+                                    title="Hapus soal ini"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                    Hapus Soal
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Content Area */}
+                              <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6 custom-scrollbar min-h-0">
+                                {editingQuestion && editingQuestion.id === selectedQuestion.id ? (
+                                  /* INLINE EDITOR */
+                                  <div className="space-y-6 max-w-3xl">
+                                    <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-3">
+                                      <div>
+                                        <h4 className="text-[15px] font-bold text-[#191b24]">Edit Konten Soal</h4>
+                                        <p className="text-[12px] text-[#727687]">Sesuaikan pertanyaan, gambar pendukung, dan bobot tingkat kesulitan.</p>
+                                      </div>
+                                      <span className="text-[11px] font-extrabold text-[#0050cb] bg-[#dae1ff] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                        Edit Mode
+                                      </span>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Stimulus / Wacana (Opsional)</label>
+                                        <textarea
+                                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/80 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[100px] font-medium leading-relaxed"
+                                          value={editingQuestion.stimulus || ''}
+                                          onChange={(e) => setEditingQuestion({ ...editingQuestion, stimulus: e.target.value })}
+                                          placeholder="Masukkan stimulus/wacana di sini (opsional). Akan ditampilkan di atas pertanyaan."
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Isi Pertanyaan</label>
+                                        <textarea
+                                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[160px] font-medium leading-relaxed"
+                                          value={editingQuestion.content}
+                                          onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
+                                          placeholder="Tulis soal di sini. Gunakan sintaks LaTeX seperti $...$ atau $$...$$ untuk rumus matematika."
+                                        />
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                          <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Tingkat Kesulitan</label>
+                                          <select
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-[#0050cb] outline-none text-[14px] font-bold text-[#191b24]"
+                                            value={editingQuestion.difficulty}
+                                            onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value })}
+                                          >
+                                            <option value="easy">Easy (Mudah)</option>
+                                            <option value="medium">Medium (Sedang)</option>
+                                            <option value="hard">Hard (Sulit)</option>
+                                          </select>
+                                        </div>
+
+                                        {editingQuestion.image_url && (
+                                          <div>
+                                            <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Posisi Gambar</label>
+                                            <div className="flex gap-4 py-2">
+                                              <label className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
+                                                <input
+                                                  type="radio"
+                                                  name="inline_img_pos"
+                                                  value="top"
+                                                  checked={['top', 'before', 'atas'].includes(editingQuestion.image_position)}
+                                                  onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'top' })}
+                                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
+                                                />
+                                                Atas
+                                              </label>
+                                              <label className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
+                                                <input
+                                                  type="radio"
+                                                  name="inline_img_pos"
+                                                  value="middle"
+                                                  checked={['middle', 'ditengah', 'tengah'].includes(editingQuestion.image_position)}
+                                                  onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'middle' })}
+                                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
+                                                />
+                                                Tengah
+                                              </label>
+                                              <label className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
+                                                <input
+                                                  type="radio"
+                                                  name="inline_img_pos"
+                                                  value="bottom"
+                                                  checked={['bottom', 'after', 'bawah'].includes(editingQuestion.image_position) || !editingQuestion.image_position}
+                                                  onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'bottom' })}
+                                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
+                                                />
+                                                Bawah (Default)
+                                              </label>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="border border-slate-200/60 rounded-xl p-4 bg-slate-50/50">
+                                        <ImageUpload
+                                          label="Gambar Pendukung Soal (Opsional)"
+                                          value={editingQuestion.image_url || ''}
+                                          onChange={(url) => setEditingQuestion({ ...editingQuestion, image_url: url })}
+                                          folder="tryout/soal"
+                                          aspectRatio="aspect-video"
+                                        />
+                                      </div>
+
+                                      {editingQuestion.choices && editingQuestion.choices.length > 0 && (
+                                        <div>
+                                          <div className="flex items-center justify-between mb-2">
+                                            <label className="block text-[13px] font-bold text-[#191b24]">Pilihan Jawaban (Non-Editable)</label>
+                                            <span className="text-[10px] font-bold text-[#727687] bg-slate-100 px-2 py-0.5 rounded">
+                                              Modifikasi via Re-import Excel
+                                            </span>
+                                          </div>
+                                          <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                                            {editingQuestion.choices.map((choice) => (
+                                              <div key={choice.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white">
+                                                <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold ${
+                                                  choice.is_correct ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                  {choice.label}
+                                                </span>
+                                                <span className="text-[13px] text-[#191b24] font-medium flex-1">
+                                                  <MathText text={choice.content} />
+                                                </span>
+                                                {choice.is_correct && (
+                                                  <span className="text-green-600 text-[11px] font-bold flex items-center gap-0.5">
+                                                    <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                                    Kunci
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Action buttons */}
+                                    <div className="flex justify-end gap-3 pt-4 border-t border-[#e2e8f0]">
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingQuestion(null)}
+                                        className="px-6 py-2.5 border border-slate-200 text-[#424656] font-bold rounded-xl hover:bg-slate-50 transition-all text-[13px]"
+                                      >
+                                        Batal
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={handleSaveQuestion}
+                                        className="px-8 py-2.5 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all text-[13px] flex items-center gap-1.5 shadow-sm shadow-[#0050cb]/10"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px]">save</span>
+                                        Simpan Perubahan
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* PREVIEW MODE */
+                                  <div className="space-y-6">
+                                    
+                                    {/* Question box Card */}
+                                    <div className="p-8 bg-slate-50/50 rounded-3xl border border-slate-100 space-y-5">
+                                      {/* TOP IMAGE */}
+                                      {selectedQuestion.image_url && ['top', 'before', 'atas'].includes(selectedQuestion.image_position) && (
+                                        <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
+                                          <ZoomableImage
+                                            src={selectedQuestion.image_url}
+                                            alt="Soal"
+                                            className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
+                                          />
+                                        </div>
+                                      )}
+
+                                      {/* STIMULUS */}
+                                      {selectedQuestion.stimulus && (
+                                        <div className="text-[16px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                          <MathText text={selectedQuestion.stimulus} />
+                                        </div>
+                                      )}
+
+                                      {/* MIDDLE IMAGE */}
+                                      {selectedQuestion.image_url && ['middle', 'ditengah', 'tengah'].includes(selectedQuestion.image_position) && (
+                                        <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
+                                          <ZoomableImage
+                                            src={selectedQuestion.image_url}
+                                            alt="Soal"
+                                            className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
+                                          />
+                                        </div>
+                                      )}
+
+                                      <div className="text-[18px] text-slate-800 font-semibold leading-[1.8] whitespace-pre-wrap">
+                                        <MathText text={selectedQuestion.content || ''} />
+                                      </div>
+
+                                      {/* BOTTOM IMAGE */}
+                                      {selectedQuestion.image_url && (['bottom', 'after', 'bawah'].includes(selectedQuestion.image_position) || !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(selectedQuestion.image_position)) && (
+                                        <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
+                                          <ZoomableImage
+                                            src={selectedQuestion.image_url}
+                                            alt="Soal"
+                                            className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Choices cards list */}
+                                    {selectedQuestion.choices && selectedQuestion.choices.length > 0 && (
+                                      <div className="space-y-4">
+                                        <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider">Opsi Jawaban</h4>
+                                        <div className="space-y-3.5">
+                                          {selectedQuestion.choices.map((choice) => {
+                                            const isCorrect = choice.is_correct;
+                                            return (
+                                              <div
+                                                key={choice.id}
+                                                className={`p-5 rounded-xl border flex items-start gap-4 transition-all ${
+                                                  isCorrect
+                                                    ? 'bg-emerald-50/50 border-emerald-300 text-emerald-950 shadow-sm'
+                                                    : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300'
+                                                }`}
+                                              >
+                                                <span className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[14px] font-extrabold ${
+                                                  isCorrect
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                }`}>
+                                                  {choice.label}
+                                                </span>
+                                                <div className="flex-1 text-[16px] font-semibold leading-[1.7] pt-0.5 text-slate-900">
+                                                  <MathText text={choice.content} />
+                                                </div>
+                                                {isCorrect && (
+                                                  <span className="bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider shrink-0">
+                                                    <span className="material-symbols-outlined text-[14px]">check</span>
+                                                    Kunci Jawaban
+                                                  </span>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Pembahasan / Explanation */}
+                                    {(() => {
+                                      const correctChoice = selectedQuestion.choices?.find(c => c.is_correct);
+                                      const explanation = correctChoice?.explanation || selectedQuestion.choices?.find(c => c.explanation)?.explanation;
+                                      if (!explanation) return null;
+                                      return (
+                                        <div className="space-y-3">
+                                          <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider flex items-center gap-1.5">
+                                            <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                                            Pembahasan
+                                          </h4>
+                                          <div className="p-6 rounded-xl bg-sky-50/60 border border-sky-200/60">
+                                            <div className="text-[16px] text-slate-800 leading-[1.8] whitespace-pre-wrap">
+                                              <MathText text={explanation} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+
+                                    {/* Edit Soal button */}
+                                    <div className="flex justify-end pt-4">
+                                      <button
+                                        onClick={() => setEditingQuestion({ ...selectedQuestion })}
+                                        className="px-6 py-3 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all flex items-center gap-2 text-[13px] shadow-md shadow-[#0050cb]/15"
+                                      >
+                                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        Edit Soal Ini
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   )}
                 </>
@@ -985,119 +1382,144 @@ const ManageTryout = () => {
 
               {/* Tab 2: Import Excel */}
               {showImportTab && (
-                <div className="space-y-6">
-                  {ensureArray(importPreview).length === 0 ? (
-                    <div
-                      className="border-2 border-dashed border-[#c2c6d8] rounded-[20px] p-12 text-center cursor-pointer hover:border-[#0050cb] hover:bg-[#f2f3ff]/30 transition-all"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <span className="material-symbols-outlined text-[48px] text-[#c2c6d8] mb-4 block">cloud_upload</span>
-                      <p className="text-[16px] font-bold text-[#191b24] mb-2">Unggah File Excel</p>
-                      <p className="text-[14px] text-[#727687]">Format: .xlsx, .xls, atau .csv</p>
-                      <p className="text-[12px] text-[#727687] mt-2">Kolom yang diperlukan: question, choice_a, choice_b, choice_c, choice_d, choice_e, correct_answer, explanation</p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        onChange={handleImportFileChange}
-                        className="hidden"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-[12px]">
-                        <p className="text-[14px] font-bold text-green-700 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                          {ensureArray(importPreview).length} baris siap diimport
-                        </p>
+                <div className="overflow-y-auto p-10 flex-1 bg-white custom-scrollbar">
+                  <div className="space-y-6 max-w-4xl mx-auto">
+                    {ensureArray(importPreview).length === 0 ? (
+                      <div
+                        className="border-2 border-dashed border-slate-300 hover:border-[#0050cb] rounded-[24px] p-16 text-center cursor-pointer hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center group"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 group-hover:bg-[#f2f3ff] group-hover:text-[#0050cb] flex items-center justify-center transition-all mb-4">
+                          <span className="material-symbols-outlined text-[36px]">cloud_upload</span>
+                        </div>
+                        <p className="text-[18px] font-extrabold text-[#191b24] mb-1">Unggah Template Soal Excel</p>
+                        <p className="text-[14px] text-[#727687] max-w-md">Format yang didukung: .xlsx, .xls, atau .csv. Pastikan format kolom sesuai dengan template standar.</p>
+                        <div className="mt-4 px-4 py-2 rounded-xl bg-slate-100 text-[11px] font-bold text-[#424656] border border-slate-200 max-w-xl leading-relaxed text-left">
+                          <strong>Kolom yang diperlukan:</strong> question, choice_a, choice_b, choice_c, choice_d, choice_e, correct_answer, explanation
+                        </div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleImportFileChange}
+                          className="hidden"
+                        />
                       </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-emerald-800">
+                            <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                            <span className="text-[14px] font-bold">
+                              Berhasil membaca file. {ensureArray(importPreview).length} baris data siap diimport.
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setImportPreview([]);
+                              setImportFile(null);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="text-[12px] font-bold text-red-600 hover:text-red-800 underline"
+                          >
+                            Reset File
+                          </button>
+                        </div>
 
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {importPreview.slice(0, 10).map((row, idx) => {
-                          const keys = Object.keys(row).map(k => k.replace(/^\uFEFF/, '').trim());
-                          const vals = Object.values(row);
-                          const findCol = (...aliases) => {
-                            for (const alias of aliases) {
-                              const i = keys.findIndex(k => k.toLowerCase() === alias.toLowerCase());
-                              if (i !== -1 && vals[i] !== undefined && vals[i] !== '') return String(vals[i]).trim();
-                            }
-                            return '';
-                          };
-                          const soal = findCol('soal', 'content', 'question', 'pertanyaan');
-                          const kunci = findCol('kunci jawaban', 'kunci', 'jawaban', 'answer');
-                          const opsiA = findCol('opsi a', 'a');
-                          const opsiB = findCol('opsi b', 'b');
-                          return (
-                            <div key={idx} className="bg-white p-4 rounded-[12px] border border-[#c2c6d8]/30">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-[12px] font-bold text-[#0050cb] uppercase">Soal {idx + 1}</p>
-                                {kunci && <span className="text-[11px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Jawaban: {kunci}</span>}
-                              </div>
-                              <p className="text-[13px] text-[#191b24] font-medium mb-2" style={{whiteSpace: 'pre-wrap'}}>{soal || 'Soal tidak terdeteksi'}</p>
-                              {(opsiA || opsiB) && (
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                  {['A','B','C','D','E'].map(label => {
-                                    const v = findCol(`opsi ${label}`, label);
-                                    if (!v) return null;
-                                    return <span key={label} className={`text-[11px] px-2 py-0.5 rounded-full border ${kunci?.toUpperCase() === label ? 'bg-green-50 border-green-300 text-green-700 font-bold' : 'bg-gray-50 border-gray-200 text-[#424656]'}`}>{label}. {v.length > 40 ? v.slice(0,40)+'…' : v}</span>;
-                                  })}
+                        {/* List preview of top 5 rows */}
+                        <div className="space-y-3">
+                          <h4 className="text-[12px] font-bold text-[#727687] uppercase tracking-wider">Preview 5 Soal Pertama</h4>
+                          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                            {importPreview.slice(0, 5).map((row, idx) => {
+                              const keys = Object.keys(row).map(k => k.replace(/^\uFEFF/, '').trim());
+                              const vals = Object.values(row);
+                              const findCol = (...aliases) => {
+                                for (const alias of aliases) {
+                                  const i = keys.findIndex(k => k.toLowerCase() === alias.toLowerCase());
+                                  if (i !== -1 && vals[i] !== undefined && vals[i] !== '') return String(vals[i]).trim();
+                                }
+                                return '';
+                              };
+                              const soal = findCol('soal', 'content', 'question', 'pertanyaan');
+                              const kunci = findCol('kunci jawaban', 'kunci', 'jawaban', 'answer');
+                              return (
+                                <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-left">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[11px] font-extrabold text-[#0050cb] uppercase tracking-wider">Soal {idx + 1}</span>
+                                    {kunci && (
+                                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                        Kunci: {kunci.toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[13px] text-slate-800 font-bold leading-relaxed whitespace-pre-wrap">{soal || 'Soal tidak terdeteksi'}</p>
+                                  <div className="flex flex-wrap gap-2 mt-2.5">
+                                    {['A','B','C','D','E'].map(label => {
+                                      const val = findCol(`opsi ${label.toLowerCase()}`, `choice_${label.toLowerCase()}`, label.toLowerCase(), label);
+                                      if (!val) return null;
+                                      return (
+                                        <span key={label} className={`text-[11px] px-2.5 py-1 rounded-lg border text-slate-700 ${
+                                          kunci?.toUpperCase() === label
+                                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold'
+                                            : 'bg-white border-slate-200'
+                                        }`}>
+                                          <strong>{label}.</strong> {val.length > 40 ? val.slice(0, 40) + '...' : val}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {importPreview.length > 10 && (
-                          <p className="text-center text-[12px] text-[#727687] py-2">
-                            +{importPreview.length - 10} soal lainnya
-                          </p>
-                        )}
-                      </div>
+                              );
+                            })}
+                          </div>
+                          {importPreview.length > 5 && (
+                            <p className="text-center text-[12px] text-[#727687] font-semibold py-1">
+                              +{importPreview.length - 5} soal lainnya tidak ditampilkan dalam preview
+                            </p>
+                          )}
+                        </div>
 
-                      <div className="mt-6 flex gap-3">
-                        <button
-                          onClick={() => {
-                            setImportPreview([]);
-                            setImportFile(null);
-                            if (fileInputRef.current) fileInputRef.current.value = '';
-                          }}
-                          className="flex-1 px-6 py-3 border border-[#c2c6d8] text-[#424656] font-bold rounded-[16px] hover:bg-[#f2f3ff] transition-all"
-                        >
-                          Batal
-                        </button>
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="flex-1 px-6 py-3 bg-[#f2f3ff] text-[#0050cb] font-bold rounded-[16px] hover:bg-[#dae1ff] transition-all"
-                        >
-                          Ubah File
-                        </button>
+                        {/* Import tab Actions */}
+                        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                          <button
+                            onClick={() => {
+                              setImportPreview([]);
+                              setImportFile(null);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="px-6 py-2.5 border border-slate-200 text-[#424656] font-bold rounded-xl hover:bg-slate-50 transition-all text-[13px]"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            onClick={handleImportQuestions}
+                            disabled={importLoading}
+                            className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all disabled:opacity-60 text-[13px] flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">download</span>
+                            {importLoading ? 'Mengimport...' : 'Mulai Import Soal'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="p-10 border-t border-[#c2c6d8]/20 flex justify-between gap-6 bg-[#faf8ff]">
-              {!showImportTab && (
-                <button
-                  onClick={() => setShowImportTab(true)}
-                  className="px-8 py-3 bg-[#dae1ff] text-[#0050cb] font-bold rounded-[20px] hover:bg-[#0050cb] hover:text-white transition-all flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined">add</span>
-                  Import Soal
-                </button>
-              )}
-              <div className="flex-1"></div>
-              {showImportTab && importPreview.length > 0 && (
-                <button
-                  onClick={handleImportQuestions}
-                  disabled={importLoading}
-                  className="px-8 py-3 bg-green-600 text-white font-bold rounded-[20px] hover:bg-green-700 transition-all disabled:opacity-60 flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined">download</span>
-                  {importLoading ? 'Mengimport...' : 'Mulai Import'}
-                </button>
-              )}
+            {/* Modal Footer */}
+            <div className="px-8 py-5 border-t border-[#e2e8f0] flex justify-between items-center bg-white shrink-0">
+              <div className="flex items-center gap-4">
+                <span className="text-[12px] font-bold text-[#727687] uppercase tracking-wider">Kuota Soal Subtes:</span>
+                <span className={`text-[13px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 ${
+                  ensureArray(subtestQuestions).length >= managingSubtest.questionCount
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                  {ensureArray(subtestQuestions).length} / {managingSubtest.questionCount} Soal
+                </span>
+              </div>
               <button
                 onClick={() => {
                   setShowManageQuestionsModal(false);
@@ -1107,132 +1529,9 @@ const ManageTryout = () => {
                   setImportPreview([]);
                   setImportFile(null);
                 }}
-                className="px-10 py-3 bg-[#0050cb] text-white font-bold rounded-[20px] hover:shadow-lg transition-all"
+                className="px-8 py-2.5 bg-[#191b24] text-white font-bold rounded-xl hover:bg-[#323647] transition-all text-[13px] shadow-sm active:scale-[0.98]"
               >
                 Selesai
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Question Modal */}
-      {showEditQuestionModal && editingQuestion && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-[#c2c6d8]/20 flex justify-between items-center bg-[#faf8ff] shrink-0">
-              <div>
-                <h2 className="text-[22px] font-bold text-[#191b24]">Edit Soal</h2>
-                <p className="text-[13px] text-[#727687]">Edit pertanyaan dan tingkat kesulitan</p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowEditQuestionModal(false);
-                  setEditingQuestion(null);
-                }}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-50 text-[#727687] hover:text-red-500 transition-all"
-                title="Tutup"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 overflow-y-auto flex-1">
-              <div>
-                <label className="block text-[14px] font-bold text-[#191b24] mb-2">Pertanyaan</label>
-                <textarea
-                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[15px] min-h-[100px] resize-y"
-                  value={editingQuestion.content}
-                  onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
-                />
-              </div>
-
-              <ImageUpload
-                label="Gambar Soal (opsional)"
-                value={editingQuestion.image_url || ''}
-                onChange={(url) => setEditingQuestion({ ...editingQuestion, image_url: url })}
-                folder="tryout/soal"
-                aspectRatio="aspect-video"
-              />
-
-              {editingQuestion.image_url && (
-                <div>
-                  <label className="block text-[14px] font-bold text-[#191b24] mb-2">Posisi Gambar</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 text-[14px] cursor-pointer text-[#424656]">
-                      <input
-                        type="radio"
-                        name="image_position"
-                        value="after"
-                        checked={(editingQuestion.image_position || 'after') === 'after'}
-                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'after' })}
-                        className="w-4 h-4 text-[#0050cb]"
-                      />
-                      Setelah Teks (Bawah)
-                    </label>
-                    <label className="flex items-center gap-2 text-[14px] cursor-pointer text-[#424656]">
-                      <input
-                        type="radio"
-                        name="image_position"
-                        value="before"
-                        checked={editingQuestion.image_position === 'before'}
-                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'before' })}
-                        className="w-4 h-4 text-[#0050cb]"
-                      />
-                      Sebelum Teks (Atas)
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[14px] font-bold text-[#191b24] mb-2">Tingkat Kesulitan</label>
-                <select
-                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[15px]"
-                  value={editingQuestion.difficulty}
-                  onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value })}
-                >
-                  <option value="easy">Mudah</option>
-                  <option value="medium">Sedang</option>
-                  <option value="hard">Sulit</option>
-                </select>
-              </div>
-
-              {editingQuestion.choices && editingQuestion.choices.length > 0 && (
-                <div>
-                  <label className="block text-[14px] font-bold text-[#191b24] mb-2">Pilihan Jawaban</label>
-                  <div className="space-y-3 max-h-[180px] overflow-y-auto">
-                    {editingQuestion.choices.map((choice) => (
-                      <div key={choice.id} className="flex items-start gap-3">
-                        <span className={`px-2 py-1 rounded-md text-[12px] font-bold ${choice.is_correct ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                          {choice.label}
-                        </span>
-                        <p className="flex-1 text-[14px] text-[#191b24]">{choice.content}</p>
-                        {choice.is_correct && (
-                          <span className="text-green-600 text-[12px] font-medium">✓ Kunci Jawaban</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-[#c2c6d8]/20 flex justify-end gap-4 bg-[#faf8ff] shrink-0">
-              <button
-                onClick={() => {
-                  setShowEditQuestionModal(false);
-                  setEditingQuestion(null);
-                }}
-                className="px-6 py-3 text-[#424656] font-bold hover:bg-[#f2f3ff] rounded-xl transition-all"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleSaveQuestion}
-                className="px-8 py-3 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all"
-              >
-                Simpan Perubahan
               </button>
             </div>
           </div>

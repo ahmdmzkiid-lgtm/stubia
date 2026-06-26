@@ -87,11 +87,12 @@ const TryoutSession = () => {
           } else {
             // Calculate remaining time from server started_at if available
             const serverStartedAt = response.data.started_at;
+            const serverTime = response.data.server_time || new Date().toISOString();
             const currentSub = data[savedSubjectIdx];
             const dur = currentSub?.duration || 30;
             const totalSeconds = dur * 60;
             if (serverStartedAt) {
-              const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+              const elapsed = Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000);
               const remaining = Math.max(totalSeconds - elapsed, 0);
               setTimeLeft(remaining);
             } else {
@@ -100,10 +101,11 @@ const TryoutSession = () => {
           }
         } catch {
           const serverStartedAt = response.data.started_at;
+          const serverTime = response.data.server_time || new Date().toISOString();
           const dur = data[0]?.duration || 30;
           const totalSeconds = dur * 60;
           if (serverStartedAt) {
-            const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+            const elapsed = Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000);
             setTimeLeft(Math.max(totalSeconds - elapsed, 0));
           } else {
             setTimeLeft(totalSeconds);
@@ -489,13 +491,27 @@ const TryoutSession = () => {
             </span>
             <span className="text-[12px] font-medium text-[#727687] bg-[#ecedfa] px-2.5 py-0.5 rounded-md">{currentQuestion?.difficulty || 'medium'}</span>
           </div>
-          {currentQuestion?.image_url && currentQuestion.image_position === 'before' && (
+          {/* TOP IMAGE */}
+          {currentQuestion?.image_url && ['top', 'before', 'atas'].includes(currentQuestion.image_position) && (
+            <div className="mb-4">
+              <ZoomableImage className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
+            </div>
+          )}
+          {/* STIMULUS */}
+          {currentQuestion?.stimulus && (
+            <div className="mb-4 text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+              <MathText text={currentQuestion.stimulus} />
+            </div>
+          )}
+          {/* MIDDLE IMAGE */}
+          {currentQuestion?.image_url && ['middle', 'ditengah', 'tengah'].includes(currentQuestion.image_position) && (
             <div className="mb-4">
               <ZoomableImage className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
             </div>
           )}
           <MathText className="text-[15px] text-[#191b24] leading-relaxed" text={currentQuestion?.content || ''} />
-          {currentQuestion?.image_url && currentQuestion.image_position !== 'before' && (
+          {/* BOTTOM IMAGE */}
+          {currentQuestion?.image_url && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(currentQuestion.image_position) && (
             <div className="mt-4">
               <ZoomableImage className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
             </div>

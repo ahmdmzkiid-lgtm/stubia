@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { pool } = require("../config/db");
 const { verifyToken } = require("../middleware/auth");
-const { calculateIRTScore } = require("../services/irtScoringService");
+const { calculateIRTScore, batchUpdateItemStats, getItemStatsForQuestions } = require("../services/irtScoringService");
 const {
   checkLatihanAccess,
   assertUtbkGratisContentAccess,
@@ -217,9 +217,30 @@ router.post("/latihan/submit", verifyToken, async (req, res, next) => {
         })),
       };
     } else {
-      // Calculate IRT score (standard latihan)
-      irtResult = calculateIRTScore(irtAnswers);
+      // Fetch calibrated IRT parameters from empirical data
+      const questionIds = irtAnswers.map(a => a.question_id).filter(Boolean);
+      const itemStatsMap = await getItemStatsForQuestions(pool, questionIds);
+
+      // Inject calibrated params into each answer
+      const calibratedAnswers = irtAnswers.map(a => ({
+        ...a,
+        irtParams: itemStatsMap[a.question_id] || undefined,
+      }));
+
+      // Calculate IRT score with calibrated parameters
+      irtResult = calculateIRTScore(calibratedAnswers);
+      // Add calibration metadata
+      irtResult.calibrationInfo = {
+        totalCalibrated: questionIds.filter(id => itemStatsMap[id]?.calibrated).length,
+        totalPartial: questionIds.filter(id => itemStatsMap[id]?.calibrated === 'partial').length,
+        totalDefault: questionIds.filter(id => !itemStatsMap[id] || !itemStatsMap[id].calibrated).length,
+      };
     }
+
+    // Update item statistics for all answered questions (non-blocking)
+    batchUpdateItemStats(pool, irtAnswers).catch(err =>
+      console.error('[LATIHAN] Error updating item stats:', err.message)
+    );
 
     const correctCount = irtResult.benar;
     const incorrectCount = irtResult.salah;
@@ -942,7 +963,7 @@ router.get(
       }
 
       const questionsRes = await pool.query(
-        `SELECT q.id, q.content, q.image_url, q.image_position, q.difficulty, q.subject_id, q.question_type,
+        `SELECT q.id, q.content, q.image_url, q.image_position, q.difficulty, q.subject_id, q.question_type, q.stimulus,
               json_agg(
                 json_build_object(
                   'id', ac.id,
@@ -965,6 +986,9 @@ router.get(
         choices: q.choices.filter((c) => c.id !== null),
       }));
 
+      // Fetch empirical stats for these questions
+      const itemStatsMap = await getItemStatsForQuestions(pool, questionIds);
+
       // Merge itemAnalysis data into each question
       const enrichedQuestions = questions.map((q) => {
         const analysis =
@@ -984,6 +1008,7 @@ router.get(
           isCorrect: analysis.isCorrect === true,
           isAnswered: (q.question_type === "short_answer" || q.question_type === "complex_mc_tf") ? !!answerText : !!chosenChoiceId,
           difficulty: analysis.difficulty || q.difficulty || "medium",
+          irtStats: itemStatsMap[q.id] || null,
         };
       });
 

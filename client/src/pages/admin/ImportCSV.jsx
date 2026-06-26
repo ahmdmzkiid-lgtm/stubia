@@ -102,6 +102,7 @@ const ImportCSV = () => {
   const downloadTemplate = () => {
     const templateData = [
       {
+        'STIMULUS': '',
         'SOAL': 'Berapakah hasil dari 2 + 2?',
         'OPSI A': '3',
         'OPSI B': '4',
@@ -115,6 +116,7 @@ const ImportCSV = () => {
     const ws = XLSX.utils.json_to_sheet(templateData);
     // Set column widths for better readability
     ws['!cols'] = [
+      { wch: 40 }, // STIMULUS
       { wch: 40 }, // SOAL
       { wch: 15 }, // OPSI A
       { wch: 15 }, // OPSI B
@@ -432,6 +434,7 @@ const ImportCSV = () => {
                   <thead className="bg-surface-container-low">
                     <tr>
                       <th className="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Status</th>
+                      <th className="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Stimulus</th>
                       <th className="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Soal</th>
                       <th className="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Kunci</th>
                       <th className="px-6 py-4 font-label-md text-label-md text-on-surface-variant">Opsi</th>
@@ -441,6 +444,7 @@ const ImportCSV = () => {
                   <tbody className="divide-y divide-outline-variant/20">
                     {preview.map((row, i) => {
                       if (i === 0) console.log('Excel row keys:', Object.keys(row), 'Row data:', row);
+                      const stimulus = getCol(row, 'stimulus', 'wacana', 'bacaan', 'stimulus/wacana');
                       const soal = getCol(row, 'soal', 'content', 'question', 'pertanyaan');
                       const kunci = getCol(row, 'kunci jawaban', 'kunci', 'correct_label', 'answer', 'jawaban').toUpperCase();
                       const opsiCount = ['opsi a','opsi b','opsi c','opsi d','opsi e'].filter(k => getCol(row, k) !== '').length;
@@ -455,6 +459,13 @@ const ImportCSV = () => {
                             >
                               {status === 'ok' ? 'check_circle' : 'error'}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 font-body-md text-body-md text-on-surface-variant max-w-[150px]">
+                            {stimulus ? (
+                              <MathText className="line-clamp-2 italic" text={stimulus} />
+                            ) : (
+                              <span className="text-gray-400 italic text-[12px]">-</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 font-body-md text-body-md text-on-surface max-w-xs">
                             {soal ? (

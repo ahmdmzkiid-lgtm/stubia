@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { tryoutService } from '../../services/api';
@@ -6,6 +6,7 @@ import DiscussQuestionModal from '../../components/DiscussQuestionModal';
 import MathText from '../../components/MathText';
 import NationalLeaderboardCard from '../../components/NationalLeaderboardCard';
 import StudentNavbar from '../../components/layout/StudentNavbar';
+import { PTN_DATA } from '../../data/ptnData';
 
 const TryoutResult = () => {
   const { sessionId } = useParams();
@@ -27,6 +28,7 @@ const TryoutResult = () => {
   // Leaderboard State
   const [leaderboard, setLeaderboard] = useState(null);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardTab, setLeaderboardTab] = useState('general'); // 'general' | 'major'
   const pkgId = result?.packageId || location.state?.packageId;
 
   const openDiscussion = (question) => {
@@ -272,7 +274,10 @@ const TryoutResult = () => {
                   LIVE
                 </span>
               </div>
-              <div className="text-[72px] font-bold leading-tight">{result.totalScore}</div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[72px] font-bold leading-tight">{result.totalScore}</span>
+                <span className="text-[20px] opacity-60">/1000</span>
+              </div>
               <div className="flex items-center gap-2 mt-2">
                 <span className="material-symbols-outlined text-[#00c1fd]">
                   {result.scoreChange >= 0 ? 'trending_up' : 'trending_down'}
@@ -348,16 +353,177 @@ const TryoutResult = () => {
             </div>
           </div>
 
-          {/* Peringkat Tryout Nasional */}
+          {/* Peringkat Tryout - Tabbed Leaderboard */}
           <div className="md:col-span-4">
-            <NationalLeaderboardCard
-              leaderboard={leaderboard}
-              loading={leaderboardLoading}
-              currentUserId={user?.id}
-              typeText="tryout ini"
-              type="utbk-tryout"
-              id={pkgId}
-            />
+            <div className="bg-white rounded-xl p-5 md:p-6 shadow-sm border border-[#c2c6d8]/20 max-h-[calc(100vh-140px)] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
+              {/* Tab Toggle */}
+              {leaderboard?.targetPtn && leaderboard?.targetMajor ? (
+                <div className="flex gap-1 p-1 bg-[#f0f1f7] rounded-xl mb-4">
+                  <button
+                    onClick={() => setLeaderboardTab('general')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-[12px] font-bold transition-all ${
+                      leaderboardTab === 'general'
+                        ? 'bg-white text-[#0050cb] shadow-sm'
+                        : 'text-[#727687] hover:text-[#424656]'
+                    }`}
+                  >
+                    Peringkat Nasional
+                  </button>
+                  <button
+                    onClick={() => setLeaderboardTab('major')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-[12px] font-bold transition-all ${
+                      leaderboardTab === 'major'
+                        ? 'bg-white text-[#0050cb] shadow-sm'
+                        : 'text-[#727687] hover:text-[#424656]'
+                    }`}
+                  >
+                    Peringkat Jurusan
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[14px] font-medium text-[#424656] uppercase tracking-widest">Peringkat Nasional</p>
+                  <span className="material-symbols-outlined text-[#0050cb] text-[20px]">leaderboard</span>
+                </div>
+              )}
+
+              {leaderboardTab === 'general' ? (
+                /* General Leaderboard */
+                <>
+                  {leaderboard?.user_rank && (
+                    <div className="bg-gradient-to-r from-[#0050cb] to-[#003da6] text-white rounded-xl p-3.5 mb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Peringkatmu</p>
+                          <p className="text-[24px] font-bold leading-tight">#{leaderboard.user_rank.rank}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Dari</p>
+                          <p className="text-[18px] font-bold">{leaderboard.user_rank.total_participants} peserta</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {leaderboardLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 border-2 border-[#0050cb] border-t-transparent rounded-full animate-spin"></div>
+                      <span className="ml-3 text-[13px] text-[#727687]">Memuat peringkat...</span>
+                    </div>
+                  ) : leaderboard?.leaderboard?.length > 0 ? (
+                    <div className="space-y-2">
+                      {leaderboard.leaderboard.slice(0, 5).map((entry) => {
+                        const isCurrentUser = entry.user_id === user?.id;
+                        const medalColors = { 1: 'bg-[#FFD700] text-[#7A6200]', 2: 'bg-[#C0C0C0] text-[#555]', 3: 'bg-[#CD7F32] text-white' };
+                        return (
+                          <div key={entry.rank} className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${isCurrentUser ? 'bg-[#e8eeff] border border-[#0050cb]/30' : 'hover:bg-[#f8f9ff]'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 ${medalColors[entry.rank] || 'bg-[#ecedfa] text-[#424656]'}`}>{entry.rank}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[13px] font-medium truncate ${isCurrentUser ? 'text-[#0050cb] font-bold' : 'text-[#191b24]'}`}>
+                                {isCurrentUser ? `${entry.name} (Kamu)` : entry.name}
+                              </p>
+                            </div>
+                            <span className="text-[14px] font-bold text-[#191b24] shrink-0">{entry.score}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <span className="material-symbols-outlined text-[40px] text-[#c2c6d8] mb-2">group_off</span>
+                      <p className="text-[13px] text-[#727687]">Belum ada data peringkat</p>
+                    </div>
+                  )}
+                  {leaderboard?.total_participants > 0 && (
+                    <p className="text-center text-[11px] text-[#727687] mt-3">
+                      Total {leaderboard.total_participants} peserta pada tryout ini
+                    </p>
+                  )}
+                </>
+              ) : (
+                /* Major Leaderboard */
+                <>
+                  {/* Target info */}
+                  <div className="bg-[#f5f5ff] rounded-xl p-3 mb-4 border border-[#e6e7f4]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="material-symbols-outlined text-[16px] text-[#0050cb]">school</span>
+                      <p className="text-[12px] font-bold text-[#0050cb]">{leaderboard?.targetPtn}</p>
+                    </div>
+                    <p className="text-[13px] font-medium text-[#191b24] ml-6">{leaderboard?.targetMajor}</p>
+                    {(() => {
+                      // Look up target score from ptnData
+                      const ptnEntry = PTN_DATA.find(p => leaderboard?.targetPtn?.includes(p.singkatan) || leaderboard?.targetPtn?.includes(p.nama));
+                      const majorEntry = ptnEntry?.prodi?.find(m => m.nama === leaderboard?.targetMajor);
+                      const targetScore = majorEntry?.skor;
+                      const userScore = leaderboard?.user_rank?.score || leaderboard?.userMajorRank?.score || 0;
+                      if (!targetScore) return null;
+                      const passed = userScore >= targetScore;
+                      return (
+                        <div className={`mt-2 ml-6 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${passed ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fef3f2] text-[#ba1a1a]'}`}>
+                          <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>{passed ? 'check_circle' : 'cancel'}</span>
+                          {passed ? `Skormu melewati target (${targetScore})` : `Target skor: ${targetScore} (kurang ${targetScore - userScore})`}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {leaderboard?.userMajorRank && (
+                    <div className="bg-gradient-to-r from-[#6d28d9] to-[#4c1d95] text-white rounded-xl p-3.5 mb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Peringkat Jurusan</p>
+                          <p className="text-[24px] font-bold leading-tight">#{leaderboard.userMajorRank.rank}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Dari</p>
+                          <p className="text-[18px] font-bold">{leaderboard.userMajorRank.total_participants} peserta</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {leaderboardLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 border-2 border-[#6d28d9] border-t-transparent rounded-full animate-spin"></div>
+                      <span className="ml-3 text-[13px] text-[#727687]">Memuat peringkat jurusan...</span>
+                    </div>
+                  ) : leaderboard?.majorLeaderboard?.length > 0 ? (
+                    <div className="space-y-2">
+                      {leaderboard.majorLeaderboard.slice(0, 5).map((entry) => {
+                        const isCurrentUser = entry.user_id === user?.id;
+                        const medalColors = { 1: 'bg-[#FFD700] text-[#7A6200]', 2: 'bg-[#C0C0C0] text-[#555]', 3: 'bg-[#CD7F32] text-white' };
+                        return (
+                          <div key={entry.rank} className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${isCurrentUser ? 'bg-[#ede9fe] border border-[#6d28d9]/30' : 'hover:bg-[#f8f9ff]'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 ${medalColors[entry.rank] || 'bg-[#ecedfa] text-[#424656]'}`}>{entry.rank}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[13px] font-medium truncate ${isCurrentUser ? 'text-[#6d28d9] font-bold' : 'text-[#191b24]'}`}>
+                                {isCurrentUser ? `${entry.name} (Kamu)` : entry.name}
+                              </p>
+                            </div>
+                            <span className="text-[14px] font-bold text-[#191b24] shrink-0">{entry.score}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <span className="material-symbols-outlined text-[40px] text-[#c2c6d8] mb-2">group_off</span>
+                      <p className="text-[13px] text-[#727687]">Belum ada peserta lain dengan jurusan yang sama</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* View Full Leaderboard Button */}
+              {pkgId && (
+                <button
+                  onClick={() => navigate(`/leaderboard/utbk-tryout/${pkgId}`)}
+                  className="w-full mt-4 py-2.5 bg-gradient-to-r from-[#0050cb] to-[#003da6] text-white hover:shadow-md rounded-xl font-bold text-[13px] transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span>Lihat Leaderboard</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -420,7 +586,10 @@ const TryoutResult = () => {
                       </div>
                       <div>
                         <span className="block text-[#424656] text-[12px] font-semibold mb-1">Skor</span>
-                        <span className="text-[24px] font-bold text-[#0050cb]">{subject.score || 0}</span>
+                        <div className="flex items-baseline">
+                          <span className="text-[24px] font-bold text-[#0050cb]">{subject.score || 0}</span>
+                          <span className="text-[11px] text-[#727687] ml-0.5">/1000</span>
+                        </div>
                       </div>
                       <div className="flex flex-col justify-center">
                         <span className="block text-[#424656] text-[12px] font-semibold mb-2">Mastery</span>
@@ -522,13 +691,31 @@ const TryoutResult = () => {
                     </span>
                   </div>
                   <div className="max-w-4xl">
-                    {question.image_url && question.image_position === 'before' && (
+                    {/* TOP IMAGE */}
+                    {question.image_url && ['top', 'before', 'atas'].includes(question.image_position) && (
                       <div className="mb-4">
                         <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
                       </div>
                     )}
+
+                    {/* STIMULUS */}
+                    {question.stimulus && (
+                      <div className="mb-4 text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        <MathText text={question.stimulus} />
+                      </div>
+                    )}
+
+                    {/* MIDDLE IMAGE */}
+                    {question.image_url && ['middle', 'ditengah', 'tengah'].includes(question.image_position) && (
+                      <div className="mb-4">
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
+                      </div>
+                    )}
+
                     <MathText className="text-[15px] font-semibold text-[#191b24] mb-4 leading-relaxed" text={question.content || ''} />
-                    {question.image_url && question.image_position !== 'before' && (
+
+                    {/* BOTTOM IMAGE */}
+                    {question.image_url && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(question.image_position) && (
                       <div className="mb-4">
                         <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
                       </div>

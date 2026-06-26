@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { tryoutService, ujianMandiriService } from '../services/api';
+import { PTN_DATA } from '../data/ptnData';
 
 const LeaderboardPage = () => {
   const { type, id } = useParams();
@@ -11,6 +12,7 @@ const LeaderboardPage = () => {
 
   const [leaderboard, setLeaderboard] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [leaderboardTab, setLeaderboardTab] = useState('general'); // 'general' | 'major'
 
   // Extract query params for UTBK Latihan topic_id
   const queryParams = new URLSearchParams(location.search);
@@ -113,8 +115,68 @@ const LeaderboardPage = () => {
           </div>
         </div>
 
+        {/* Tab Toggle if target PTN/major is set */}
+        {type === 'utbk-tryout' && leaderboard?.targetPtn && leaderboard?.targetMajor && (
+          <div className="flex gap-2 p-1 bg-[#ecedfa] rounded-xl mb-6 max-w-md">
+            <button
+              onClick={() => setLeaderboardTab('general')}
+              className={`flex-1 py-2 text-center text-[13px] font-bold rounded-lg transition-all ${
+                leaderboardTab === 'general'
+                  ? 'bg-white text-[#0050cb] shadow-sm'
+                  : 'text-[#727687] hover:text-[#191b24]'
+              }`}
+            >
+              Peringkat Nasional
+            </button>
+            <button
+              onClick={() => setLeaderboardTab('major')}
+              className={`flex-1 py-2 text-center text-[13px] font-bold rounded-lg transition-all ${
+                leaderboardTab === 'major'
+                  ? 'bg-[#6d28d9] text-white shadow-sm'
+                  : 'text-[#727687] hover:text-[#191b24]'
+              }`}
+            >
+              Peringkat Jurusan
+            </button>
+          </div>
+        )}
+
+        {/* Target Major Info Box */}
+        {leaderboardTab === 'major' && leaderboard?.targetPtn && leaderboard?.targetMajor && (
+          <div className="bg-white rounded-xl p-5 border border-[#c2c6d8]/20 mb-6 space-y-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#6d28d9] text-[22px]">school</span>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-[#727687] font-bold">Universitas Target</p>
+                <p className="text-[15px] font-bold text-[#191b24]">{leaderboard.targetPtn}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#6d28d9] text-[22px]">menu_book</span>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-[#727687] font-bold">Program Studi</p>
+                <p className="text-[15px] font-bold text-[#191b24]">{leaderboard.targetMajor}</p>
+              </div>
+            </div>
+            {(() => {
+              const ptnEntry = PTN_DATA.find(p => leaderboard.targetPtn?.includes(p.singkatan) || leaderboard.targetPtn?.includes(p.nama));
+              const majorEntry = ptnEntry?.prodi?.find(m => m.nama === leaderboard.targetMajor);
+              const targetScore = majorEntry?.skor;
+              const userScore = leaderboard?.user_rank?.score || leaderboard?.userMajorRank?.score || 0;
+              if (!targetScore) return null;
+              const passed = userScore >= targetScore;
+              return (
+                <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold ${passed ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fef3f2] text-[#ba1a1a]'}`}>
+                  <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>{passed ? 'check_circle' : 'cancel'}</span>
+                  {passed ? `Skormu melewati target (${targetScore})` : `Target skor: ${targetScore} (kurang ${targetScore - userScore})`}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* User Rank Card */}
-        {leaderboard?.user_rank && (
+        {leaderboardTab === 'general' && leaderboard?.user_rank && (
           <div className="bg-[#e8eeff] border border-[#0050cb]/20 rounded-xl p-5 mb-8 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-[#0050cb] text-white flex items-center justify-center font-bold text-[18px]">
@@ -132,6 +194,24 @@ const LeaderboardPage = () => {
           </div>
         )}
 
+        {leaderboardTab === 'major' && leaderboard?.userMajorRank && (
+          <div className="bg-[#f3e8ff] border border-[#6d28d9]/20 rounded-xl p-5 mb-8 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-[#6d28d9] text-white flex items-center justify-center font-bold text-[18px]">
+                #{leaderboard.userMajorRank.rank}
+              </div>
+              <div>
+                <p className="text-[12px] uppercase font-bold tracking-wider text-[#6d28d9]">Peringkat Anda (Jurusan)</p>
+                <p className="text-[16px] font-bold text-[#191b24]">{user?.name} (Kamu)</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[12px] uppercase font-bold tracking-wider text-[#727687]">Skor</p>
+              <p className="text-[22px] font-bold text-[#6d28d9]">{leaderboard.userMajorRank.score}</p>
+            </div>
+          </div>
+        )}
+
         {/* Leaderboard Table Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-[#c2c6d8]/20 overflow-hidden">
           {loading ? (
@@ -139,37 +219,51 @@ const LeaderboardPage = () => {
               <div className="w-10 h-10 border-4 border-[#0050cb] border-t-transparent rounded-full animate-spin"></div>
               <p className="mt-4 text-[#727687] text-[14px]">Memuat data leaderboard...</p>
             </div>
-          ) : leaderboard?.leaderboard?.length > 0 ? (
+          ) : (leaderboardTab === 'general' ? leaderboard?.leaderboard : leaderboard?.majorLeaderboard)?.length > 0 ? (
             <div className="divide-y divide-[#c2c6d8]/10">
               {/* Table Header */}
               <div className="hidden sm:grid sm:grid-cols-12 gap-4 p-4 text-[12px] font-bold text-[#727687] uppercase tracking-wider bg-[#faf8ff]">
                 <div className="col-span-2 text-center">Peringkat</div>
                 <div className="col-span-7">Nama Lengkap</div>
-                <div className="col-span-3 text-right">Skor Nasional</div>
+                <div className="col-span-3 text-right">
+                  {leaderboardTab === 'general' ? 'Skor Nasional' : 'Skor Jurusan'}
+                </div>
               </div>
 
               {/* Rows */}
-              {leaderboard.leaderboard.map((entry) => {
+              {(leaderboardTab === 'general' ? leaderboard.leaderboard : leaderboard.majorLeaderboard).map((entry) => {
                 const isCurrentUser = entry.user_id === user?.id;
+                const activeMedalColor = leaderboardTab === 'general'
+                  ? medalColors[entry.rank] || 'bg-[#ecedfa] text-[#424656]'
+                  : {
+                      1: 'bg-[#FFD700] text-[#7A6200]',
+                      2: 'bg-[#C0C0C0] text-[#555]',
+                      3: 'bg-[#CD7F32] text-white'
+                    }[entry.rank] || 'bg-[#f3e8ff] text-[#6d28d9]';
+
+                const textHighlightColor = isCurrentUser
+                  ? (leaderboardTab === 'general' ? 'text-[#0050cb]' : 'text-[#6d28d9]')
+                  : 'text-[#191b24]';
+
                 return (
                   <div
                     key={entry.rank}
                     className={`grid grid-cols-12 gap-4 items-center p-4 transition-colors ${
-                      isCurrentUser ? 'bg-[#e8eeff]' : 'hover:bg-[#f8f9ff]'
+                      isCurrentUser
+                        ? (leaderboardTab === 'general' ? 'bg-[#e8eeff]' : 'bg-[#f3e8ff]')
+                        : 'hover:bg-[#f8f9ff]'
                     }`}
                   >
                     {/* Rank */}
                     <div className="col-span-3 sm:col-span-2 flex justify-center">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 shadow-sm ${
-                        medalColors[entry.rank] || 'bg-[#ecedfa] text-[#424656]'
-                      }`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 shadow-sm ${activeMedalColor}`}>
                         {entry.rank}
                       </div>
                     </div>
 
                     {/* Name */}
                     <div className="col-span-6 sm:col-span-7">
-                      <p className={`text-[14px] truncate ${isCurrentUser ? 'text-[#0050cb] font-bold' : 'text-[#191b24] font-medium'}`}>
+                      <p className={`text-[14px] truncate ${isCurrentUser ? 'font-bold' : 'font-medium'} ${textHighlightColor}`}>
                         {isCurrentUser ? `${entry.name} (Kamu)` : entry.name}
                       </p>
                       <p className="text-[10px] text-[#727687]">
@@ -185,7 +279,7 @@ const LeaderboardPage = () => {
 
                     {/* Score */}
                     <div className="col-span-3 text-right">
-                      <span className={`text-[16px] font-extrabold ${isCurrentUser ? 'text-[#0050cb]' : 'text-[#191b24]'}`}>
+                      <span className={`text-[16px] font-extrabold ${textHighlightColor}`}>
                         {entry.score}
                       </span>
                     </div>
@@ -196,14 +290,22 @@ const LeaderboardPage = () => {
           ) : (
             <div className="text-center py-20">
               <span className="material-symbols-outlined text-[64px] text-[#c2c6d8] mb-4">group_off</span>
-              <h3 className="text-[18px] font-bold text-[#191b24] mb-1">Belum Ada Peserta</h3>
-              <p className="text-[#727687] text-[14px]">Menjadi yang pertama untuk masuk ke dalam leaderboard ini!</p>
+              <h3 className="text-[18px] font-bold text-[#191b24] mb-1">
+                {leaderboardTab === 'general' ? 'Belum Ada Peserta' : 'Belum Ada Peserta Jurusan'}
+              </h3>
+              <p className="text-[#727687] text-[14px]">
+                {leaderboardTab === 'general'
+                  ? 'Menjadi yang pertama untuk masuk ke dalam leaderboard ini!'
+                  : 'Belum ada peserta lain dengan jurusan yang sama.'}
+              </p>
             </div>
           )}
 
-          {leaderboard?.total_participants > 0 && (
+          {leaderboard && (leaderboardTab === 'general' ? leaderboard.total_participants : leaderboard.majorLeaderboard?.length || 0) > 0 && (
             <div className="p-4 bg-[#faf8ff] border-t border-[#c2c6d8]/10 text-center text-[12px] font-medium text-[#727687]">
-              Total {leaderboard.total_participants} peserta terdaftar pada {typeText}.
+              {leaderboardTab === 'general'
+                ? `Total ${leaderboard.total_participants} peserta terdaftar pada ${typeText}.`
+                : `Total ${leaderboard.majorLeaderboard?.length || 0} peserta terdaftar pada jurusan ini.`}
             </div>
           )}
         </div>

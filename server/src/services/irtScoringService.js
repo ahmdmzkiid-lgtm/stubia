@@ -440,6 +440,203 @@ function getStatusFromMastery(masteryPercent, avgSpeed = 60) {
   }
 }
 
+// ============================================================================
+// EMPIRICAL IRT CALIBRATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Calibrate IRT parameters from empirical student data
+ * Uses logistic transform of p-value for difficulty (b),
+ * variance-based estimation for discrimination (a)
+ * 
+ * @param {number} totalAttempts - Total number of students who attempted the question
+ * @param {number} totalCorrect - Number of students who answered correctly
+ * @param {string} difficulty - Static difficulty label (fallback)
+ * @returns {object} Calibrated IRT parameters {a, b, c}
+ */
+function calibrateItemParams(totalAttempts, totalCorrect, difficulty = 'medium') {
+  const defaultParams = DEFAULT_IRT_PARAMS[difficulty] || DEFAULT_IRT_PARAMS.medium;
+  
+  // Not enough data — use defaults
+  if (!totalAttempts || totalAttempts < 5) {
+    return { ...defaultParams, calibrated: false, attempts: totalAttempts || 0 };
+  }
+
+  // Empirical p-value (proportion correct)
+  const pValue = Math.max(0.01, Math.min(0.99, totalCorrect / totalAttempts));
+
+  // Empirical difficulty (b) via logit transform: b = -ln(p / (1 - p))
+  // High p-value (easy question) → negative b → easier
+  // Low p-value (hard question) → positive b → harder
+  const empiricalB = -Math.log(pValue / (1 - pValue));
+  const clampedB = Math.max(-3, Math.min(3, empiricalB));
+
+  // Empirical discrimination (a) based on variance
+  // Variance of binary outcomes = p(1-p), peaks at p=0.5
+  // Higher variance → question differentiates better → higher discrimination
+  const variance = pValue * (1 - pValue);
+  const empiricalA = 0.5 + (variance * 4); // range ~0.5-1.5
+  const clampedA = Math.max(0.4, Math.min(2.5, empiricalA));
+
+  // Guessing parameter stays relatively fixed
+  const c = defaultParams.c || 0.10;
+
+  // Blending strategy based on amount of data
+  if (totalAttempts < 10) {
+    // Very little data: 70% default, 30% empirical
+    return {
+      a: defaultParams.a * 0.7 + clampedA * 0.3,
+      b: defaultParams.b * 0.7 + clampedB * 0.3,
+      c,
+      calibrated: 'partial',
+      attempts: totalAttempts,
+      pValue: Math.round(pValue * 100) / 100
+    };
+  } else if (totalAttempts < 50) {
+    // Moderate data: 50% default, 50% empirical
+    return {
+      a: defaultParams.a * 0.5 + clampedA * 0.5,
+      b: defaultParams.b * 0.5 + clampedB * 0.5,
+      c,
+      calibrated: 'partial',
+      attempts: totalAttempts,
+      pValue: Math.round(pValue * 100) / 100
+    };
+  } else {
+    // Sufficient data: use fully empirical
+    return {
+      a: clampedA,
+      b: clampedB,
+      c,
+      calibrated: true,
+      attempts: totalAttempts,
+      pValue: Math.round(pValue * 100) / 100
+    };
+  }
+}
+
+/**
+ * Update item statistics after a student answers a question
+ * Uses UPSERT to atomically increment counters and recalibrate
+ * 
+ * @param {object} pool - Database pool
+ * @param {string} questionId - Question UUID
+ * @param {boolean} isCorrect - Whether the student answered correctly
+ * @param {string} difficulty - Static difficulty label
+ */
+async function updateItemStats(pool, questionId, isCorrect, difficulty = 'medium') {
+  if (!pool || !questionId) return;
+
+  try {
+    const correctIncrement = isCorrect ? 1 : 0;
+    
+    // UPSERT: insert or update stats atomically
+    const result = await pool.query(`
+      INSERT INTO question_item_stats (question_id, total_attempts, total_correct, updated_at)
+      VALUES ($1, 1, $2, NOW())
+      ON CONFLICT (question_id) DO UPDATE SET
+        total_attempts = question_item_stats.total_attempts + 1,
+        total_correct = question_item_stats.total_correct + $2,
+        updated_at = NOW()
+      RETURNING total_attempts, total_correct
+    `, [questionId, correctIncrement]);
+
+    if (result.rows.length > 0) {
+      const { total_attempts, total_correct } = result.rows[0];
+      
+      // Recalibrate IRT parameters
+      const calibrated = calibrateItemParams(total_attempts, total_correct, difficulty);
+      const pValue = total_attempts > 0 ? total_correct / total_attempts : 0.5;
+      
+      // Update calibrated parameters
+      await pool.query(`
+        UPDATE question_item_stats
+        SET p_value = $1,
+            discrimination = $2,
+            irt_a = $3,
+            irt_b = $4,
+            irt_c = $5,
+            last_calibrated_at = NOW()
+        WHERE question_id = $6
+      `, [
+        Math.round(pValue * 10000) / 10000,
+        calibrated.a,
+        calibrated.a,
+        calibrated.b,
+        calibrated.c,
+        questionId
+      ]);
+    }
+  } catch (err) {
+    // Non-critical — don't break the main flow
+    console.error('[IRT] Error updating item stats:', err.message);
+  }
+}
+
+/**
+ * Batch update item statistics for multiple questions at once
+ * More efficient than calling updateItemStats for each question individually
+ * 
+ * @param {object} pool - Database pool
+ * @param {Array} answers - Array of { question_id, is_correct, difficulty }
+ */
+async function batchUpdateItemStats(pool, answers) {
+  if (!pool || !answers || answers.length === 0) return;
+
+  try {
+    for (const ans of answers) {
+      if (ans.question_id) {
+        await updateItemStats(pool, ans.question_id, ans.is_correct === true, ans.difficulty || 'medium');
+      }
+    }
+  } catch (err) {
+    console.error('[IRT] Error in batch update item stats:', err.message);
+  }
+}
+
+/**
+ * Fetch calibrated IRT parameters for a list of question IDs
+ * Returns a map: questionId → {a, b, c, pValue, totalAttempts, calibrated}
+ * 
+ * @param {object} pool - Database pool
+ * @param {Array} questionIds - Array of question UUIDs
+ * @returns {object} Map of questionId → calibrated params
+ */
+async function getItemStatsForQuestions(pool, questionIds) {
+  const statsMap = {};
+  
+  if (!pool || !questionIds || questionIds.length === 0) {
+    return statsMap;
+  }
+
+  try {
+    const result = await pool.query(`
+      SELECT question_id, total_attempts, total_correct, p_value,
+             irt_a, irt_b, irt_c, discrimination, last_calibrated_at
+      FROM question_item_stats
+      WHERE question_id = ANY($1)
+    `, [questionIds]);
+
+    for (const row of result.rows) {
+      statsMap[row.question_id] = {
+        a: row.irt_a,
+        b: row.irt_b,
+        c: row.irt_c,
+        pValue: row.p_value,
+        totalAttempts: row.total_attempts,
+        totalCorrect: row.total_correct,
+        discrimination: row.discrimination,
+        calibrated: row.total_attempts >= 50 ? true : (row.total_attempts >= 10 ? 'partial' : false),
+        lastCalibratedAt: row.last_calibrated_at
+      };
+    }
+  } catch (err) {
+    console.error('[IRT] Error fetching item stats:', err.message);
+  }
+
+  return statsMap;
+}
+
 module.exports = {
   calculateIRTScore,
   calculateQuickScore,
@@ -447,6 +644,10 @@ module.exports = {
   estimateAbility,
   thetaToScore,
   getStatusFromMastery,
+  calibrateItemParams,
+  updateItemStats,
+  batchUpdateItemStats,
+  getItemStatsForQuestions,
   DEFAULT_IRT_PARAMS,
   DIFFICULTY_MAP,
   FULL_TEST_QUESTIONS

@@ -301,13 +301,27 @@ const LatihanResult = () => {
                     </div>
 
                     {/* Question Content */}
-                    {qr.image_url && qr.image_position === 'before' && (
+                    {/* TOP IMAGE */}
+                    {qr.image_url && ['top', 'before', 'atas'].includes(qr.image_position) && (
+                      <div className="mb-4">
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={qr.image_url} alt="Soal" />
+                      </div>
+                    )}
+                    {/* STIMULUS */}
+                    {qr.stimulus && (
+                      <div className="mb-4 text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        <MathText text={qr.stimulus} />
+                      </div>
+                    )}
+                    {/* MIDDLE IMAGE */}
+                    {qr.image_url && ['middle', 'ditengah', 'tengah'].includes(qr.image_position) && (
                       <div className="mb-4">
                         <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={qr.image_url} alt="Soal" />
                       </div>
                     )}
                     <MathText className="text-[14px] md:text-[15px] font-semibold mb-4 leading-relaxed" text={qr.content || ''} />
-                    {qr.image_url && qr.image_position !== 'before' && (
+                    {/* BOTTOM IMAGE */}
+                    {qr.image_url && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(qr.image_position) && (
                       <div className="mb-4">
                         <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={qr.image_url} alt="Soal" />
                       </div>

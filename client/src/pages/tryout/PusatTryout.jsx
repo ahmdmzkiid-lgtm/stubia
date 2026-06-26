@@ -242,61 +242,95 @@ const PusatTryout = () => {
                         </div>
                       </div>
 
-                      {/* Right: Info + Score */}
-                      <div className="flex-1 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between min-h-[130px] gap-4">
-                        {/* Info */}
-                        <div className="flex flex-col justify-center flex-1">
-                          <span className={`text-[12px] font-semibold mb-1.5 ${
-                            reqPlan === 'sultan' ? 'text-yellow-700' : reqPlan === 'premium' ? 'text-[#0050cb]' : 'text-[#2e7d32]'
-                          }`}>
-                            {reqPlan === 'gratis' ? 'Gratis' : reqPlan === 'premium' ? 'Premium' : 'Sultan'}
-                          </span>
+                      {/* Right: Info + Score + Actions */}
+                      <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-h-[140px] gap-4">
+                        {/* Top: Info & Score */}
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                          {/* Info */}
+                          <div className="flex flex-col flex-1">
+                            <span className={`text-[12px] font-semibold mb-1.5 ${
+                              reqPlan === 'sultan' ? 'text-yellow-700' : reqPlan === 'premium' ? 'text-[#0050cb]' : 'text-[#2e7d32]'
+                            }`}>
+                              {reqPlan === 'gratis' ? 'Gratis' : reqPlan === 'premium' ? 'Premium' : 'Sultan'}
+                            </span>
 
-                          <h3 className={`text-[16px] sm:text-[18px] font-bold leading-snug mb-3 ${
-                            isLocked ? 'text-gray-400' : 'text-[#191b24] group-hover:text-[#0050cb] transition-colors'
-                          }`}>
-                            {pkg.title}
-                          </h3>
+                            <h3 className={`text-[16px] sm:text-[18px] font-bold leading-snug mb-3 ${
+                              isLocked ? 'text-gray-400' : 'text-[#191b24] group-hover:text-[#0050cb] transition-colors'
+                            }`}>
+                              {pkg.title}
+                            </h3>
 
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            {isFreeCompleted ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-[12px] font-semibold rounded-full">
-                                <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                                Sudah Dikerjakan
-                              </span>
-                            ) : isLocked ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-500 text-[12px] font-semibold rounded-full">
-                                <span className="material-symbols-outlined text-[14px]">lock</span>
-                                Terkunci
-                              </span>
-                            ) : (
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[12px] font-semibold rounded-full ${
-                                reqPlan === 'sultan' ? 'bg-yellow-50 text-yellow-700' :
-                                reqPlan === 'premium' ? 'bg-blue-50 text-[#0050cb]' :
-                                'bg-[#e8f5e9] text-[#2e7d32]'
-                              }`}>
-                                <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                                {reqPlan === 'gratis' ? 'Gratis' : 'Mulai Tryout'}
-                              </span>
-                            )}
-                            {totalSoal > 0 && (
-                              <span className="text-[12px] text-[#727687]">{totalSoal} soal • {config.length} subtes</span>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                              {isFreeCompleted ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-[12px] font-semibold rounded-full">
+                                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                  Sudah Dikerjakan
+                                </span>
+                              ) : isLocked ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-500 text-[12px] font-semibold rounded-full">
+                                  <span className="material-symbols-outlined text-[14px]">lock</span>
+                                  Terkunci
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[12px] font-semibold rounded-full ${
+                                  reqPlan === 'sultan' ? 'bg-yellow-50 text-yellow-700' :
+                                  reqPlan === 'premium' ? 'bg-blue-50 text-[#0050cb]' :
+                                  'bg-[#e8f5e9] text-[#2e7d32]'
+                                }`}>
+                                  <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                                  {reqPlan === 'gratis' ? 'Gratis' : 'Mulai Tryout'}
+                                </span>
+                              )}
+                              {totalSoal > 0 && (
+                                <span className="text-[12px] text-[#727687]">{totalSoal} soal • {config.length} subtes</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Score History & Arrow */}
-                        <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 border-[#c2c6d8]/30 pt-3 sm:pt-0 mt-2 sm:mt-0">
+                          {/* Score History */}
                           {lastScore !== null && (
-                            <div className="flex flex-col sm:items-end justify-center">
+                            <div className="flex flex-col sm:items-end justify-center shrink-0">
                               <span className="text-[10px] sm:text-[11px] text-[#727687] font-semibold uppercase tracking-wider mb-1">Skor Terakhir</span>
                               <span className="text-[20px] sm:text-[24px] font-black text-[#0050cb] leading-none">{lastScore}</span>
                             </div>
                           )}
-                          
+                        </div>
+
+                        {/* Bottom: Action Buttons */}
+                        <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#c2c6d8]/20 mt-1" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            {isLocked ? (
+                              <button
+                                onClick={() => toast.error(`Tryout ini khusus paket ${planLabel}. Upgrade paketmu untuk akses.`)}
+                                className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all flex items-center gap-1.5 border border-gray-200"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">lock</span>
+                                Buka Akses
+                              </button>
+                            ) : !isFreeCompleted || hasActiveUtbkPlan() ? (
+                              <button
+                                onClick={() => handleStartTryout(pkg)}
+                                className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-white bg-[#0050cb] hover:bg-[#003da1] rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-blue-500/10"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                {lastScore !== null ? 'Kerjakan Lagi' : 'Mulai'}
+                              </button>
+                            ) : null}
+
+                            {lastScore !== null && (
+                              <button
+                                onClick={() => navigate(`/tryout/hasil/${pkgHistory.id}`)}
+                                className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-[#0050cb] bg-blue-50 hover:bg-[#dae1ff] rounded-xl border border-[#0050cb]/20 transition-all flex items-center gap-1.5"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">leaderboard</span>
+                                Lihat Hasil
+                              </button>
+                            )}
+                          </div>
+
                           {/* Arrow indicator */}
                           {!isLocked && (
-                            <div className="flex items-center opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="hidden sm:flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <span className="material-symbols-outlined text-[#0050cb] text-[20px] sm:text-[24px]">chevron_right</span>
                             </div>
                           )}
