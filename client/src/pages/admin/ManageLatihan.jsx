@@ -65,7 +65,7 @@ const ManageLatihan = () => {
     page: 1,
     totalPages: 1,
   });
-  const [expandedQuestion, setExpandedQuestion] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -695,31 +695,21 @@ const ManageLatihan = () => {
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {questions.map((q, idx) => (
                     <div
                       key={q.id}
                       className="bg-white border border-[#c2c6d8]/30 rounded-2xl overflow-hidden hover:shadow-md transition-all"
                     >
-                      <div
-                        className="p-6 flex items-start gap-4 cursor-pointer"
-                        onClick={() =>
-                          setExpandedQuestion(
-                            expandedQuestion === q.id ? null : q.id,
-                          )
-                        }
-                      >
-                        <span className="w-10 h-10 rounded-xl bg-[#f2f3ff] flex items-center justify-center text-[#0050cb] font-bold text-[14px] flex-shrink-0">
-                          {(questionsPagination.page - 1) * 20 + idx + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <MathText
-                            className="text-[15px] text-[#191b24] font-medium line-clamp-2"
-                            text={q.content || ""}
-                          />
-                          <div className="flex items-center gap-3 mt-2">
+                      {/* Header: Number + Action Buttons */}
+                      <div className="px-6 pt-5 pb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="w-10 h-10 rounded-xl bg-[#f2f3ff] flex items-center justify-center text-[#0050cb] font-bold text-[14px] flex-shrink-0">
+                            {(questionsPagination.page - 1) * 20 + idx + 1}
+                          </span>
+                          <div className="flex items-center gap-2">
                             <span
-                              className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                              className={`text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg ${
                                 q.difficulty === "easy"
                                   ? "bg-green-100 text-green-700"
                                   : q.difficulty === "hard"
@@ -736,9 +726,14 @@ const ManageLatihan = () => {
                             <span className="text-[11px] text-[#727687]">
                               {q.choices?.length || 0} opsi
                             </span>
+                            {q.question_type === 'complex_mc_tf' && (
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">
+                                Kompleks
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <button
                             title="Edit soal"
                             onClick={(e) => handleEditQuestion(e, q)}
@@ -768,22 +763,72 @@ const ManageLatihan = () => {
                               delete
                             </span>
                           </button>
-                          <span
-                            className="material-symbols-outlined text-[20px] text-[#727687] transition-transform"
-                            style={{
-                              transform:
-                                expandedQuestion === q.id
-                                  ? "rotate(180deg)"
-                                  : "none",
-                            }}
-                          >
-                            expand_more
-                          </span>
                         </div>
                       </div>
-                      {expandedQuestion === q.id && q.choices && (
-                        <div className="px-6 pb-6 pt-0 border-t border-[#c2c6d8]/20 mt-0">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
+
+                      {/* Stimulus Section - Always Visible */}
+                      {q.stimulus && (
+                        <div className="mx-6 mb-3 p-4 bg-amber-50/80 border border-amber-200/60 rounded-xl">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="material-symbols-outlined text-[16px] text-amber-600">
+                              auto_stories
+                            </span>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
+                              Stimulus / Wacana
+                            </span>
+                          </div>
+                          <MathText
+                            className="text-[14px] text-[#424656] leading-relaxed whitespace-pre-line"
+                            text={q.stimulus}
+                          />
+                        </div>
+                      )}
+
+                      {/* Image - Before or After Question based on position */}
+                      {q.image_url && ['top', 'before', 'atas'].includes(q.image_position) && (
+                        <div className="mx-6 mb-3">
+                          <img
+                            src={q.image_url}
+                            alt="Gambar soal"
+                            className="max-h-[240px] rounded-xl border border-[#c2c6d8]/20 object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {/* Question Content - Always Fully Visible */}
+                      <div className="px-6 pb-3">
+                        <MathText
+                          className="text-[15px] text-[#191b24] font-medium leading-relaxed whitespace-pre-line"
+                          text={q.content || ""}
+                        />
+                      </div>
+
+                      {/* Image - Middle position */}
+                      {q.image_url && ['middle', 'ditengah', 'tengah'].includes(q.image_position) && (
+                        <div className="mx-6 mb-3">
+                          <img
+                            src={q.image_url}
+                            alt="Gambar soal"
+                            className="max-h-[240px] rounded-xl border border-[#c2c6d8]/20 object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {/* Image - Bottom/default position */}
+                      {q.image_url && (!q.image_position || ['bottom', 'after', 'bawah'].includes(q.image_position)) && (
+                        <div className="mx-6 mb-3">
+                          <img
+                            src={q.image_url}
+                            alt="Gambar soal"
+                            className="max-h-[240px] rounded-xl border border-[#c2c6d8]/20 object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {/* Answer Choices - Always Visible */}
+                      {q.choices && q.choices.length > 0 && (
+                        <div className="px-6 pb-5 pt-2 border-t border-[#c2c6d8]/15 mt-1">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-3">
                             {q.choices.map((c) => (
                               <div
                                 key={c.id}
