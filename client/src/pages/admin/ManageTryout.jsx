@@ -92,7 +92,8 @@ const ManageTryout = () => {
       return standardSubtests.map(name => ({
         name,
         questionCount: 20,
-        durationMin: 30
+        durationMin: 30,
+        durationSec: 0
       }));
     }
     return arr;
@@ -124,7 +125,8 @@ const ManageTryout = () => {
       const initialConfig = standardSubtests.map(name => ({
         name,
         questionCount: 20,
-        durationMin: 30
+        durationMin: 30,
+        durationSec: 0
       }));
       setFormData({
         title: '',
@@ -267,7 +269,7 @@ const ManageTryout = () => {
     if (!window.confirm(`Hapus SEMUA soal di "${managingSubtest.name}"? Tindakan ini tidak bisa dibatalkan!`)) return;
 
     try {
-      const res = await soalService.deleteAllBySubject(matchedSubject.id);
+      const res = await soalService.deleteAllBySubject(matchedSubject.id, { tryout_package_id: selectedPackage?.id });
       setSubtestQuestions([]);
       setActiveQuestionId(null);
       setEditingQuestion(null);
@@ -605,7 +607,15 @@ const ManageTryout = () => {
                         </div>
                         <div>
                           <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Duration</p>
-                          <p className="text-[15px] font-extrabold text-[#191b24]">195 Min</p>
+                          <p className="text-[15px] font-extrabold text-[#191b24]">
+                            {(() => {
+                              const config = ensureArray(pkg.subject_config);
+                              const totalSecs = config.reduce((sum, sub) => sum + (sub.durationMin || 0) * 60 + (sub.durationSec || 0), 0);
+                              const mins = Math.floor(totalSecs / 60);
+                              const secs = totalSecs % 60;
+                              return secs > 0 ? `${mins}m ${secs}s` : `${mins} Min`;
+                            })()}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -674,7 +684,9 @@ const ManageTryout = () => {
                     </div>
                     <div className="flex justify-between items-center py-3 border-b border-[#f2f3ff]">
                       <span className="text-[14px] text-[#424656] font-medium">Time Limit</span>
-                      <span className="text-[15px] font-bold text-[#191b24]">{sub.durationMin} Minutes</span>
+                      <span className="text-[15px] font-bold text-[#191b24]">
+                        {sub.durationMin} Menit {sub.durationSec ? `${sub.durationSec} Detik` : ''}
+                      </span>
                     </div>
                   </div>
 
@@ -820,14 +832,25 @@ const ManageTryout = () => {
                           onChange={e => updateSubtestConfig(idx, 'questionCount', parseInt(e.target.value) || 0)}
                         />
                       </div>
-                      <div className="w-full lg:w-48">
-                        <label className="block text-[12px] font-bold text-[#727687] mb-2 uppercase tracking-wider">Durasi (menit)</label>
+                      <div className="w-full lg:w-32">
+                        <label className="block text-[12px] font-bold text-[#727687] mb-2 uppercase tracking-wider">Menit</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           className="w-full px-4 py-3.5 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24]"
-                          value={sub.durationMin}
+                          value={sub.durationMin || 0}
                           onChange={e => updateSubtestConfig(idx, 'durationMin', parseInt(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="w-full lg:w-32">
+                        <label className="block text-[12px] font-bold text-[#727687] mb-2 uppercase tracking-wider">Detik</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="59"
+                          className="w-full px-4 py-3.5 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24]"
+                          value={sub.durationSec || 0}
+                          onChange={e => updateSubtestConfig(idx, 'durationSec', parseInt(e.target.value) || 0)}
                         />
                       </div>
                     </div>
@@ -1267,7 +1290,7 @@ const ManageTryout = () => {
 
                                       {/* STIMULUS */}
                                       {selectedQuestion.stimulus && (
-                                        <div className="text-[16px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                        <div className="text-[18px] text-slate-800 font-semibold leading-relaxed whitespace-pre-wrap">
                                           <MathText text={selectedQuestion.stimulus} />
                                         </div>
                                       )}

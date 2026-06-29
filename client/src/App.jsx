@@ -5,8 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './context/AuthContext';
 import { AdminRoute, PublicRoute, StudentRoute, StudentRouteWrapped } from './components/layout/ProtectedRoute';
 
-// Pages
-const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+import LandingPage from './pages/LandingPage';
 const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));

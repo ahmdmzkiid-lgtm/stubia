@@ -105,7 +105,7 @@ const Bookmark = () => {
 
                       {/* STIMULUS */}
                       {q.stimulus && (
-                        <div className="mb-5 text-[15px] text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        <div className="mb-5 text-[15px] text-gray-800 leading-relaxed whitespace-pre-wrap">
                           <MathText text={q.stimulus} />
                         </div>
                       )}

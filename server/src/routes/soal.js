@@ -387,7 +387,7 @@ router.delete(
   verifyAdmin,
   async (req, res, next) => {
     const { subjectId } = req.params;
-    const { source } = req.query;
+    const { source, tryout_package_id } = req.query;
 
     if (!subjectId) {
       return res
@@ -396,17 +396,37 @@ router.delete(
     }
 
     try {
-      let sourceFilter = "";
+      let filter = "";
+      let qFilter = "";
       const values = [subjectId];
       if (source) {
         values.push(source);
-        sourceFilter = ` AND source = $2`;
+        filter += ` AND source = $${values.length}`;
+        qFilter += ` AND q.source = $${values.length}`;
       }
+      if (tryout_package_id) {
+        if (tryout_package_id === 'null') {
+          filter += ` AND tryout_package_id IS NULL`;
+          qFilter += ` AND q.tryout_package_id IS NULL`;
+        } else {
+          values.push(tryout_package_id);
+          filter += ` AND tryout_package_id = $${values.length}`;
+          qFilter += ` AND q.tryout_package_id = $${values.length}`;
+        }
+      }
+
+      // 0. Delete bookmarks referencing questions in this subject
+      await pool.query(
+        `DELETE FROM bookmarks WHERE question_id IN (
+        SELECT id FROM questions WHERE subject_id = $1${filter}
+      )`,
+        values,
+      );
 
       // 1. Delete user_answers that reference questions in this subject (via question_id)
       await pool.query(
         `DELETE FROM user_answers WHERE question_id IN (
-        SELECT id FROM questions WHERE subject_id = $1${sourceFilter}
+        SELECT id FROM questions WHERE subject_id = $1${filter}
       )`,
         values,
       );
@@ -416,7 +436,7 @@ router.delete(
         `DELETE FROM user_answers WHERE chosen_choice_id IN (
         SELECT ac.id FROM answer_choices ac
         JOIN questions q ON ac.question_id = q.id
-        WHERE q.subject_id = $1${sourceFilter}
+        WHERE q.subject_id = $1${qFilter}
       )`,
         values,
       );
@@ -424,14 +444,14 @@ router.delete(
       // 3. Delete all answer_choices for questions in this subject
       await pool.query(
         `DELETE FROM answer_choices WHERE question_id IN (
-        SELECT id FROM questions WHERE subject_id = $1${sourceFilter}
+        SELECT id FROM questions WHERE subject_id = $1${filter}
       )`,
         values,
       );
 
       // 4. Delete all questions
       const deleteResult = await pool.query(
-        `DELETE FROM questions WHERE subject_id = $1${sourceFilter}`,
+        `DELETE FROM questions WHERE subject_id = $1${filter}`,
         values,
       );
 

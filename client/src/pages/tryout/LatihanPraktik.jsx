@@ -496,7 +496,7 @@ const LatihanPraktik = () => {
           )}
           {/* STIMULUS */}
           {currentQuestion.stimulus && (
-            <div className="mb-4 text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+            <div className="mb-4 text-[15px] text-[#191b24] leading-relaxed whitespace-pre-wrap">
               <MathText text={currentQuestion.stimulus} />
             </div>
           )}

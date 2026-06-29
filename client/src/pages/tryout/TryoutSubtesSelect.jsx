@@ -308,7 +308,10 @@ const TryoutSubtesSelect = () => {
   }
 
   const totalSoal = subjects.reduce((sum, s) => sum + (s.questionCount || 0), 0);
-  const totalDurasi = subjects.reduce((sum, s) => sum + (s.durationMin || 0), 0);
+  const totalSeconds = subjects.reduce((sum, s) => sum + (s.durationMin || 0) * 60 + (s.durationSec || 0), 0);
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  const totalDurasi = remainingSeconds > 0 ? `${totalMinutes}:${remainingSeconds.toString().padStart(2, '0')}` : `${totalMinutes}`;
 
   const getIcon = (name) => ICON_MAP[(name || '').toLowerCase()] || 'quiz';
   const getCategory = (name) => CATEGORY_MAP[(name || '').toLowerCase()] || 'Subtes';
@@ -419,8 +422,8 @@ const TryoutSubtesSelect = () => {
                     <div className="flex items-center gap-1.5 text-[14px] font-medium">
                       <span className="material-symbols-outlined text-[18px]">description</span> {sub.questionCount || 0} soal
                     </div>
-                    <div className="flex items-center gap-1.5 text-[14px] font-medium">
-                      <span className="material-symbols-outlined text-[18px]">schedule</span> {sub.durationMin || 0} menit
+                     <div className="flex items-center gap-1.5 text-[14px] font-medium">
+                      <span className="material-symbols-outlined text-[18px]">schedule</span> {sub.durationSec ? `${sub.durationMin || 0}:${sub.durationSec.toString().padStart(2, '0')}` : sub.durationMin || 0} menit
                     </div>
                   </div>
 
@@ -510,7 +513,7 @@ const TryoutSubtesSelect = () => {
         subtitle={selectedSubtest?.name}
         details={[
           { label: 'Jumlah Soal', value: `${selectedSubtest?.questionCount || 0} soal`, icon: 'description' },
-          { label: 'Durasi', value: `${selectedSubtest?.durationMin || 0} menit`, icon: 'schedule' },
+          { label: 'Durasi', value: `${selectedSubtest?.durationSec ? `${selectedSubtest?.durationMin || 0}:${selectedSubtest?.durationSec.toString().padStart(2, '0')}` : selectedSubtest?.durationMin || 0} menit`, icon: 'schedule' },
           ...(savedPtn ? [{ label: 'Target PTN', value: savedPtn, icon: 'school' }] : []),
           ...(savedMajor ? [{ label: 'Jurusan', value: savedMajor, icon: 'menu_book' }] : []),
         ]}

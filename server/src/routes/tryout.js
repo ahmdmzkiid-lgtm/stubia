@@ -884,6 +884,7 @@ router.get(
             name: cfg.name,
             questionCount: questions.length,
             duration: cfg.durationMin || 30,
+            durationSec: cfg.durationSec || 0,
             questions: questions,
           };
         })

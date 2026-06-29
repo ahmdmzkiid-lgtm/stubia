@@ -90,7 +90,8 @@ const TryoutSession = () => {
             const serverTime = response.data.server_time || new Date().toISOString();
             const currentSub = data[savedSubjectIdx];
             const dur = currentSub?.duration || 30;
-            const totalSeconds = dur * 60;
+            const durSec = currentSub?.durationSec || 0;
+            const totalSeconds = dur * 60 + durSec;
             if (serverStartedAt) {
               const elapsed = Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000);
               const remaining = Math.max(totalSeconds - elapsed, 0);
@@ -103,7 +104,8 @@ const TryoutSession = () => {
           const serverStartedAt = response.data.started_at;
           const serverTime = response.data.server_time || new Date().toISOString();
           const dur = data[0]?.duration || 30;
-          const totalSeconds = dur * 60;
+          const durSec = data[0]?.durationSec || 0;
+          const totalSeconds = dur * 60 + durSec;
           if (serverStartedAt) {
             const elapsed = Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000);
             setTimeLeft(Math.max(totalSeconds - elapsed, 0));
@@ -222,7 +224,7 @@ const TryoutSession = () => {
     if (currentSubjectIndex < totalSubjects - 1) {
       const nextIdx = currentSubjectIndex + 1;
       const nextSubject = subjectsData[nextIdx];
-      const nextDuration = (nextSubject?.duration || 30) * 60;
+      const nextDuration = (nextSubject?.duration || 30) * 60 + (nextSubject?.durationSec || 0);
       
       toast.error(`Waktu untuk subtes "${currentSubject?.name || 'Subtes'}" telah habis! Melanjutkan ke subtes berikutnya...`, { duration: 4000 });
       
@@ -499,7 +501,7 @@ const TryoutSession = () => {
           )}
           {/* STIMULUS */}
           {currentQuestion?.stimulus && (
-            <div className="mb-4 text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+            <div className="mb-4 text-[15px] text-[#191b24] leading-relaxed whitespace-pre-wrap">
               <MathText text={currentQuestion.stimulus} />
             </div>
           )}

@@ -766,26 +766,29 @@ const ManageLatihan = () => {
                         </div>
                       </div>
 
+                      {/* Image - Top position */}
+                      {q.image_url && ['top', 'before', 'atas'].includes(q.image_position) && (
+                        <div className="mx-6 mb-3">
+                          <img
+                            src={q.image_url}
+                            alt="Gambar soal"
+                            className="max-h-[240px] rounded-xl border border-[#c2c6d8]/20 object-contain"
+                          />
+                        </div>
+                      )}
+
                       {/* Stimulus Section - Always Visible */}
                       {q.stimulus && (
-                        <div className="mx-6 mb-3 p-4 bg-amber-50/80 border border-amber-200/60 rounded-xl">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="material-symbols-outlined text-[16px] text-amber-600">
-                              auto_stories
-                            </span>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
-                              Stimulus / Wacana
-                            </span>
-                          </div>
+                        <div className="mx-6 mb-3">
                           <MathText
-                            className="text-[14px] text-[#424656] leading-relaxed whitespace-pre-line"
+                            className="text-[15px] text-[#191b24] font-medium leading-relaxed whitespace-pre-line"
                             text={q.stimulus}
                           />
                         </div>
                       )}
 
-                      {/* Image - Before or After Question based on position */}
-                      {q.image_url && ['top', 'before', 'atas'].includes(q.image_position) && (
+                      {/* Image - Middle position */}
+                      {q.image_url && ['middle', 'ditengah', 'tengah'].includes(q.image_position) && (
                         <div className="mx-6 mb-3">
                           <img
                             src={q.image_url}
@@ -802,17 +805,6 @@ const ManageLatihan = () => {
                           text={q.content || ""}
                         />
                       </div>
-
-                      {/* Image - Middle position */}
-                      {q.image_url && ['middle', 'ditengah', 'tengah'].includes(q.image_position) && (
-                        <div className="mx-6 mb-3">
-                          <img
-                            src={q.image_url}
-                            alt="Gambar soal"
-                            className="max-h-[240px] rounded-xl border border-[#c2c6d8]/20 object-contain"
-                          />
-                        </div>
-                      )}
 
                       {/* Image - Bottom/default position */}
                       {q.image_url && (!q.image_position || ['bottom', 'after', 'bawah'].includes(q.image_position)) && (

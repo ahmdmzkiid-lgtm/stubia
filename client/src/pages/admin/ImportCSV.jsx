@@ -12,6 +12,8 @@ const ImportCSV = () => {
   const [destination, setDestination] = useState('latihan');
   const [tryoutPackages, setTryoutPackages] = useState([]);
   const [tryoutPackageId, setTryoutPackageId] = useState('');
+  const [topics, setTopics] = useState([]);
+  const [topicId, setTopicId] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState([]);
   const [totalRows, setTotalRows] = useState(0);
@@ -24,6 +26,19 @@ const ImportCSV = () => {
     subjectService.list().then(res => setSubjects(res.data.data)).catch(() => {});
     tryoutService.listPackages().then(res => setTryoutPackages(res.data?.data || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (subjectId) {
+      setTopics([]);
+      setTopicId('');
+      subjectService.listTopics(subjectId)
+        .then(res => setTopics(res.data?.data || []))
+        .catch(() => setTopics([]));
+    } else {
+      setTopics([]);
+      setTopicId('');
+    }
+  }, [subjectId]);
 
   const parseExcelFile = (selectedFile) => {
     const reader = new FileReader();
@@ -77,6 +92,7 @@ const ImportCSV = () => {
     if (!subjectId) { toast.error('Pilih mata pelajaran terlebih dahulu'); return; }
 
     if (destination === 'tryout' && !tryoutPackageId) { toast.error('Pilih paket tryout terlebih dahulu'); return; }
+    if (destination === 'latihan' && !topicId) { toast.error('Pilih topik latihan terlebih dahulu'); return; }
 
     setLoading(true);
     const formData = new FormData();
@@ -86,6 +102,9 @@ const ImportCSV = () => {
     formData.append('destination', destination);
     if (destination === 'tryout' && tryoutPackageId) {
       formData.append('tryout_package_id', tryoutPackageId);
+    }
+    if (destination === 'latihan' && topicId) {
+      formData.append('topic_id', topicId);
     }
 
     try {
@@ -372,13 +391,34 @@ const ImportCSV = () => {
                   )}
                 </div>
               )}
+
+              {/* Topic Selector (shown only when destination is 'latihan') */}
+              {destination === 'latihan' && (
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Topik Latihan *</label>
+                  <select
+                    required
+                    className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-3 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                    value={topicId}
+                    onChange={e => setTopicId(e.target.value)}
+                  >
+                    <option value="">Pilih Topik...</option>
+                    {topics.map(t => (
+                      <option key={t.id} value={t.id}>{t.title}</option>
+                    ))}
+                  </select>
+                  {subjectId && topics.length === 0 && (
+                    <p className="text-label-sm text-on-surface-variant mt-1 italic">Belum ada topik untuk subtes ini. Buat dulu di menu Kelola Latihan.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="mt-8 pt-6 border-t border-outline-variant">
               <button
                 type="button"
                 onClick={handleUpload}
-                disabled={!file || !subjectId || loading || (destination === 'tryout' && !tryoutPackageId)}
+                disabled={!file || !subjectId || loading || (destination === 'tryout' && !tryoutPackageId) || (destination === 'latihan' && !topicId)}
                 className="w-full bg-primary text-on-primary py-3 rounded-lg font-label-md text-label-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
