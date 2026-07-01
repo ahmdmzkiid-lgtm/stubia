@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { logAdminActivity } = require('../utils/activityLogger');
 const upload = require('../middleware/upload');
 const XLSX = require('xlsx');
 const { generateQuestionHash } = require('../utils/questionHashUtil');
@@ -268,6 +269,7 @@ router.post('/excel', verifyToken, verifyAdmin, upload.single('file'), async (re
     }
 
     await client.query('COMMIT');
+    logAdminActivity(req, 'CREATE', 'SOAL', `File: ${req.file?.originalname || 'Excel'}`, `Mengimpor ${importedCount} soal dari file Excel (${destination})`);
 
     res.json({
       success: true,

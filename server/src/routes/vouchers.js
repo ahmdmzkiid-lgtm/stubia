@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { logAdminActivity } = require('../utils/activityLogger');
 
 // ─── POST /validate ─── Student endpoint to check coupon validity
 router.post('/validate', verifyToken, async (req, res, next) => {
@@ -141,6 +142,7 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
       ]
     );
 
+    logAdminActivity(req, 'CREATE', 'SETTINGS', cleanedCode, `Membuat voucher diskon baru: "${cleanedCode}" dengan diskon ${discount_value} (${discount_type})`);
     res.status(201).json({ success: true, data: result.rows[0], message: 'Voucher berhasil dibuat.' });
   } catch (err) {
     next(err);
@@ -155,6 +157,7 @@ router.delete('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Voucher tidak ditemukan.' });
     }
+    logAdminActivity(req, 'DELETE', 'SETTINGS', result.rows[0].code || `ID: ${id}`, `Menghapus voucher diskon: "${result.rows[0].code}"`);
     res.json({ success: true, message: 'Voucher berhasil dihapus.' });
   } catch (err) {
     next(err);

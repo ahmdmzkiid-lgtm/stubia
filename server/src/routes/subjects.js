@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { logAdminActivity } = require('../utils/activityLogger');
 
 // --- Subject Routes ---
 
@@ -23,6 +24,7 @@ router.post('/', [verifyToken, verifyAdmin], async (req, res, next) => {
       'INSERT INTO subjects (name, title, description, icon, bg_color, icon_color, category, required_plan, is_active) VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
       [title, description, icon, bgColor, iconColor, 'TPS', requiredPlan || 'gratis', is_active ?? true]
     );
+    logAdminActivity(req, 'CREATE', 'PAKET_LATIHAN', title, `Membuat mata pelajaran (Subject) baru: "${title}"`);
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     next(error);
@@ -39,6 +41,7 @@ router.patch('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
       [title, description, icon, bgColor, iconColor, requiredPlan || 'gratis', is_active, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Subject not found' });
+    logAdminActivity(req, 'UPDATE', 'PAKET_LATIHAN', title || `ID: ${id}`, `Mengubah mata pelajaran (Subject): "${title}"`);
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     next(error);
@@ -94,6 +97,7 @@ router.delete('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
     }
 
     await client.query('COMMIT');
+    logAdminActivity(req, 'DELETE', 'PAKET_LATIHAN', result.rows[0].title || `ID: ${id}`, `Menghapus mata pelajaran (Subject) dan semua soal di dalamnya: "${result.rows[0].title}"`);
     res.json({ success: true, message: 'Subject and its questions deleted successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -150,6 +154,7 @@ router.post('/:subjectId/topics', [verifyToken, verifyAdmin], async (req, res, n
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [subjectId, title, description, icon, questions, level, type, isPopular, isFeatured]
     );
+    logAdminActivity(req, 'CREATE', 'PAKET_LATIHAN', title, `Membuat topik latihan baru: "${title}" untuk Subject ID: ${subjectId}`);
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     next(error);

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { logAdminActivity } = require('../utils/activityLogger');
 
 // Update topic
 router.patch('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
@@ -16,6 +17,7 @@ router.patch('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
       [title, description, icon, questions, level, type, isPopular, isFeatured, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Topic not found' });
+    logAdminActivity(req, 'UPDATE', 'PAKET_LATIHAN', title || `ID: ${id}`, `Mengubah topik latihan: "${title}"`);
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     next(error);
@@ -55,6 +57,7 @@ router.delete('/:id', [verifyToken, verifyAdmin], async (req, res, next) => {
     }
 
     await client.query('COMMIT');
+    logAdminActivity(req, 'DELETE', 'PAKET_LATIHAN', result.rows[0].title || `ID: ${id}`, `Menghapus topik latihan dan seluruh soal di dalamnya: "${result.rows[0].title}"`);
     res.json({ success: true, message: 'Topic and its questions deleted successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
