@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import SeoHead from "../components/SeoHead";
 import "./LandingPage.css";
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [activeFaq, setActiveFaq] = useState(null);
 
   const handleUpgradeClick = () => {
     if (user) {
@@ -15,7 +17,99 @@ const LandingPage = () => {
     }
   };
 
+  const toggleFaq = (index) => {
+    setActiveFaq(activeFaq === index ? null : index);
+  };
+
+  const faqData = [
+    {
+      q: "Apa itu stubia.id?",
+      a: "Stubia.id adalah platform edutech interaktif khusus Indonesia yang berfokus pada simulasi try out UTBK-SNBT dan latihan soal Ujian Mandiri PTN (seperti SIMAK UI dan UTUL UGM). Berbeda dengan platform global seperti Stuvia yang berfokus pada transaksi jual beli catatan pelajaran atau dokumen ringkasan materi, Stubia.id menyediakan ekosistem belajar aktif dengan ribuan bank soal terupdate, sistem CBT mirip ujian asli, penilaian berbasis IRT modern, dan analisis kelemahan siswa secara detail."
+    },
+    {
+      q: "Apa itu Try Out stubia.id?",
+      a: "Try Out Stubia.id adalah program simulasi ujian masuk Perguruan Tinggi Negeri (PTN) yang dirancang menyerupai format UTBK-SNBT terbaru. Simulasi ini menguji subtes lengkap, mulai dari Tes Potensi Skolastik (TPS), Penalaran Matematika, hingga Literasi dalam Bahasa Indonesia dan Bahasa Inggris, untuk mengukur kesiapan riil kamu menghadapi seleksi PTN."
+    },
+    {
+      q: "Apakah Try Out stubia.id gratis?",
+      a: "Ya! Stubia.id menyediakan program Try Out Gratis (Free CBT) secara berkala agar seluruh pejuang PTN di Indonesia mendapatkan kesempatan belajar yang setara. Kamu hanya perlu melakukan pendaftaran akun gratis di platform kami untuk mulai mencoba latihan soal pertama kamu."
+    },
+    {
+      q: "Apa perbedaan Try Out Gratis dan Try Out Premium?",
+      a: "Try Out Gratis memberikan akses terbatas pada simulasi dasar secara berkala. Sedangkan Try Out Premium di Stubia.id membuka akses penuh ke paket soal prediksi standar nasional, pembahasan interaktif berbasis AI yang siap 24/7, analisis titik lemah per subtes, rasionalisasi kelulusan PTN, serta sistem pemeringkatan (ranking) nasional secara real-time."
+    },
+    {
+      q: "Apa itu Kuota Premium?",
+      a: "Kuota Premium adalah token akses digital di akun Stubia.id kamu yang digunakan untuk membuka bundel Try Out Premium, pembahasan soal tingkat lanjut, dan fitur analisis nilai kelulusan PTN. Kuota ini dapat diisi ulang dengan membeli paket belajar terjangkau."
+    },
+    {
+      q: "Berapa harga Try Out Premium stubia.id?",
+      a: "Harga paket belajar dan kuota Try Out Premium di Stubia.id sangat ramah di kantong siswa, mulai dari puluhan ribu rupiah. Kami berkomitmen memberikan fasilitas belajar bermutu tinggi dengan harga terjangkau tanpa sistem berlangganan yang mengikat."
+    },
+    {
+      q: "Dimana kamu bisa mengerjakan atau mengakses Try Out stubia.id?",
+      a: "Kamu bisa mengakses seluruh fitur latihan soal dan simulasi Try Out Stubia.id secara fleksibel di mana saja dan kapan saja. Website kami sangat mobile-friendly dan ringan untuk diakses melalui smartphone, tablet, laptop, maupun komputer tanpa perlu menginstal aplikasi tambahan."
+    },
+    {
+      q: "Apakah pengerjaan Try Out stubia.id bisa dicicil/dijeda per subtesnya?",
+      a: "Bisa! Untuk memudahkan fleksibilitas waktu belajar kamu, sistem tryout CBT di Stubia.id dapat dijeda dan dicicil pengerjaannya per subtes. Kamu bisa menghentikan ujian sementara waktu dan melanjutkannya kembali kapan pun kamu siap tanpa takut kehilangan progress jawaban sebelumnya."
+    },
+    {
+      q: "Kapan hasil Try Out stubia.id keluar?",
+      a: "Hasil Try Out Stubia.id keluar langsung saat itu juga sesaat setelah kamu menekan tombol selesai ujian. Kamu akan langsung disajikan skor nilai berbasis IRT (Item Response Theory), kunci jawaban, statistik analisis performa, pembahasan lengkap, serta posisi ranking kamu secara nasional."
+    }
+  ];
+
+  const homepageSchema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': 'https://www.stubia.id/#website',
+        url: 'https://www.stubia.id',
+        name: 'Stubia.id',
+        description: 'Platform tryout UTBK-SNBT dan Ujian Mandiri PTN terlengkap di Indonesia.',
+        inLanguage: 'id-ID',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: 'https://www.stubia.id/blog?q={search_term_string}',
+          'query-input': 'required name=search_term_string',
+        },
+      },
+      {
+        '@type': 'WebPage',
+        '@id': 'https://www.stubia.id/#webpage',
+        url: 'https://www.stubia.id',
+        name: 'Platform UTBK Terbaik - Latihan Soal dan Tryout Berkualitas',
+        isPartOf: { '@id': 'https://www.stubia.id/#website' },
+        description:
+          'Stubia.id adalah platform tryout UTBK-SNBT dan Ujian Mandiri PTN terlengkap di Indonesia. Latihan soal UTBK, tryout ujian mandiri, dan simulasi tes untuk persiapan masuk PTN impianmu.',
+        inLanguage: 'id-ID',
+      },
+      {
+        '@type': 'FAQPage',
+        '@id': 'https://www.stubia.id/#faq',
+        mainEntity: faqData.map((faq) => ({
+          '@type': 'Question',
+          name: faq.q,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: faq.a
+          }
+        }))
+      }
+    ],
+  };
+
   return (
+    <>
+      <SeoHead
+        title="Platform UTBK Terbaik"
+        description="Stubia.id adalah platform tryout UTBK-SNBT dan Ujian Mandiri PTN terlengkap di Indonesia. Latihan soal UTBK, tryout ujian mandiri, dan simulasi tes untuk persiapan masuk PTN impianmu. Daftar gratis di Stubia.id sekarang!"
+        canonical="/"
+        ogType="website"
+        schema={homepageSchema}
+      />
     <div className="landing-page">
       {/* Nav */}
       <nav className="landing-nav">
@@ -39,19 +133,17 @@ const LandingPage = () => {
           </div>
         </div>
       </nav>
-
+ 
       <main style={{ paddingTop: 80 }}>
         {/* Hero */}
         <section className="landing-hero">
           <div className="hero-content">
             <div className="hero-text">
               <h1>
-                Persiapkan <span className="text-blue">UTBK</span> dengan
-                Latihan Soal Terbaik
+                Raih PTN Impianmu dengan Latihan Soal dan Tryout Berkualitas di <span className="brand-title"><span className="brand-stu">stu</span><span className="brand-bia">bia</span><span className="brand-id">.id</span></span>
               </h1>
               <p>
-                Raih skor UTBK impianmu dengan ribuan soal latihan, tryout
-                simulasi, dan pembahasan lengkap dari mentor berpengalaman.
+                Latihan UTBK dan Ujian Mandiri mirip aslinya: CBT, penilaian IRT, materi dan pembahasan lengkap, ranking jurusan, dan ranking nasional. Akses di mana saja.
               </p>
               <div className="hero-buttons">
                 <button
@@ -359,6 +451,34 @@ const LandingPage = () => {
             </button>
           </div>
         </section>
+
+        {/* FAQ Accordion Section */}
+        <section className="landing-faq-section">
+          <div className="faq-container">
+            <h2>Paling sering ditanyakan (FAQ)</h2>
+            <div className="faq-list">
+              {faqData.map((faq, index) => (
+                <div 
+                  key={index} 
+                  className={`faq-item ${activeFaq === index ? 'active' : ''}`}
+                >
+                  <button 
+                    className="faq-question" 
+                    onClick={() => toggleFaq(index)}
+                  >
+                    <span>{faq.q}</span>
+                    <span className="material-symbols-outlined faq-icon">
+                      expand_more
+                    </span>
+                  </button>
+                  <div className="faq-answer">
+                    <p>{faq.a}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
@@ -413,6 +533,7 @@ const LandingPage = () => {
         </div>
       </footer>
     </div>
+    </>
   );
 };
 

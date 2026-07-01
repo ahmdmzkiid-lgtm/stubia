@@ -55,12 +55,18 @@
 }
 .hero-text { display: flex; flex-direction: column; gap: 24px; }
 .hero-text h1 {
-  font-size: 42px; line-height: 52px; font-weight: 700;
-  color: #191b24;
+  font-size: 52px;
+  line-height: 1.12;
+  font-weight: 850;
+  color: #0f172a;
+  letter-spacing: -0.035em;
 }
 .text-blue { color: #0050cb; }
 .hero-text > p {
-  font-size: 17px; line-height: 26px; color: #424656; max-width: 480px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: #4b5563;
+  max-width: 480px;
 }
 .hero-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
 .btn-primary-lg {
@@ -396,30 +402,45 @@
     height: 40px;
   }
   .landing-nav-links { display: none; }
+  .landing-hero {
+    padding: 15px 16px 30px; /* Sangat ringkas agar tidak memakan ruang vertikal */
+  }
   .hero-content { 
     display: flex; 
-    flex-direction: column-reverse; 
-    padding: 20px 20px 60px; 
-    gap: 32px; 
+    flex-direction: column-reverse; /* Kembalikan gambar ke atas */
+    padding: 5px 5px 30px; 
+    gap: 16px; /* Perkecil jarak antar seksi */
     text-align: center;
   }
   .hero-text {
     align-items: center;
+    gap: 12px; /* Perkecil jarak vertikal antar elemen teks */
   }
   .hero-text h1 { 
-    font-size: 28px; 
-    line-height: 36px; 
+    font-size: 25px; /* Perkecil agar muat dalam 2-3 baris pendek */
+    line-height: 1.15; 
+    letter-spacing: -0.03em;
   }
   .hero-text > p { 
-    font-size: 15px; 
+    font-size: 14px; 
+    line-height: 1.45;
     margin: 0 auto;
   }
   .hero-buttons {
     justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 4px;
   }
-  /* Hero image — tampil di mobile di atas */
-  .hero-image { display: block; }
-  .hero-image img { max-width: 280px; border-radius: 16px; }
+  .btn-primary-lg, .btn-outline-lg {
+    padding: 10px 20px; /* Padding tombol kompak */
+    font-size: 14.5px;
+    width: 100%; 
+    max-width: 260px;
+  }
+  /* Hero image — Tampil di atas dengan ukuran compact */
+  .hero-image { display: block; width: 100%; }
+  .hero-image img { max-width: 150px; border-radius: 12px; margin: 0 auto; }
   .features-grid, .testimonials-grid { grid-template-columns: 1fr; }
   .section-inner, .landing-trust { padding-left: 16px; padding-right: 16px; }
   .section-header h2, .landing-testimonials h2 { font-size: 22px; }
@@ -445,4 +466,115 @@
   /* Trust */
   .trust-logos { gap: 24px; }
   .landing-trust { padding: 28px 16px; }
+}
+
+/* Custom Stubia.id Logo-like font style */
+.brand-title {
+  display: inline;
+  font-weight: 800; /* Tebal bold sesuai logo */
+  letter-spacing: -0.02em; /* Jarak huruf lebih rapi dan terbaca */
+  text-transform: lowercase; /* Tetap huruf kecil */
+}
+.brand-stu {
+  color: #0050cb; /* Warna biru original stubia */
+}
+.brand-bia {
+  color: #00a651; /* Warna hijau kelly green sesuai logo */
+}
+.brand-id {
+  color: #0050cb; /* ID diselaraskan warna biru */
+}
+
+/* FAQ Accordion Section */
+.landing-faq-section {
+  padding: 80px 40px;
+  background: #ffffff;
+  border-top: 1px solid #f2f3ff;
+}
+.faq-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.faq-container h2 {
+  font-size: 36px;
+  font-weight: 800;
+  text-align: center;
+  color: #0f172a;
+  margin-bottom: 48px;
+  letter-spacing: -0.03em;
+}
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.faq-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+.faq-item.active {
+  border-color: #0050cb;
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 80, 203, 0.05);
+}
+.faq-question {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s;
+}
+.faq-question:hover {
+  color: #0050cb;
+}
+.faq-icon {
+  font-size: 20px;
+  color: #64748b;
+  transition: transform 0.25s ease, color 0.2s;
+}
+.faq-item.active .faq-icon {
+  transform: rotate(180deg);
+  color: #0050cb;
+}
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s cubic-bezier(0, 1, 0, 1), padding 0.25s ease;
+  padding: 0 24px;
+  color: #475569;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.faq-item.active .faq-answer {
+  max-height: 1000px; /* Nilai max tinggi agar muat isi */
+  padding: 0 24px 20px 24px;
+}
+
+@media (max-width: 768px) {
+  .landing-faq-section {
+    padding: 60px 20px;
+  }
+  .faq-container h2 {
+    font-size: 28px;
+    margin-bottom: 32px;
+  }
+  .faq-question {
+    padding: 16px 20px;
+    font-size: 15px;
+  }
+  .faq-item.active .faq-answer {
+    padding: 0 20px 16px 20px;
+  }
 }

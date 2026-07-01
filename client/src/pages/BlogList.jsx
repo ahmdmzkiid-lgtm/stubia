@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PageWrapper from '../components/layout/PageWrapper';
 import Footer from '../components/Footer';
+import SeoHead from '../components/SeoHead';
 import { articleService } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -274,13 +275,36 @@ export default function BlogList() {
     </div>
   );
 
+  const blogSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name: 'Blog Stubia.id',
+    url: 'https://www.stubia.id/blog',
+    description: 'Artikel, tips tryout UTBK-SNBT, strategi ujian mandiri PTN, dan panduan lengkap masuk PTN dari tim Stubia.id.',
+    inLanguage: 'id-ID',
+    publisher: {
+      '@type': 'Organization',
+      name: 'Stubia.id',
+      url: 'https://www.stubia.id',
+      logo: 'https://www.stubia.id/stubiabrandicon.png',
+    },
+  };
+
   return (
+    <>
+      <SeoHead
+        title="Blog Stubia.id — Tips Lolos UTBK-SNBT, Ujian Mandiri & Strategi Belajar PTN"
+        description="Temukan tips tryout UTBK-SNBT, strategi ujian mandiri PTN, prediksi soal, dan panduan lengkap masuk PTN di Blog Stubia.id. Diperbarui setiap hari oleh tim pengajar berpengalaman."
+        canonical="/blog"
+        ogType="website"
+        schema={blogSchema}
+      />
     <div className="min-h-screen bg-[#faf8ff] flex flex-col">
       {user ? (
         <PageWrapper>
           <div className="max-w-[1280px] mx-auto w-full py-4 sm:py-6 animate-fade-in">
-            <h1 className="text-3xl font-extrabold text-[#191b24] mb-2">Blog Stubia</h1>
-            <p className="text-[#424656] text-sm mb-8">Artikel, panduan UTBK, dan pengumuman terbaru seputar seleksi PTN</p>
+            <h1 className="text-3xl font-extrabold text-[#191b24] mb-2">Blog Stubia.id — Tips UTBK & Ujian Mandiri PTN</h1>
+            <p className="text-[#424656] text-sm mb-8">Artikel, tips tryout UTBK-SNBT, strategi ujian mandiri, dan panduan lengkap masuk PTN terbaru dari Stubia.id</p>
             {mainContent}
           </div>
         </PageWrapper>
@@ -292,7 +316,7 @@ export default function BlogList() {
           <div className="bg-gradient-to-b from-[#f2f3ff] to-[#faf8ff] pt-[120px] pb-12 border-b border-[#c2c6d8]/20 px-6">
             <div className="max-w-[1280px] mx-auto w-full">
               <h1 className="text-4xl md:text-5xl font-extrabold text-[#191b24] mb-4">
-                Blog & Informasi Stubia
+                Blog Stubia.id — Tips UTBK-SNBT & Ujian Mandiri PTN
               </h1>
               <p className="text-[#424656] text-base md:text-lg max-w-2xl leading-relaxed">
                 Dapatkan artikel, panduan UTBK, dan pengumuman terbaru seputar seleksi PTN
@@ -309,5 +333,6 @@ export default function BlogList() {
         </div>
       )}
     </div>
+    </>
   );
 }

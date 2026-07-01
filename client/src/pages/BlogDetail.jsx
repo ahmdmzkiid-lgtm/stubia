@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PageWrapper from '../components/layout/PageWrapper';
 import Footer from '../components/Footer';
+import SeoHead from '../components/SeoHead';
 import { articleService } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -123,6 +124,58 @@ export default function BlogDetail() {
   }
 
   if (!article) return null;
+
+  // ── SEO: Build dinamis per artikel ──
+  const articleTitle = article.title || '';
+  const articleDescription = article.excerpt
+    ? article.excerpt.slice(0, 155) + (article.excerpt.length > 155 ? '...' : '')
+    : `Baca artikel "${articleTitle}" di Blog Stubia.id — platform tryout UTBK-SNBT dan Ujian Mandiri PTN terpercaya di Indonesia.`;
+  const articleCanonical = `/blog/${article.slug}`;
+  const articleOgImage = article.cover_image || article.detail_image || null;
+  const articlePublishedTime = article.created_at
+    ? new Date(article.created_at).toISOString()
+    : null;
+
+  const blogPostingSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: articleTitle,
+    description: articleDescription,
+    url: `https://www.stubia.id/blog/${article.slug}`,
+    ...(articleOgImage && { image: articleOgImage }),
+    ...(articlePublishedTime && {
+      datePublished: articlePublishedTime,
+      dateModified: article.updated_at
+        ? new Date(article.updated_at).toISOString()
+        : articlePublishedTime,
+    }),
+    author: {
+      '@type': 'Organization',
+      name: article.author_name || 'Tim Stubia.id',
+      url: 'https://www.stubia.id',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Stubia.id',
+      url: 'https://www.stubia.id',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://www.stubia.id/stubiabrandicon.png',
+      },
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `https://www.stubia.id/blog/${article.slug}`,
+    },
+    inLanguage: 'id-ID',
+    ...(article.category && { articleSection: article.category }),
+    isPartOf: {
+      '@type': 'Blog',
+      name: 'Blog Stubia.id',
+      url: 'https://www.stubia.id/blog',
+    },
+  };
+  // ── end SEO ──
 
   const mainContent = (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -254,6 +307,16 @@ export default function BlogDetail() {
 
   return (
     <div className="min-h-screen bg-[#faf8ff] flex flex-col">
+      <SeoHead
+        title={articleTitle}
+        description={articleDescription}
+        canonical={articleCanonical}
+        ogImage={articleOgImage}
+        ogType="article"
+        articlePublishedTime={articlePublishedTime}
+        articleAuthor={article.author_name || 'Tim Stubia.id'}
+        schema={blogPostingSchema}
+      />
       {user ? (
         <PageWrapper>
           <div className="max-w-[1280px] mx-auto w-full py-4 sm:py-6 animate-fade-in">

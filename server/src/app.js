@@ -77,8 +77,10 @@ const teamRoutes = require('./routes/team');
 const vouchersRoutes = require('./routes/vouchers');
 const articlesRoutes = require('./routes/articles');
 const careersRoutes = require('./routes/careers');
+const sitemapRoutes = require('./routes/sitemap');
 
 // Mount routes
+app.use('/sitemap.xml', sitemapRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/soal', soalRoutes);
 app.use('/api/tryout', tryoutRoutes);
