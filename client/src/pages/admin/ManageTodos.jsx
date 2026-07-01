@@ -8,10 +8,10 @@ export default function ManageTodos() {
   const [todos, setTodos] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('pending'); // 'all' | 'pending' | 'completed'
+  const [activeTab, setActiveTab] = useState('pending'); // 'all' | 'pending' | 'review' | 'completed'
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterMonth, setFilterMonth] = useState(''); // '' = semua, '2026-01' format
-  const [filterPerson, setFilterPerson] = useState(''); // '' = semua, user id
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterPerson, setFilterPerson] = useState('');
 
   // Modal States
   const [showModal, setShowModal] = useState(false);
@@ -61,7 +61,6 @@ export default function ManageTodos() {
     setTitle(todo.title);
     setDescription(todo.description || '');
     setAssignedTo(todo.assigned_to || '');
-    // Format date YYYY-MM-DD for input value
     const formattedDate = todo.due_date ? new Date(todo.due_date).toISOString().split('T')[0] : '';
     setDueDate(formattedDate);
     setShowModal(true);
@@ -87,7 +86,6 @@ export default function ManageTodos() {
         if (res.data?.success) {
           toast.success('Tugas berhasil diperbarui.');
           setTodos(prev => prev.map(t => t.id === editingId ? { ...t, ...res.data.data } : t));
-          // Refresh list to pull joined table fields (assigned_name, etc.)
           await todoService.list().then(res => setTodos(res.data?.data || []));
         }
       } else {
@@ -95,7 +93,6 @@ export default function ManageTodos() {
         if (res.data?.success) {
           toast.success('Tugas baru berhasil dibuat.');
           setTodos(prev => [res.data.data, ...prev]);
-          // Refresh list to pull joined table fields
           await todoService.list().then(res => setTodos(res.data?.data || []));
         }
       }
@@ -120,13 +117,12 @@ export default function ManageTodos() {
     }
   };
 
-  const handleToggleStatus = async (todo) => {
-    const newStatus = todo.status === 'completed' ? 'pending' : 'completed';
+  const handleUpdateStatus = async (todoId, newStatus, message) => {
     try {
-      const res = await todoService.update(todo.id, { status: newStatus });
+      const res = await todoService.update(todoId, { status: newStatus });
       if (res.data?.success) {
-        toast.success(newStatus === 'completed' ? 'Tugas diselesaikan!' : 'Tugas dibuka kembali.');
-        setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, status: newStatus } : t));
+        toast.success(message);
+        setTodos(prev => prev.map(t => t.id === todoId ? { ...t, status: newStatus } : t));
       }
     } catch (err) {
       console.error(err);
@@ -137,7 +133,8 @@ export default function ManageTodos() {
   // Filter Logic
   const filteredTodos = todos.filter(todo => {
     const matchesTab = activeTab === 'all' 
-      || (activeTab === 'pending' && todo.status === 'pending')
+      || (activeTab === 'pending' && (todo.status === 'pending' || !todo.status))
+      || (activeTab === 'review' && todo.status === 'review')
       || (activeTab === 'completed' && todo.status === 'completed');
 
     const searchLower = searchQuery.toLowerCase();
@@ -146,7 +143,6 @@ export default function ManageTodos() {
       || todo.assigned_name?.toLowerCase().includes(searchLower)
       || todo.creator_name?.toLowerCase().includes(searchLower);
 
-    // Month filter
     let matchesMonth = true;
     if (filterMonth) {
       const dateStr = todo.due_date || todo.created_at;
@@ -159,7 +155,6 @@ export default function ManageTodos() {
       }
     }
 
-    // Person filter (matches assigned_to OR created_by)
     let matchesPerson = true;
     if (filterPerson) {
       matchesPerson = todo.assigned_to === filterPerson || todo.created_by === filterPerson;
@@ -170,7 +165,8 @@ export default function ManageTodos() {
 
   // Stats Counters
   const totalCount = todos.length;
-  const pendingCount = todos.filter(t => t.status === 'pending').length;
+  const pendingCount = todos.filter(t => t.status === 'pending' || !t.status).length;
+  const reviewCount = todos.filter(t => t.status === 'review').length;
   const completedCount = todos.filter(t => t.status === 'completed').length;
   
   const isOverdue = (todo) => {
@@ -195,11 +191,11 @@ export default function ManageTodos() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-[28px] lg:text-[32px] font-bold text-[#191b24] tracking-tight">Todo List Admin</h2>
-          <p className="text-[14px] text-[#424656] mt-1 font-medium">Kelola, delegasikan, dan pantau tugas harian untuk tim admin.</p>
+          <p className="text-[14px] text-[#424656] mt-1 font-medium">Kelola, delegasikan, dan pantau progres pekerjaan tim admin Stubia.</p>
         </div>
         <button
           onClick={handleOpenAddModal}
-          className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#0050cb] text-[#191b24] font-bold text-[14px] border-2 border-[#0050cb] hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.97] transition-all"
+          className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#0050cb] hover:bg-[#0050cb]/95 text-white font-bold text-[14px] hover:shadow-lg transition-all"
         >
           <span className="material-symbols-outlined text-[20px]">add_task</span>
           Tambah Tugas
@@ -211,8 +207,8 @@ export default function ManageTodos() {
         {[
           { label: 'Total Tugas', value: totalCount, icon: 'assignment', color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Sedang Berjalan', value: pendingCount, icon: 'hourglass_empty', color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Selesai', value: completedCount, icon: 'check_circle', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Terlambat', value: overdueCount, icon: 'warning', color: 'text-rose-600', bg: 'bg-rose-50' }
+          { label: 'Butuh Review', value: reviewCount, icon: 'rate_review', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'Selesai / ACC', value: completedCount, icon: 'check_circle', color: 'text-emerald-600', bg: 'bg-emerald-50' }
         ].map((stat, i) => (
           <div key={i} className="bg-white p-5 rounded-2xl border border-[#c2c6d8]/30 shadow-sm flex items-center justify-between">
             <div>
@@ -231,10 +227,11 @@ export default function ManageTodos() {
         {/* Toolbar: Tabs & Search */}
         <div className="p-6 border-b border-[#c2c6d8]/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Tabs */}
-          <div className="flex gap-2 p-1 bg-slate-100/70 rounded-xl self-start">
+          <div className="flex flex-wrap gap-2 p-1 bg-slate-100/70 rounded-xl self-start">
             {[
               { id: 'pending', label: 'Berjalan', icon: 'pending_actions' },
-              { id: 'completed', label: 'Selesai', icon: 'task_alt' },
+              { id: 'review', label: 'Review', icon: 'rate_review' },
+              { id: 'completed', label: 'ACC / Selesai', icon: 'task_alt' },
               { id: 'all', label: 'Semua', icon: 'checklist' }
             ].map(tab => (
               <button
@@ -272,7 +269,7 @@ export default function ManageTodos() {
                 type="month"
                 value={filterMonth}
                 onChange={(e) => setFilterMonth(e.target.value)}
-                className="bg-white border border-[#c2c6d8]/50 rounded-xl px-4 py-2.5 text-[13px] text-[#424656] font-medium focus:outline-none focus:border-[#0050cb] transition-colors min-w-[160px]"
+                className="bg-white border border-[#c2c6d8]/50 rounded-xl px-4 py-2.5 text-[13px] text-[#424656] font-semibold focus:outline-none focus:border-[#0050cb] transition-colors min-w-[160px]"
               />
               {filterMonth && (
                 <button
@@ -290,7 +287,7 @@ export default function ManageTodos() {
             <select
               value={filterPerson}
               onChange={(e) => setFilterPerson(e.target.value)}
-              className="bg-white border border-[#c2c6d8]/50 rounded-xl px-4 py-2.5 text-[13px] text-[#424656] font-medium focus:outline-none focus:border-[#0050cb] transition-colors min-w-[170px]"
+              className="bg-white border border-[#c2c6d8]/50 rounded-xl px-4 py-2.5 text-[13px] text-[#424656] font-semibold focus:outline-none focus:border-[#0050cb] transition-colors min-w-[170px]"
             >
               <option value="">Semua Admin</option>
               {admins.map(admin => (
@@ -321,24 +318,10 @@ export default function ManageTodos() {
               return (
                 <div 
                   key={todo.id} 
-                  className={`p-6 flex items-start gap-4 hover:bg-slate-50/50 transition-colors ${
-                    todo.status === 'completed' ? 'bg-slate-50/30' : ''
+                  className={`p-6 flex flex-col sm:flex-row sm:items-start gap-4 hover:bg-slate-50/50 transition-colors ${
+                    todo.status === 'completed' ? 'bg-green-50/10' : todo.status === 'review' ? 'bg-indigo-50/10' : ''
                   }`}
                 >
-                  {/* Status Toggle Box */}
-                  <button
-                    onClick={() => handleToggleStatus(todo)}
-                    className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center border transition-all ${
-                      todo.status === 'completed'
-                        ? 'bg-[#00c1fd]/10 border-[#00c1fd] text-[#00c1fd]'
-                        : 'border-[#c2c6d8] hover:border-[#0050cb] hover:bg-slate-50'
-                    }`}
-                  >
-                    {todo.status === 'completed' && (
-                      <span className="material-symbols-outlined text-[16px] font-extrabold">check</span>
-                    )}
-                  </button>
-
                   {/* Task details */}
                   <div className="flex-grow space-y-2 min-w-0">
                     <div className="flex items-start gap-3 justify-between flex-wrap sm:flex-nowrap">
@@ -368,9 +351,15 @@ export default function ManageTodos() {
                           </span>
                         )}
                         {todo.status === 'completed' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 text-[11px] font-bold">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-green-50 border border-green-200 text-green-700 text-[11px] font-bold">
                             <span className="material-symbols-outlined text-[12px]">done_all</span>
-                            Selesai
+                            ACC / Selesai
+                          </span>
+                        )}
+                        {todo.status === 'review' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-bold">
+                            <span className="material-symbols-outlined text-[12px]">rate_review</span>
+                            Butuh Review
                           </span>
                         )}
                       </div>
@@ -398,22 +387,75 @@ export default function ManageTodos() {
                     </div>
                   </div>
 
-                  {/* Actions Dropdown / Icons */}
-                  <div className="flex items-center gap-1 shrink-0 self-center">
-                    <button
-                      onClick={() => handleOpenEditModal(todo)}
-                      className="w-9 h-9 rounded-lg flex items-center justify-center text-[#727687] hover:text-[#0050cb] hover:bg-slate-100 transition-colors"
-                      title="Edit Tugas"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">edit</span>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTodo(todo.id)}
-                      className="w-9 h-9 rounded-lg flex items-center justify-center text-[#727687] hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                      title="Hapus Tugas"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
+                  {/* Actions (Review Workflow & CRUD) */}
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 sm:self-center">
+                    
+                    {/* Workflow Transition Buttons */}
+                    <div className="flex gap-1">
+                      {/* Worker Action: Request Review */}
+                      {(todo.status === 'pending' || !todo.status) && (
+                        <button
+                          onClick={() => handleUpdateStatus(todo.id, 'review', 'Pekerjaan diajukan untuk review.')}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1"
+                          title="Ajukan Review"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">rate_review</span>
+                          <span>Ajukan Review</span>
+                        </button>
+                      )}
+
+                      {/* Admin Actions: Approve or Reject */}
+                      {todo.status === 'review' && (
+                        <>
+                          <button
+                            onClick={() => handleUpdateStatus(todo.id, 'completed', 'Tugas disetujui (ACC)!')}
+                            className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
+                            title="ACC Tugas"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">check</span>
+                            <span>ACC</span>
+                          </button>
+                          <button
+                            onClick={() => handleUpdateStatus(todo.id, 'pending', 'Tugas dikembalikan ke proses pending.')}
+                            className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-all flex items-center gap-1"
+                            title="Kembalikan"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">replay</span>
+                            <span>Kembalikan</span>
+                          </button>
+                        </>
+                      )}
+
+                      {/* Reopen Action */}
+                      {todo.status === 'completed' && (
+                        <button
+                          onClick={() => handleUpdateStatus(todo.id, 'pending', 'Tugas dibuka kembali.')}
+                          className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-[#0050cb] hover:text-white text-[#424656] text-xs font-bold transition-all flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">refresh</span>
+                          <span>Buka Kembali</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Standard Edit & Delete */}
+                    <div className="flex border-l border-slate-200 pl-2 ml-1">
+                      <button
+                        onClick={() => handleOpenEditModal(todo)}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-[#727687] hover:text-[#0050cb] hover:bg-slate-100 transition-colors"
+                        title="Edit Tugas"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTodo(todo.id)}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-[#727687] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Hapus Tugas"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+
                   </div>
                 </div>
               );
@@ -447,7 +489,7 @@ export default function ManageTodos() {
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-slate-55 border border-[#c2c6d8] rounded-xl px-4 py-3 text-[14px] placeholder:text-slate-400 focus:outline-none focus:border-[#0050cb] transition-colors"
+                  className="w-full bg-white border border-[#c2c6d8] rounded-xl px-4 py-3 text-[14px] placeholder:text-slate-400 focus:outline-none focus:border-[#0050cb] transition-colors"
                   placeholder="e.g. Update materi tryout Saintek"
                   type="text"
                   required
@@ -460,7 +502,7 @@ export default function ManageTodos() {
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-slate-55 border border-[#c2c6d8] rounded-xl px-4 py-3 text-[14px] placeholder:text-slate-400 focus:outline-none focus:border-[#0050cb] transition-colors h-28 resize-none"
+                  className="w-full bg-white border border-[#c2c6d8] rounded-xl px-4 py-3 text-[14px] placeholder:text-slate-400 focus:outline-none focus:border-[#0050cb] transition-colors h-28 resize-none"
                   placeholder="Jelaskan instruksi atau info tambahan tugas ini..."
                 />
               </div>
@@ -490,7 +532,7 @@ export default function ManageTodos() {
                   <input
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full bg-slate-55 border border-[#c2c6d8] rounded-xl px-4 py-3 text-[14px] focus:outline-none focus:border-[#0050cb] transition-colors"
+                    className="w-full bg-white border border-[#c2c6d8] rounded-xl px-4 py-3 text-[14px] focus:outline-none focus:border-[#0050cb] transition-colors"
                     type="date"
                   />
                 </div>
@@ -507,7 +549,7 @@ export default function ManageTodos() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[#0050cb] text-[#191b24] font-bold text-[14px] rounded-xl border-2 border-[#0050cb] hover:shadow-lg hover:shadow-blue-500/10 transition-all active:scale-[0.98]"
+                  className="px-5 py-2.5 bg-[#0050cb] hover:bg-[#003fa4] text-white font-bold text-[14px] rounded-xl transition-all active:scale-[0.98]"
                 >
                   {isEditing ? 'Simpan Perubahan' : 'Simpan Tugas'}
                 </button>

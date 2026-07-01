@@ -5,7 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './context/AuthContext';
 import { AdminRoute, PublicRoute, StudentRoute, StudentRouteWrapped } from './components/layout/ProtectedRoute';
 
-import LandingPage from './pages/LandingPage';
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -55,6 +55,14 @@ const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
 const TermsAndConditions = React.lazy(() => import('./pages/TermsAndConditions'));
 const ContactUs = React.lazy(() => import('./pages/ContactUs'));
 const Careers = React.lazy(() => import('./pages/Careers'));
+const BlogList = React.lazy(() => import('./pages/BlogList'));
+const BlogDetail = React.lazy(() => import('./pages/BlogDetail'));
+const CMSLayout = React.lazy(() => import('./components/layout/CMSLayout'));
+const CMSDashboard = React.lazy(() => import('./pages/cms/CMSDashboard'));
+const CMSArticles = React.lazy(() => import('./pages/cms/CMSArticles'));
+const CMSCareers = React.lazy(() => import('./pages/cms/CMSCareers'));
+const CMSTeam = React.lazy(() => import('./pages/cms/CMSTeam'));
+const CMSActivityLogs = React.lazy(() => import('./pages/cms/CMSActivityLogs'));
 import ScrollToTop from './components/ScrollToTop';
 
 
@@ -83,6 +91,8 @@ function App() {
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/contact-us" element={<ContactUs />} />
             <Route path="/careers" element={<Careers />} />
+            <Route path="/blog" element={<BlogList />} />
+            <Route path="/blog/:slug" element={<BlogDetail />} />
             <Route element={<PublicRoute />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -142,6 +152,13 @@ function App() {
                 <Route path="activity" element={<AdminActivity />} />
                 <Route path="duplicates" element={<ManageDuplicates />} />
                 <Route path="vouchers" element={<ManageVouchers />} />
+              </Route>
+              <Route path="/cms" element={<CMSLayout />}>
+                <Route index element={<CMSDashboard />} />
+                <Route path="articles" element={<CMSArticles />} />
+                <Route path="careers" element={<CMSCareers />} />
+                <Route path="team" element={<CMSTeam />} />
+                <Route path="activity" element={<CMSActivityLogs />} />
               </Route>
             </Route>
             

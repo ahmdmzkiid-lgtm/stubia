@@ -763,4 +763,47 @@ router.delete('/todos/:id', verifyToken, verifyAdmin, async (req, res, next) => 
   }
 });
 
+// GET /api/admin/activity-logs - Admin only: Get paginated admin activity logs
+router.get('/activity-logs', verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 30;
+    const page = parseInt(req.query.page, 10) || 1;
+    const offset = (page - 1) * limit;
+
+    const countRes = await pool.query('SELECT COUNT(*) FROM admin_activity_logs');
+    const total = parseInt(countRes.rows[0].count, 10) || 0;
+
+    const logsRes = await pool.query(
+      `SELECT id, admin_id, admin_name, admin_email, action, target_type, target_name, details, created_at
+       FROM admin_activity_logs
+       ORDER BY created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        items: logsRes.rows,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit) || 1,
+        limit
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/admin/activity-logs/clear - Admin only: Clear all admin activity logs
+router.delete('/activity-logs/clear', verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    await pool.query('DELETE FROM admin_activity_logs');
+    res.json({ success: true, message: 'Semua log aktivitas admin berhasil dihapus.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

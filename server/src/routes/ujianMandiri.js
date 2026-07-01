@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { pool } = require("../config/db");
 const { verifyToken, verifyAdmin } = require("../middleware/auth");
+const { logAdminActivity } = require("../utils/activityLogger");
 const {
   generateQuestionHash,
   updateQuestionHash,
@@ -708,6 +709,7 @@ router.patch(
       );
       if (result.rows.length === 0)
         return res.status(404).json({ success: false, error: "Not found" });
+      logAdminActivity(req, 'UPDATE', 'PAKET_TRYOUT', result.rows[0].title, `Memperbarui paket Ujian Mandiri Tryout: ${result.rows[0].title}`);
       res.json({ success: true, data: result.rows[0] });
     } catch (error) {
       next(error);
@@ -721,11 +723,12 @@ router.delete(
   async (req, res, next) => {
     try {
       const result = await pool.query(
-        "DELETE FROM um_tryout_packages WHERE id = $1 RETURNING id",
+        "DELETE FROM um_tryout_packages WHERE id = $1 RETURNING id, title",
         [req.params.id],
       );
       if (result.rows.length === 0)
         return res.status(404).json({ success: false, error: "Not found" });
+      logAdminActivity(req, 'DELETE', 'PAKET_TRYOUT', result.rows[0].title, `Menghapus paket Ujian Mandiri Tryout: ${result.rows[0].title}`);
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -782,6 +785,7 @@ router.patch(
       );
       if (result.rows.length === 0)
         return res.status(404).json({ success: false, error: "Not found" });
+      logAdminActivity(req, 'UPDATE', 'PAKET_LATIHAN', result.rows[0].title, `Memperbarui paket Ujian Mandiri Latihan: ${result.rows[0].title}`);
       res.json({ success: true, data: result.rows[0] });
     } catch (error) {
       next(error);
@@ -795,11 +799,12 @@ router.delete(
   async (req, res, next) => {
     try {
       const result = await pool.query(
-        "DELETE FROM um_latihan_soal WHERE id = $1 RETURNING id",
+        "DELETE FROM um_latihan_soal WHERE id = $1 RETURNING id, title",
         [req.params.id],
       );
       if (result.rows.length === 0)
         return res.status(404).json({ success: false, error: "Not found" });
+      logAdminActivity(req, 'DELETE', 'PAKET_LATIHAN', result.rows[0].title, `Menghapus paket Ujian Mandiri Latihan: ${result.rows[0].title}`);
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -993,6 +998,7 @@ router.post(
           required_plan,
         ],
       );
+      logAdminActivity(req, 'CREATE', 'PAKET_TRYOUT', result.rows[0].title, `Membuat paket Ujian Mandiri Tryout: ${result.rows[0].title}`);
       res.status(201).json({ success: true, data: result.rows[0] });
     } catch (error) {
       console.error("Error creating tryout package:", error);
@@ -1070,6 +1076,7 @@ router.post(
           package_name,
         ],
       );
+      logAdminActivity(req, 'CREATE', 'PAKET_LATIHAN', result.rows[0].title, `Membuat paket Ujian Mandiri Latihan: ${result.rows[0].title}`);
       res.status(201).json({ success: true, data: result.rows[0] });
     } catch (error) {
       next(error);

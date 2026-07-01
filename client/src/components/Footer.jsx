@@ -21,6 +21,7 @@ const Footer = () => {
             <nav className="flex flex-col gap-3 font-normal text-[#424656] text-[16px]">
               <Link to="/latihan" className="hover:text-[#0050cb] transition-colors">Latihan Soal</Link>
               <Link to="/tryout/packages" className="hover:text-[#0050cb] transition-colors">Tryout</Link>
+              <Link to="/blog" className="hover:text-[#0050cb] transition-colors">Blog</Link>
               <Link to="/pricing" className="hover:text-[#0050cb] transition-colors">Harga</Link>
             </nav>
           </div>

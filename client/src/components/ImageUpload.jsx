@@ -10,9 +10,10 @@ export default function ImageUpload({
   placeholder = 'Upload gambar atau masukkan URL',
   aspectRatio = 'aspect-video',
   className = '',
+  uploadOnly = false,
 }) {
   const [uploading, setUploading] = useState(false);
-  const [mode, setMode] = useState(value?.startsWith('http') ? 'url' : 'upload');
+  const [mode, setMode] = useState(uploadOnly ? 'upload' : (value?.startsWith('http') ? 'url' : 'upload'));
   const fileInputRef = useRef(null);
 
   const handleFileChange = async (e) => {
@@ -58,22 +59,24 @@ export default function ImageUpload({
     <div className={`space-y-2 ${className}`}>
       <div className="flex items-center justify-between">
         <label className="block text-[13px] font-semibold text-[#424656]">{label}</label>
-        <div className="flex gap-1 bg-[#f2f3ff] rounded-lg p-1">
-          <button
-            type="button"
-            onClick={() => setMode('upload')}
-            className={`px-3 py-1 text-[11px] font-bold rounded-md transition-colors ${mode === 'upload' ? 'bg-white text-[#0050cb] shadow-sm' : 'text-[#424656]'}`}
-          >
-            Upload
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('url')}
-            className={`px-3 py-1 text-[11px] font-bold rounded-md transition-colors ${mode === 'url' ? 'bg-white text-[#0050cb] shadow-sm' : 'text-[#424656]'}`}
-          >
-            URL
-          </button>
-        </div>
+        {!uploadOnly && (
+          <div className="flex gap-1 bg-[#f2f3ff] rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setMode('upload')}
+              className={`px-3 py-1 text-[11px] font-bold rounded-md transition-colors ${mode === 'upload' ? 'bg-white text-[#0050cb] shadow-sm' : 'text-[#424656]'}`}
+            >
+              Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('url')}
+              className={`px-3 py-1 text-[11px] font-bold rounded-md transition-colors ${mode === 'url' ? 'bg-white text-[#0050cb] shadow-sm' : 'text-[#424656]'}`}
+            >
+              URL
+            </button>
+          </div>
+        )}
       </div>
 
       {mode === 'upload' ? (

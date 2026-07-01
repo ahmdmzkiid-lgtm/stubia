@@ -379,6 +379,12 @@ const LandingPage = () => {
           </div>
           <div className="footer-links">
             <button
+              onClick={() => navigate("/blog")}
+              className="cursor-pointer hover:text-[#0050cb] transition"
+            >
+              Blog
+            </button>
+            <button
               onClick={() => navigate("/terms-and-conditions")}
               className="cursor-pointer hover:text-[#0050cb] transition"
             >

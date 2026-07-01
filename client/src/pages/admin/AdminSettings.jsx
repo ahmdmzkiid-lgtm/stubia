@@ -21,12 +21,13 @@ const AdminSettings = () => {
   const [tryoutTitle, setTryoutTitle] = useState('');
   const [tryoutStartTime, setTryoutStartTime] = useState('');
   const [latihanUtbkActive, setLatihanUtbkActive] = useState(true);
+  const [adminPin, setAdminPin] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    settingsService.get().then(r => {
+    settingsService.getAdmin().then(r => {
       const d = r.data.data;
       setBannerUrl(d.banner_image_url || '');
       setBannerTitle(d.banner_title || '');
@@ -36,6 +37,7 @@ const AdminSettings = () => {
       setTryoutTitle(d.tryout_title || '');
       setTryoutStartTime(d.tryout_start_time || '');
       setLatihanUtbkActive(d.latihan_utbk_active !== 'false');
+      setAdminPin(d.admin_pin || '');
 
       // Parse schedule from settings
       if (d.schedule_json) {
@@ -98,7 +100,25 @@ const AdminSettings = () => {
       });
       toast.success('Pengaturan tryout berhasil diperbarui!');
     } catch (err) {
-      toast.error('Gagal menyimpan pengaturan tryout. Silakan coba lagi.');
+      toast.error('Gagal menyimpan tryout. Silakan coba lagi.');
+      console.error(err);
+    }
+    finally { setSaving(false); }
+  };
+
+  const handleSaveAdminPin = async () => {
+    if (!adminPin.trim()) {
+      toast.error('PIN Admin tidak boleh kosong!');
+      return;
+    }
+    setSaving(true);
+    try {
+      await settingsService.update({
+        admin_pin: adminPin.trim()
+      });
+      toast.success('PIN Admin berhasil diperbarui!');
+    } catch (err) {
+      toast.error('Gagal menyimpan PIN Admin. Silakan coba lagi.');
       console.error(err);
     }
     finally { setSaving(false); }
@@ -345,6 +365,41 @@ const AdminSettings = () => {
           </div>
           <div className="text-on-surface-variant font-body-sm text-xs pt-4 border-t border-outline-variant/50">
             * Perubahan status akan langsung berdampak pada seluruh siswa yang sedang membuka halaman Latihan Soal UTBK.
+          </div>
+        </div>
+      </div>
+
+      {/* ── PENGATURAN PIN CMS ADMIN ── */}
+      <div className="mt-12">
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-5 sm:p-8 shadow-sm w-full sm:max-w-xl">
+          <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4 mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[24px] text-primary">lock_open</span>
+            Pengaturan PIN CMS Admin
+          </h3>
+          <p className="text-on-surface-variant font-body-md mb-6">
+            PIN ini digunakan untuk memverifikasi keamanan sebelum masuk ke portal CMS dari halaman dashboard.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">PIN Keamanan Admin</label>
+              <input
+                type="text"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={adminPin}
+                onChange={e => setAdminPin(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="Masukkan 4-6 digit angka (contoh: 1234)"
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+              />
+            </div>
+            <button
+              onClick={handleSaveAdminPin}
+              disabled={saving}
+              className="w-full bg-[#0050cb] text-white py-3 rounded-lg font-bold text-sm hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span> : <span className="material-symbols-outlined text-[20px]">save</span>}
+              Simpan PIN Admin
+            </button>
           </div>
         </div>
       </div>

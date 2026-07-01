@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { pool } = require("../config/db");
 const { verifyToken, verifyAdmin } = require("../middleware/auth");
+const { logAdminActivity } = require("../utils/activityLogger");
 const { calculateScore } = require("../services/scoringService");
 const {
   calculateIRTScore,
@@ -121,6 +122,7 @@ router.post("/packages", [verifyToken, verifyAdmin], async (req, res, next) => {
         required_plan || "gratis",
       ],
     );
+    logAdminActivity(req, 'CREATE', 'PAKET_TRYOUT', result.rows[0].title, `Membuat paket UTBK Tryout: ${result.rows[0].title}`);
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     if (
@@ -176,6 +178,7 @@ router.patch(
       );
       if (result.rows.length === 0)
         return res.status(404).json({ error: "Package not found" });
+      logAdminActivity(req, 'UPDATE', 'PAKET_TRYOUT', result.rows[0].title, `Memperbarui paket UTBK Tryout: ${result.rows[0].title}`);
       res.json({ success: true, data: result.rows[0] });
     } catch (error) {
       if (
@@ -242,6 +245,7 @@ router.delete(
       }
 
       await client.query("COMMIT");
+      logAdminActivity(req, 'DELETE', 'PAKET_TRYOUT', result.rows[0].title, `Menghapus paket UTBK Tryout: ${result.rows[0].title}`);
       res.json({
         success: true,
         message: "Package and its questions deleted successfully",
@@ -1548,8 +1552,10 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
         q.id,
         q.content,
         q.image_url,
+        q.image_position,
         q.difficulty,
         q.question_type,
+        q.stimulus,
         COALESCE(s.name, 'Unknown') as subject_name,
         ua.chosen_choice_id,
         ua.answer_text,

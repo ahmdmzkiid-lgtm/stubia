@@ -94,4 +94,75 @@ router.delete('/image', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// Upload document (PDF/Word/Images)
+const documentUpload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    const allowedMimetypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ];
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp'];
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (!allowedMimetypes.includes(file.mimetype) || !allowedExtensions.includes(ext)) {
+      return cb(new Error('Hanya format PDF, DOC, DOCX, JPG, JPEG, PNG, dan WEBP yang diizinkan.'), false);
+    }
+    cb(null, true);
+  },
+});
+
+router.post('/document', verifyToken, (req, res, next) => {
+  documentUpload.single('document')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'Ukuran file maksimal 10MB.' });
+      }
+      return res.status(400).json({ success: false, error: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'File dokumen tidak ditemukan' });
+    }
+
+    const folder = req.body.folder || 'documents';
+
+    // Upload to Cloudinary using buffer
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: `stubia/${folder}`,
+          resource_type: 'auto',
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(req.file.buffer);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        public_id: result.public_id,
+      },
+    });
+  } catch (error) {
+    console.error('Upload document error:', error);
+    res.status(500).json({ success: false, error: 'Gagal mengupload dokumen' });
+  }
+});
+
 module.exports = router;

@@ -1,12 +1,84 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { tryoutService } from '../../services/api';
+import { tryoutService, subscriptionService } from '../../services/api';
 import DiscussQuestionModal from '../../components/DiscussQuestionModal';
 import MathText from '../../components/MathText';
 import NationalLeaderboardCard from '../../components/NationalLeaderboardCard';
 import StudentNavbar from '../../components/layout/StudentNavbar';
 import { PTN_DATA } from '../../data/ptnData';
+
+// Helper functions defined outside the component
+const getSubjectColors = (statusColor) => {
+  const colors = {
+    primary: {
+      bg: 'bg-[#dae1ff]',
+      icon: 'text-[#0050cb]',
+      bar: 'bg-[#0050cb]',
+      dot: 'bg-[#0050cb]',
+      bgSolid: 'bg-[#0050cb]'
+    },
+    tertiary: {
+      bg: 'bg-[#ffdbd0]',
+      icon: 'text-[#a33200]',
+      bar: 'bg-[#a33200]',
+      dot: 'bg-[#a33200]',
+      bgSolid: 'bg-[#a33200]'
+    },
+    secondary: {
+      bg: 'bg-[#c2e8ff]',
+      icon: 'text-[#006688]',
+      bar: 'bg-[#006688]',
+      dot: 'bg-[#006688]',
+      bgSolid: 'bg-[#006688]'
+    }
+  };
+  return colors[statusColor] || colors.primary;
+};
+
+const getSubjectIcon = (name) => {
+  const lower = (name || '').toLowerCase();
+  if (lower.includes('penalaran umum')) return 'psychology';
+  if (lower.includes('pengetahuan') && lower.includes('pemahaman')) return 'auto_stories';
+  if (lower.includes('pemahaman bacaan')) return 'edit_note';
+  if (lower.includes('pengetahuan kuantitatif')) return 'calculate';
+  if (lower.includes('literasi') && lower.includes('indonesia')) return 'translate';
+  if (lower.includes('literasi') && lower.includes('inggris')) return 'language';
+  if (lower.includes('matematika') || lower.includes('penalaran matematika')) return 'functions';
+  if (lower.includes('literasi')) return 'menu_book';
+  if (lower.includes('penalaran')) return 'psychology';
+  return 'quiz';
+};
+
+const getShortName = (name) => {
+  const lower = (name || '').toLowerCase();
+  if (lower.includes('penalaran umum')) return 'Penalaran Umum';
+  if (lower.includes('pengetahuan') && lower.includes('pemahaman')) return 'Pengetahuan dan Pemahaman Umum';
+  if (lower.includes('pemahaman bacaan')) return 'Pemahaman Bacaan dan Tulisan';
+  if (lower.includes('pengetahuan kuantitatif')) return 'Pengetahuan Kuantitatif';
+  if (lower.includes('literasi') && lower.includes('indonesia')) return 'Literasi Bahasa Indonesia';
+  if (lower.includes('literasi') && lower.includes('inggris')) return 'Literasi Bahasa Inggris';
+  if (lower.includes('penalaran matematika')) return 'Penalaran Matematika';
+  if (lower.includes('matematika')) return 'Penalaran Matematika';
+  if (lower.includes('literasi')) return 'Literasi';
+  if (lower.includes('penalaran')) return 'Penalaran Umum';
+  return name;
+};
+
+const getAbbreviation = (name) => {
+  const lower = (name || '').toLowerCase();
+  if (lower.includes('penalaran umum')) return 'PU';
+  if (lower.includes('pengetahuan') && lower.includes('pemahaman')) return 'PPU';
+  if (lower.includes('pemahaman bacaan')) return 'PBM';
+  if (lower.includes('pengetahuan kuantitatif')) return 'PK';
+  if (lower.includes('literasi') && lower.includes('indonesia')) return 'LBI';
+  if (lower.includes('literasi') && lower.includes('inggris')) return 'LBE';
+  if (lower.includes('penalaran matematika')) return 'PM';
+  if (lower.includes('matematika')) return 'PM';
+  return name?.substring(0, 3)?.toUpperCase() || '?';
+};
+
+const SUBJECT_ORDER = ['PU', 'PPU', 'PBM', 'PK', 'LBI', 'LBE', 'PM'];
 
 const TryoutResult = () => {
   const { sessionId } = useParams();
@@ -14,27 +86,70 @@ const TryoutResult = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [filter, setFilter] = useState('all'); // 'all' | 'wrong' | 'bookmark'
-  const [subjectFilter, setSubjectFilter] = useState('all'); // 'all' | subject name
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Discussion State
+  const sortedSubjects = useMemo(() => {
+    if (!result?.subjects) return [];
+    const subjectsCopy = [...result.subjects];
+    return subjectsCopy.sort((a, b) => {
+      const idxA = SUBJECT_ORDER.indexOf(getAbbreviation(a.name));
+      const idxB = SUBJECT_ORDER.indexOf(getAbbreviation(b.name));
+      const valA = idxA === -1 ? 99 : idxA;
+      const valB = idxB === -1 ? 99 : idxB;
+      return valA - valB;
+    });
+  }, [result?.subjects]);
+
+  const [filter, setFilter] = useState('all'); // 'all' | 'wrong' | 'bookmark'
+  const [subjectFilter, setSubjectFilter] = useState(''); // active subject name
   const [isDiscussOpen, setIsDiscussOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [activePlans, setActivePlans] = useState([]);
 
+  useEffect(() => {
+    subscriptionService.getActivePlans()
+      .then(res => setActivePlans(res.data?.data || []))
+      .catch(() => {});
+  }, []);
+
+  const isPremium = useMemo(() => {
+    if (isAdmin) return true;
+    return activePlans.some(p => {
+      const name = p.name || p.plan_name;
+      if (name === 'gratis' || !name) return false;
+      if (p.target_type === 'utbk' && (p.plan_type === 'subscription' || p.plan_type === 'access')) return true;
+      if (p.target_type === 'utbk' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0) return true;
+      return false;
+    });
+  }, [activePlans, isAdmin]);
+
+  const activeSubject = subjectFilter || sortedSubjects[0]?.name || '';
+
+  const openDiscussion = (question) => {
+    setSelectedQuestion(question);
+    setIsDiscussOpen(true);
+  };
+
+  const baseQuestions = useMemo(() => {
+    if (!result?.questions || !activeSubject) return [];
+    return result.questions.filter(q => q.subject === activeSubject);
+  }, [result?.questions, activeSubject]);
+
+  const filteredQuestions = useMemo(() => {
+    return filter === 'wrong'
+      ? baseQuestions.filter(q => !q.isCorrect)
+      : filter === 'bookmark'
+      ? baseQuestions.filter(q => q.isFlagged)
+      : baseQuestions;
+  }, [baseQuestions, filter]);
 
   // Leaderboard State
   const [leaderboard, setLeaderboard] = useState(null);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState('general'); // 'general' | 'major'
   const pkgId = result?.packageId || location.state?.packageId;
-
-  const openDiscussion = (question) => {
-    setSelectedQuestion(question);
-    setIsDiscussOpen(true);
-  };
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -113,15 +228,7 @@ const TryoutResult = () => {
       .finally(() => setLeaderboardLoading(false));
   }, [result, location.state]);
 
-  const baseQuestions = subjectFilter === 'all'
-    ? result?.questions
-    : result?.questions?.filter(q => q.subject === subjectFilter);
 
-  const filteredQuestions = filter === 'wrong'
-    ? baseQuestions?.filter(q => !q.isCorrect)
-    : filter === 'bookmark'
-    ? baseQuestions?.filter(q => q.isFlagged)
-    : baseQuestions;
 
   if (loading) {
     return (
@@ -154,76 +261,6 @@ const TryoutResult = () => {
   if (stats.unanswered === undefined) {
     stats.unanswered = Math.max(0, stats.total - stats.correct - stats.incorrect);
   }
-
-  // Helper for subject card colors
-  const getSubjectColors = (statusColor) => {
-    const colors = {
-      primary: {
-        bg: 'bg-[#dae1ff]',
-        icon: 'text-[#0050cb]',
-        bar: 'bg-[#0050cb]',
-        dot: 'bg-[#0050cb]',
-        bgSolid: 'bg-[#0050cb]'
-      },
-      tertiary: {
-        bg: 'bg-[#ffdbd0]',
-        icon: 'text-[#a33200]',
-        bar: 'bg-[#a33200]',
-        dot: 'bg-[#a33200]',
-        bgSolid: 'bg-[#a33200]'
-      },
-      secondary: {
-        bg: 'bg-[#c2e8ff]',
-        icon: 'text-[#006688]',
-        bar: 'bg-[#006688]',
-        dot: 'bg-[#006688]',
-        bgSolid: 'bg-[#006688]'
-      }
-    };
-    return colors[statusColor] || colors.primary;
-  };
-
-  const getSubjectIcon = (name) => {
-    const lower = (name || '').toLowerCase();
-    if (lower.includes('penalaran umum')) return 'psychology';
-    if (lower.includes('pengetahuan') && lower.includes('pemahaman')) return 'auto_stories';
-    if (lower.includes('pemahaman bacaan')) return 'edit_note';
-    if (lower.includes('pengetahuan kuantitatif')) return 'calculate';
-    if (lower.includes('literasi') && lower.includes('indonesia')) return 'translate';
-    if (lower.includes('literasi') && lower.includes('inggris')) return 'language';
-    if (lower.includes('matematika') || lower.includes('penalaran matematika')) return 'functions';
-    if (lower.includes('literasi')) return 'menu_book';
-    if (lower.includes('penalaran')) return 'psychology';
-    return 'quiz';
-  };
-
-  const getShortName = (name) => {
-    const lower = (name || '').toLowerCase();
-    if (lower.includes('penalaran umum')) return 'Penalaran Umum';
-    if (lower.includes('pengetahuan') && lower.includes('pemahaman')) return 'Pengetahuan dan Pemahaman Umum';
-    if (lower.includes('pemahaman bacaan')) return 'Pemahaman Bacaan dan Tulisan';
-    if (lower.includes('pengetahuan kuantitatif')) return 'Pengetahuan Kuantitatif';
-    if (lower.includes('literasi') && lower.includes('indonesia')) return 'Literasi Bahasa Indonesia';
-    if (lower.includes('literasi') && lower.includes('inggris')) return 'Literasi Bahasa Inggris';
-    if (lower.includes('penalaran matematika')) return 'Penalaran Matematika';
-    if (lower.includes('matematika')) return 'Penalaran Matematika';
-    if (lower.includes('literasi')) return 'Literasi';
-    if (lower.includes('penalaran')) return 'Penalaran Umum';
-    return name;
-  };
-
-  const getAbbreviation = (name) => {
-    const lower = (name || '').toLowerCase();
-    if (lower.includes('penalaran umum')) return 'PU';
-    if (lower.includes('pengetahuan') && lower.includes('pemahaman')) return 'PPU';
-    if (lower.includes('pemahaman bacaan')) return 'PBM';
-    if (lower.includes('pengetahuan kuantitatif')) return 'PK';
-    if (lower.includes('literasi') && lower.includes('indonesia')) return 'LBI';
-    if (lower.includes('literasi') && lower.includes('inggris')) return 'LBE';
-    if (lower.includes('penalaran matematika')) return 'PM';
-    if (lower.includes('matematika')) return 'PM';
-    return name?.substring(0, 3)?.toUpperCase() || '?';
-  };
 
   return (
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24]">
@@ -534,7 +571,7 @@ const TryoutResult = () => {
             <p className="text-[14px] font-medium text-[#0050cb] hover:underline cursor-pointer">Lihat Metodologi Penilaian</p>
           </div>
           <div className="space-y-6">
-            {(result.subjects || []).map((subject, idx) => {
+            {(sortedSubjects || []).map((subject, idx) => {
               const colors = getSubjectColors(subject.statusColor);
               const isGood = subject.statusColor === 'primary' || subject.statusColor === 'secondary';
               const subjectQuestions = result.questions?.filter(q => q.subject === subject.name) || [];
@@ -608,9 +645,10 @@ const TryoutResult = () => {
           </div>
         </section>
 
-        {/* Pembahasan Section */}
-        <section className="mb-20">
-          <div className="bg-[#f2f3ff] rounded-[32px] border border-[#c2c6d8]/30 overflow-hidden">
+        {isPremium ? (
+          /* Pembahasan Section */
+          <section className="mb-20">
+            <div className="bg-[#f2f3ff] rounded-[32px] border border-[#c2c6d8]/30 overflow-hidden">
             <div className="p-6 md:p-8 border-b border-[#c2c6d8]/20">
               <h2 className="text-[22px] font-bold text-[#191b24]">Pembahasan Soal</h2>
               <p className="text-[13px] text-[#424656]">Pilih subtes untuk melihat pembahasan soal.</p>
@@ -619,22 +657,10 @@ const TryoutResult = () => {
             {/* Subject Filter Cards */}
             <div className="p-4 md:p-6 border-b border-[#c2c6d8]/20 overflow-x-auto">
               <div className="flex gap-3 min-w-max">
-                <button
-                  onClick={() => { setSubjectFilter('all'); }}
-                  className={`flex flex-col items-center gap-1 px-4 py-3 rounded-xl border-2 transition-all min-w-[72px] ${
-                    subjectFilter === 'all'
-                      ? 'border-[#0050cb] bg-[#0050cb] text-white shadow-md'
-                      : 'border-[#c2c6d8]/30 bg-white text-[#424656] hover:border-[#0050cb]/40'
-                  }`}
-                >
-                  <span className={`material-symbols-outlined text-[22px] ${subjectFilter === 'all' ? 'text-white' : 'text-[#0050cb]'}`}>apps</span>
-                  <p className="text-[12px] font-bold">Semua</p>
-                  <p className={`text-[10px] ${subjectFilter === 'all' ? 'text-white/70' : 'text-[#727687]'}`}>{result.questions?.length || 0}</p>
-                </button>
-                {(result.subjects || []).map((subject, idx) => {
+                {(sortedSubjects || []).map((subject, idx) => {
                   const subjectQuestions = result.questions?.filter(q => q.subject === subject.name) || [];
                   const wrongCount = subjectQuestions.filter(q => !q.isCorrect).length;
-                  const isActive = subjectFilter === subject.name;
+                  const isActive = activeSubject === subject.name;
                   return (
                     <button
                       key={idx}
@@ -658,15 +684,47 @@ const TryoutResult = () => {
               </div>
             </div>
 
-            <div className="divide-y divide-[#c2c6d8]/20">
-              {(filteredQuestions || []).map((question) => (
+            {/* Filter Tabs (Semua, Salah, Ragu) */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#c2c6d8]/10 bg-[#faf8ff]">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFilter('all')}
+                  className={`px-4 py-1.5 rounded-lg text-[13px] font-bold transition-all ${
+                    filter === 'all' ? 'bg-[#0050cb] text-white shadow-sm' : 'text-[#424656] hover:bg-[#ecedfa]'
+                  }`}
+                >
+                  Semua ({baseQuestions.length})
+                </button>
+                <button
+                  onClick={() => setFilter('wrong')}
+                  className={`px-4 py-1.5 rounded-lg text-[13px] font-bold transition-all ${
+                    filter === 'wrong' ? 'bg-[#ba1a1a] text-white shadow-sm' : 'text-[#424656] hover:bg-[#ecedfa]'
+                  }`}
+                >
+                  Salah ({baseQuestions.filter(q => !q.isCorrect).length})
+                </button>
+                <button
+                  onClick={() => setFilter('bookmark')}
+                  className={`px-4 py-1.5 rounded-lg text-[13px] font-bold transition-all ${
+                    filter === 'bookmark' ? 'bg-amber-500 text-white shadow-sm' : 'text-[#424656] hover:bg-[#ecedfa]'
+                  }`}
+                >
+                  Ragu ({baseQuestions.filter(q => q.isFlagged).length})
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 p-4 md:p-6 bg-[#f8f9fc]">
+              {(filteredQuestions || []).map((question) => {
+                const subtestNumber = baseQuestions.indexOf(question) + 1;
+                return (
                 <div
                   key={question.id}
-                  className={`p-5 md:p-7 ${question.isCorrect ? 'bg-white/50' : question.userAnswer === null ? 'bg-[#ecedfa]/5' : 'bg-[#ffdad6]/5'}`}
-                  style={{ borderLeft: `4px solid ${question.isCorrect ? '#00c1fd' : question.userAnswer === null ? '#c2c6d8' : '#ba1a1a'}` }}
+                  className={`p-5 md:p-7 rounded-2xl border ${question.isCorrect ? 'bg-white border-[#c2c6d8]/30' : question.userAnswer === null ? 'bg-white border-[#c2c6d8]/40' : 'bg-white border-[#ba1a1a]/15'}`}
+                  style={{ borderLeft: `4px solid ${question.isCorrect ? '#00c1fd' : question.userAnswer === null ? '#c2c6d8' : '#ba1a1a'}`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                 >
                   <div className="flex flex-wrap items-center gap-3 mb-4">
-                    <span className="px-3 py-1 bg-[#ecedfa] rounded text-[12px] font-semibold">Soal #{question.questionNumber}</span>
+                    <span className="px-3 py-1 bg-[#ecedfa] rounded text-[12px] font-semibold">Soal #{subtestNumber}</span>
                     <span className={`px-3 py-1 text-[12px] font-semibold flex items-center gap-1 rounded ${
                       question.isCorrect
                         ? 'bg-[#00c1fd]/10 text-[#006688]'
@@ -692,13 +750,13 @@ const TryoutResult = () => {
                   </div>
                   <div className="max-w-4xl">
                     {/* TOP IMAGE */}
-                    {question.image_url && ['top', 'before', 'atas'].includes(question.image_position) && (
+                    {question.imageUrl && ['top', 'before', 'atas'].includes(question.image_position) && (
                       <div className="mb-4">
-                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.imageUrl} alt="Soal" />
                       </div>
                     )}
 
-                    {/* STIMULUS */}
+                    {/* Stimulus */}
                     {question.stimulus && (
                       <div className="mb-4 text-[15px] text-[#191b24] leading-relaxed whitespace-pre-wrap">
                         <MathText text={question.stimulus} />
@@ -706,18 +764,18 @@ const TryoutResult = () => {
                     )}
 
                     {/* MIDDLE IMAGE */}
-                    {question.image_url && ['middle', 'ditengah', 'tengah'].includes(question.image_position) && (
+                    {question.imageUrl && ['middle', 'ditengah', 'tengah'].includes(question.image_position) && (
                       <div className="mb-4">
-                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.imageUrl} alt="Soal" />
                       </div>
                     )}
 
                     <MathText className="text-[15px] font-semibold text-[#191b24] mb-4 leading-relaxed" text={question.content || ''} />
 
                     {/* BOTTOM IMAGE */}
-                    {question.image_url && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(question.image_position) && (
+                    {question.imageUrl && !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(question.image_position) && (
                       <div className="mb-4">
-                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.image_url} alt="Soal" />
+                        <img className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={question.imageUrl} alt="Soal" />
                       </div>
                     )}
 
@@ -854,15 +912,58 @@ const TryoutResult = () => {
                     )}
                   </div>
                 </div>
-              ))}
-            </div>
-            <div className="p-8 text-center border-t border-[#c2c6d8]/20">
-              <button className="px-8 py-4 border border-[#0050cb] text-[#0050cb] rounded-xl text-[14px] font-medium hover:bg-[#dae1ff]/5 transition-all">
-                Muat Lebih Banyak Soal
-              </button>
+              );
+              })}
             </div>
           </div>
         </section>
+        ) : (
+          /* Premium Upgrade Card */
+          <section className="mb-20">
+            <div className="relative overflow-hidden rounded-[32px] border border-[#0050cb]/25 bg-gradient-to-br from-white to-[#f5f8ff] p-8 md:p-12 text-center shadow-xl">
+              {/* Premium Background Glows */}
+              <div className="absolute -left-16 -top-16 w-64 h-64 bg-[#0050cb]/5 blur-[80px] rounded-full"></div>
+              <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-amber-500/5 blur-[80px] rounded-full"></div>
+              
+              <div className="relative max-w-2xl mx-auto flex flex-col items-center">
+                {/* Premium Golden Lock Badge */}
+                <div className="mb-6 relative">
+                  <div className="absolute inset-0 bg-[#0050cb]/15 blur-xl rounded-full scale-150"></div>
+                  <div className="relative bg-gradient-to-tr from-[#0050cb] to-[#003da1] w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg transform rotate-3">
+                    <span className="material-symbols-outlined text-white text-[40px] transform -rotate-3" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      lock
+                    </span>
+                  </div>
+                </div>
+
+                <h2 className="text-[26px] md:text-[32px] font-bold text-[#191b24] mb-4 tracking-tight">
+                  Pembahasan Khusus Pengguna Premium 🌟
+                </h2>
+                
+                <p className="text-[#424656] text-[15px] md:text-[16px] leading-relaxed mb-8">
+                  Dapatkan akses ke penjelasan strategis tiap soal, analisis pedagogis lengkap, 
+                  jawaban benar terperinci, serta fitur Bia AI Discussion untuk membantumu lolos PTN impian.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+                  <button
+                    onClick={() => navigate('/paket-belajar')}
+                    className="px-8 py-4 bg-[#0050cb] hover:bg-[#003da1] text-white font-bold rounded-xl text-[15px] hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+                    <span>Buka Pembahasan Premium</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/tryout/packages')}
+                    className="px-8 py-4 bg-white border border-[#c2c6d8] text-[#424656] font-bold rounded-xl text-[15px] hover:bg-[#ecedfa] transition-all"
+                  >
+                    Kembali
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Discuss Modal */}
         {selectedQuestion && (

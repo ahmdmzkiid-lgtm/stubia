@@ -125,7 +125,9 @@ const TryoutSession = () => {
               }
               if (q.answer_text) {
                 serverAnswers[`${key}_text`] = q.answer_text;
-                if (!q.chosen_choice_id) serverAnswers[key] = '__short_answer__';
+                if (!q.chosen_choice_id) {
+                  serverAnswers[key] = q.question_type === 'complex_mc_tf' ? '__complex_mc_tf__' : '__short_answer__';
+                }
               }
               if (q.is_flagged) {
                 serverFlagged[key] = true;
@@ -161,7 +163,7 @@ const TryoutSession = () => {
           const choiceId = currentAnswers[key];
           answerPayload.push({
             question_id: q.id,
-            chosen_choice_id: choiceId === '__short_answer__' ? null : (choiceId || null),
+            chosen_choice_id: (choiceId === '__short_answer__' || choiceId === '__complex_mc_tf__') ? null : (choiceId || null),
             answer_text: currentAnswers[`${key}_text`] || null,
             is_flagged: currentFlagged[key] || false,
             time_spent_sec: 0,
@@ -385,7 +387,7 @@ const TryoutSession = () => {
     setShowSubmitModal(true);
   };
 
-  const totalAnswered = Object.keys(answers).length;
+  const totalAnswered = Object.keys(answers).filter(k => !k.endsWith('_text')).length;
   const isFirstQuestion = currentQuestionIndex === 0;
   const isLastQuestionInSubject = currentQuestionIndex === totalQuestionsInSubject - 1;
   const isLastSubject = currentSubjectIndex === totalSubjects - 1;
@@ -688,7 +690,7 @@ const TryoutSession = () => {
             currentIndex={currentQuestionIndex}
             answers={Object.fromEntries(
               Object.entries(answers)
-                .filter(([k]) => k.startsWith(`${currentSubjectIndex}:`))
+                .filter(([k]) => k.startsWith(`${currentSubjectIndex}:`) && !k.endsWith('_text'))
                 .map(([k, v]) => [Number(k.split(':')[1]), v])
             )}
             flagged={Object.fromEntries(
@@ -698,7 +700,7 @@ const TryoutSession = () => {
             )}
             onNavigate={(idx) => setCurrentQuestionIndex(idx)}
             onSubmit={() => setShowSubmitModal(true)}
-            totalAnswered={Object.keys(answers).filter(k => k.startsWith(`${currentSubjectIndex}:`)).length}
+            totalAnswered={Object.keys(answers).filter(k => k.startsWith(`${currentSubjectIndex}:`) && !k.endsWith('_text')).length}
           />
         </aside>
         </div>
@@ -730,7 +732,7 @@ const TryoutSession = () => {
                 currentIndex={currentQuestionIndex}
                 answers={Object.fromEntries(
                   Object.entries(answers)
-                    .filter(([k]) => k.startsWith(`${currentSubjectIndex}:`))
+                    .filter(([k]) => k.startsWith(`${currentSubjectIndex}:`) && !k.endsWith('_text'))
                     .map(([k, v]) => [Number(k.split(':')[1]), v])
                 )}
                 flagged={Object.fromEntries(
@@ -740,7 +742,7 @@ const TryoutSession = () => {
                 )}
                 onNavigate={(idx) => { setCurrentQuestionIndex(idx); setShowNavDrawer(false); }}
                 onSubmit={() => { setShowNavDrawer(false); setShowSubmitModal(true); }}
-                totalAnswered={Object.keys(answers).filter(k => k.startsWith(`${currentSubjectIndex}:`)).length}
+                totalAnswered={Object.keys(answers).filter(k => k.startsWith(`${currentSubjectIndex}:`) && !k.endsWith('_text')).length}
               />
             </div>
           </div>
@@ -751,7 +753,7 @@ const TryoutSession = () => {
       <div className="fixed bottom-0 left-0 right-0 bg-[#faf8ff]/95 backdrop-blur-md border-t border-[#e0e2f0] py-2.5 sm:py-3 px-4 sm:px-6 z-40">
         <div className="max-w-[1440px] mx-auto flex items-center justify-between text-[12px] sm:text-[13px] text-[#727687]">
           <span className="font-medium truncate mr-2">{currentSubject?.name}</span>
-          <span className="bg-[#ecedfa] px-2.5 py-0.5 rounded-md font-semibold whitespace-nowrap">{Object.keys(answers).filter(k => k.startsWith(`${currentSubjectIndex}:`)).length} / {totalQuestionsInSubject} terjawab</span>
+          <span className="bg-[#ecedfa] px-2.5 py-0.5 rounded-md font-semibold whitespace-nowrap">{Object.keys(answers).filter(k => k.startsWith(`${currentSubjectIndex}:`) && !k.endsWith('_text')).length} / {totalQuestionsInSubject} terjawab</span>
         </div>
       </div>
 

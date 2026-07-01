@@ -75,6 +75,8 @@ const ujianMandiriRoutes = require('./routes/ujianMandiri');
 const socialRoutes = require('./routes/social');
 const teamRoutes = require('./routes/team');
 const vouchersRoutes = require('./routes/vouchers');
+const articlesRoutes = require('./routes/articles');
+const careersRoutes = require('./routes/careers');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -95,6 +97,8 @@ app.use('/api/ujian-mandiri', ujianMandiriRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/vouchers', vouchersRoutes);
+app.use('/api/articles', articlesRoutes);
+app.use('/api/careers', careersRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

@@ -319,7 +319,11 @@ const PusatTryout = () => {
 
                             {lastScore !== null && (
                               <button
-                                onClick={() => navigate(`/tryout/hasil/${pkgHistory.id}`)}
+                                onClick={() => navigate(`/tryout/hasil/${pkgHistory.id}`, {
+                                  state: pkgHistory.sessionIds && pkgHistory.sessionIds.length > 1
+                                    ? { allSessionIds: pkgHistory.sessionIds, packageId: pkgHistory.packageId }
+                                    : { packageId: pkgHistory.packageId }
+                                })}
                                 className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-[#0050cb] bg-blue-50 hover:bg-[#dae1ff] rounded-xl border border-[#0050cb]/20 transition-all flex items-center gap-1.5"
                               >
                                 <span className="material-symbols-outlined text-[16px]">leaderboard</span>

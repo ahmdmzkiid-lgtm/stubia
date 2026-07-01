@@ -100,6 +100,8 @@ export const adminService = {
     if (token) url.searchParams.set('token', token);
     return new EventSource(url.toString());
   },
+  getActivityLogs: (params) => api.get('/admin/activity-logs', { params }),
+  clearActivityLogs: () => api.delete('/admin/activity-logs/clear'),
 };
 
 export const subjectService = {
@@ -116,7 +118,9 @@ export const subjectService = {
 
 export const settingsService = {
   get: () => api.get('/settings'),
+  getAdmin: () => api.get('/settings/admin'),
   update: (data) => api.patch('/settings', data),
+  verifyPin: (pin) => api.post('/settings/verify-pin', { pin }),
 };
 
 export const activityService = {
@@ -220,6 +224,14 @@ export const uploadService = {
     });
   },
   deleteImage: (publicId) => api.delete('/upload/image', { data: { public_id: publicId } }),
+  uploadDocument: (file, folder = 'documents') => {
+    const formData = new FormData();
+    formData.append('document', file);
+    formData.append('folder', folder);
+    return api.post('/upload/document', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
 };
 
 export const teamService = {
@@ -234,6 +246,28 @@ export const todoService = {
   create: (data) => api.post('/admin/todos', data),
   update: (id, data) => api.patch(`/admin/todos/${id}`, data),
   delete: (id) => api.delete(`/admin/todos/${id}`),
+};
+
+export const articleService = {
+  list: () => api.get('/articles'),
+  listAll: () => api.get('/articles/all'),
+  categories: () => api.get('/articles/categories'),
+  getBySlug: (slug) => api.get(`/articles/${slug}`),
+  create: (data) => api.post('/articles', data),
+  update: (id, data) => api.put(`/articles/${id}`, data),
+  delete: (id) => api.delete(`/articles/${id}`),
+};
+
+export const careerService = {
+  list: () => api.get('/careers'),
+  listAll: () => api.get('/careers/all'),
+  getById: (id) => api.get(`/careers/${id}`),
+  create: (data) => api.post('/careers', data),
+  update: (id, data) => api.put(`/careers/${id}`, data),
+  delete: (id) => api.delete(`/careers/${id}`),
+  apply: (id, data) => api.post(`/careers/${id}/apply`, data),
+  listApplications: () => api.get('/careers/applications/all'),
+  deleteApplication: (id) => api.delete(`/careers/applications/${id}`),
 };
 
 export default api;

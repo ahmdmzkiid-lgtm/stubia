@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { pool } = require("../config/db");
 const { verifyToken, verifyAdmin } = require("../middleware/auth");
+const { logAdminActivity } = require("../utils/activityLogger");
 const {
   generateQuestionHash,
   updateQuestionHash,
@@ -294,6 +295,7 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
       await Promise.all(choicePromises);
     }
     await client.query("COMMIT");
+    logAdminActivity(req, 'CREATE', 'SOAL', question.content?.substring(0, 60) || 'Soal Baru', `Membuat soal UTBK baru (ID: ${question.id})`);
 
     res
       .status(201)
@@ -598,6 +600,7 @@ router.delete("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
         .status(404)
         .json({ success: false, error: "Soal tidak ditemukan" });
     }
+    logAdminActivity(req, 'DELETE', 'SOAL', `Soal ID: ${id}`, `Menghapus soal UTBK (ID: ${id})`);
     res.json({ success: true, message: "Soal berhasil dihapus" });
   } catch (error) {
     next(error);

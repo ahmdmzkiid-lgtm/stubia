@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { adminService } from '../../services/api';
+import { adminService, settingsService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
@@ -14,6 +14,35 @@ const AdminDashboard = () => {
   
   const currentPath = location.pathname;
   const isOverview = currentPath === '/admin';
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pin, setPin] = useState('');
+  const [verifyingPin, setVerifyingPin] = useState(false);
+
+  const handleVerifyPin = async (e) => {
+    e.preventDefault();
+    if (!pin.trim()) {
+      toast.error('Masukkan PIN Admin!');
+      return;
+    }
+    setVerifyingPin(true);
+    try {
+      await settingsService.verifyPin(pin.trim());
+      toast.success('PIN Terverifikasi! Membuka CMS...');
+      setShowPinModal(false);
+      setPin('');
+      navigate('/cms');
+    } catch (err) {
+      console.error(err);
+      if (err.response?.status === 403) {
+        toast.error('PIN Admin salah! Akses ditolak.');
+      } else {
+        toast.error('Gagal memverifikasi PIN Admin.');
+      }
+    } finally {
+      setVerifyingPin(false);
+    }
+  };
 
   useEffect(() => {
     if (isOverview) {
@@ -118,11 +147,14 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center bg-[#f2f3ff] rounded-full px-4 py-2.5 w-64 border border-[#c2c6d8]/30 focus-within:border-[#0050cb] transition-all">
-              <span className="material-symbols-outlined text-[#727687] text-[20px]">search</span>
-              <input className="bg-transparent border-none focus:ring-0 text-[14px] w-full placeholder:text-[#727687] outline-none ml-2" placeholder="Search anything..." type="text" />
-            </div>
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button 
+              onClick={() => setShowPinModal(true)}
+              className="flex items-center justify-center gap-2 px-3 sm:px-5 py-2.5 rounded-full bg-[#f2f3ff] hover:bg-[#0050cb] text-[#0050cb] hover:text-white font-bold text-xs border border-[#c2c6d8]/30 transition-all cursor-pointer shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[16px]">lock_open</span>
+              <span className="hidden sm:inline">Login CMS</span>
+            </button>
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
                 <p className="text-[14px] font-bold text-[#191b24]">{user?.name}</p>
@@ -245,6 +277,59 @@ const AdminDashboard = () => {
           </div>
         </main>
       </div>
+
+      {/* PIN Verification Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowPinModal(false); setPin(''); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 sm:p-8 relative animate-[fadeInScale_0.2s_ease-out]" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => { setShowPinModal(false); setPin(''); }}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-full bg-[#f2f3ff] flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-[28px] text-[#0050cb]">shield_lock</span>
+              </div>
+              <h3 className="text-xl font-bold text-[#191b24]">Masuk ke CMS Portal</h3>
+              <p className="text-sm text-[#727687] mt-1">Masukkan PIN Admin untuk melanjutkan</p>
+            </div>
+
+            <form onSubmit={handleVerifyPin}>
+              <div className="mb-4">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={pin}
+                  onChange={e => setPin(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="Masukkan PIN Admin"
+                  autoFocus
+                  className="w-full text-center text-2xl tracking-[0.5em] font-bold bg-[#f2f3ff] border border-[#c2c6d8]/50 rounded-xl py-4 px-4 text-[#191b24] placeholder:text-[#727687] placeholder:text-sm placeholder:tracking-normal placeholder:font-normal focus:ring-2 focus:ring-[#0050cb] focus:border-[#0050cb] outline-none transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={verifyingPin || !pin.trim()}
+                className="w-full bg-[#0050cb] text-white py-3.5 rounded-xl font-bold text-sm hover:bg-[#003d9e] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-[#0050cb]/20"
+              >
+                {verifyingPin ? (
+                  <><span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> Memverifikasi...</>
+                ) : (
+                  <><span className="material-symbols-outlined text-[18px]">login</span> Masuk CMS</>
+                )}
+              </button>
+            </form>
+
+            <p className="text-xs text-[#727687] text-center mt-4">
+              PIN dapat diubah di halaman <strong>Pengaturan</strong>
+            </p>
+          </div>
+        </div>
+      )}
 
           </div>
   );
