@@ -140,7 +140,7 @@ const LandingPage = () => {
           <div className="hero-content">
             <div className="hero-text">
               <h1>
-                Raih PTN Impianmu dengan Latihan Soal dan Tryout Berkualitas di <span className="brand-title"><span className="brand-stu">stu</span><span className="brand-bia">bia</span><span className="brand-id">.id</span></span>
+                Raih PTN Impianmu dengan Berlatih di <span className="brand-title"><span className="brand-stu">stu</span><span className="brand-bia">bia</span><span className="brand-id">.id</span></span>
               </h1>
               <p>
                 Latihan UTBK dan Ujian Mandiri mirip aslinya: CBT, penilaian IRT, materi dan pembahasan lengkap, ranking jurusan, dan ranking nasional. Akses di mana saja.
@@ -186,46 +186,137 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* Features */}
+        {/* Features — Bento Grid Style */}
         <section id="features" className="landing-features">
           <div className="section-inner">
             <div className="section-header">
               <h2>Kenapa Pilih Stubia?</h2>
               <p>
-                Platform belajar UTBK paling efektif dengan fitur lengkap untuk
-                memaksimalkan persiapanmu.
+                Platform belajar UTBK paling lengkap dengan fitur-fitur unggulan
+                untuk memaksimalkan persiapanmu masuk PTN impian.
               </p>
             </div>
-            <div className="features-grid">
-              <div className="feature-card">
-                <div className="feature-icon icon-blue">
-                  <span className="material-symbols-outlined">schedule</span>
+
+            {/* Bento Grid */}
+            <div className="bento-grid">
+              {/* Row 1: Skor IRT — full width */}
+              <div className="bento-card bento-wide">
+                <div className="bento-text">
+                  <div className="bento-badge badge-blue">
+                    <span className="material-symbols-outlined">analytics</span>
+                    Penilaian IRT
+                  </div>
+                  <h3>Skor IRT Seperti UTBK Asli</h3>
+                  <p>
+                    Penilaian menggunakan sistem Item Response Theory (IRT) yang
+                    sudah disesuaikan dengan UTBK, sehingga hasil skor yang kamu
+                    dapatkan sangat mirip ketika mengikuti UTBK sebenarnya.
+                  </p>
                 </div>
-                <h3>Belajar Kapan Saja</h3>
-                <p>
-                  Akses ribuan soal dan materi kapan saja, di mana saja. Belajar
-                  sesuai tempo dan jadwalmu sendiri.
-                </p>
+                <div className="bento-image">
+                  <img src="/hasiltryout.webp" alt="Skor IRT UTBK Stubia" loading="lazy" />
+                </div>
               </div>
-              <div className="feature-card">
-                <div className="feature-icon icon-teal">
-                  <span className="material-symbols-outlined">school</span>
+
+              {/* Row 2: AI Bia + Ujian Mandiri — paired */}
+              <div className="bento-card bento-tall">
+                <div className="bento-text">
+                  <div className="bento-badge badge-green">
+                    <span className="material-symbols-outlined">smart_toy</span>
+                    Tutor AI
+                  </div>
+                  <h3>Pembahasan Soal dengan AI Bia</h3>
+                  <p>
+                    Masih bingung setelah baca pembahasan? Diskusikan langsung
+                    dengan Bia, tutor AI yang siap 24/7 membantu kamu memahami
+                    setiap soal lebih mendalam.
+                  </p>
                 </div>
-                <h3>Mentor Berpengalaman</h3>
-                <p>
-                  Belajar langsung dari tutor alumni PTN top yang paham pola
-                  soal UTBK dan strategi menjawab.
-                </p>
+                <div className="bento-image">
+                  <img src="/biapembahasan.webp" alt="Pembahasan AI Bia Stubia" loading="lazy" />
+                </div>
               </div>
-              <div className="feature-card">
-                <div className="feature-icon icon-orange">
-                  <span className="material-symbols-outlined">verified</span>
+
+              <div className="bento-card bento-tall">
+                <div className="bento-text">
+                  <div className="bento-badge badge-indigo">
+                    <span className="material-symbols-outlined">school</span>
+                    Ujian Mandiri
+                  </div>
+                  <h3>Skor Ujian Mandiri PTN</h3>
+                  <p>
+                    Latihan khusus untuk SIMAK UI, UTUL UGM, dan ujian mandiri
+                    PTN lainnya. Lengkap dengan sistem penilaian dan analisis
+                    performa per subtes.
+                  </p>
                 </div>
-                <h3>Tryout Simulasi Realistis</h3>
-                <p>
-                  Simulasi UTBK dengan timer, skor IRT, dan analisis performa
-                  detail untuk evaluasi kesiapanmu.
-                </p>
+                <div className="bento-image">
+                  <img src="/hasilskormandiri.webp" alt="Skor Ujian Mandiri Stubia" loading="lazy" />
+                </div>
+              </div>
+
+              {/* Row 3: Pembahasan Teks — full width */}
+              <div className="bento-card bento-wide">
+                <div className="bento-text">
+                  <div className="bento-badge badge-orange">
+                    <span className="material-symbols-outlined">menu_book</span>
+                    Pembahasan
+                  </div>
+                  <h3>Pembahasan Lengkap dengan Teks</h3>
+                  <p>
+                    Setiap soal dilengkapi pembahasan komprehensif berbasis
+                    teks dengan analisis pedagogis, sehingga kamu bisa memahami
+                    dan mereview setiap konsep secara mendalam.
+                  </p>
+                </div>
+                <div className="bento-image">
+                  <img src="/pembahasanteks.webp" alt="Pembahasan Teks Lengkap Stubia" loading="lazy" />
+                </div>
+              </div>
+
+              {/* Row 4: Belajar Kapan Saja + Tryout Simulasi — paired */}
+              <div className="bento-card bento-half">
+                <div className="bento-text">
+                  <div className="bento-badge badge-teal">
+                    <span className="material-symbols-outlined">schedule</span>
+                    Fleksibel
+                  </div>
+                  <h3>Belajar Kapan Saja</h3>
+                  <p>
+                    Akses ribuan soal dan materi kapan saja, di mana saja melalui
+                    smartphone, tablet, atau laptop. Belajar sesuai tempo dan
+                    jadwalmu sendiri tanpa batasan waktu.
+                  </p>
+                </div>
+                <div className="bento-icon-display">
+                  <div className="bento-floating-icons">
+                    <div className="floating-icon fi-1"><span className="material-symbols-outlined">phone_iphone</span></div>
+                    <div className="floating-icon fi-2"><span className="material-symbols-outlined">laptop_mac</span></div>
+                    <div className="floating-icon fi-3"><span className="material-symbols-outlined">tablet_mac</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bento-card bento-half">
+                <div className="bento-text">
+                  <div className="bento-badge badge-red">
+                    <span className="material-symbols-outlined">verified</span>
+                    Simulasi CBT
+                  </div>
+                  <h3>Tryout Simulasi Real</h3>
+                  <p>
+                    Simulasi UTBK dengan timer, antarmuka CBT mirip asli, serta
+                    sistem pemeringkatan nasional secara real-time. Evaluasi
+                    kesiapanmu dengan pengalaman ujian yang autentik.
+                  </p>
+                </div>
+                <div className="bento-icon-display">
+                  <div className="bento-floating-icons">
+                    <div className="floating-icon fi-4"><span className="material-symbols-outlined">timer</span></div>
+                    <div className="floating-icon fi-5"><span className="material-symbols-outlined">leaderboard</span></div>
+                    <div className="floating-icon fi-6"><span className="material-symbols-outlined">monitoring</span></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
