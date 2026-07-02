@@ -36,7 +36,9 @@ const Register = () => {
         password: formData.password
       });
       toast.success('Akun berhasil dibuat!');
-      navigate(res?.data?.user?.role === 'admin' ? '/admin' : '/dashboard');
+      const userRole = res?.data?.user?.role;
+      const isStaff = ['admin', 'question_writer', 'quality_assurance', 'article_writer'].includes(userRole);
+      navigate(isStaff ? '/admin' : '/dashboard');
     } catch (error) {
       // Error handled by interceptor
     } finally {
@@ -49,7 +51,9 @@ const Register = () => {
       setLoading(true);
       const res = await loginWithGoogle(credentialResponse.credential);
       toast.success('Berhasil daftar dengan Google!');
-      navigate(res?.data?.user?.role === 'admin' ? '/admin' : '/dashboard');
+      const userRole = res?.data?.user?.role;
+      const isStaff = ['admin', 'question_writer', 'quality_assurance', 'article_writer'].includes(userRole);
+      navigate(isStaff ? '/admin' : '/dashboard');
     } catch (error) {
       // Error handled by interceptor
     } finally {

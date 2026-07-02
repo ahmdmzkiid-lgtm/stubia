@@ -136,38 +136,34 @@ const LandingPage = () => {
  
       <main style={{ paddingTop: 80 }}>
         {/* Hero */}
-        <section className="landing-hero">
-          <div className="hero-content">
-            <div className="hero-text">
-              <h1>
-                Raih PTN Impianmu dengan Berlatih di <span className="brand-title"><span className="brand-stu">stu</span><span className="brand-bia">bia</span><span className="brand-id">.id</span></span>
-              </h1>
-              <p>
-                Latihan UTBK dan Ujian Mandiri mirip aslinya: CBT, penilaian IRT, materi dan pembahasan lengkap, ranking jurusan, dan ranking nasional. Akses di mana saja.
-              </p>
-              <div className="hero-buttons">
-                <button
-                  className="btn-primary-lg"
-                  onClick={() => navigate("/register")}
-                >
-                  Mulai Belajar
-                </button>
-                <button
-                  className="btn-outline-lg"
-                  onClick={() => navigate("/login")}
-                >
-                  Lihat Program
-                </button>
-              </div>
-            </div>
-            <div className="hero-image">
+        <section className="relative overflow-hidden pt-[120px] pb-16 md:pt-[160px] md:pb-24 px-4 md:px-6 max-w-[1280px] mx-auto flex flex-col items-center gap-12">
+          <div className="w-full flex flex-col items-center text-center space-y-8 z-10">
+            <div className="mb-2">
               <img 
-                src="/landingpage-hero.webp" 
-                alt="Students collaborating" 
-                width="1536" 
-                height="1024"
-                fetchpriority="high"
+                alt="stubia.id logo" 
+                className="h-16 w-auto mx-auto" 
+                src="/stubiabrandicon.png"
               />
+            </div>
+            <h1 className="text-[28px] md:text-[48px] leading-[36px] md:leading-[56px] font-bold md:font-extrabold text-[#121c2a] max-w-3xl mx-auto tracking-tight md:tracking-[-0.02em]">
+              Raih PTN Impianmu dengan Berlatih di <span className="brand-title"><span className="brand-stu">stu</span><span className="brand-bia">bia</span><span className="brand-id">.id</span></span>
+            </h1>
+            <p className="text-[18px] leading-[28px] text-[#434654] max-w-2xl mx-auto">
+              Latihan UTBK dan Ujian Mandiri mirip aslinya: CBT, penilaian IRT, materi dan pembahasan lengkap, ranking jurusan, dan ranking nasional. Akses di mana saja.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center w-full sm:w-auto">
+              <button
+                className="bg-[#0055D4] text-white px-8 py-4 rounded-lg font-semibold text-[14px] tracking-[0.05em] inline-flex items-center justify-center hover:opacity-90 transition-all shadow-sm w-full sm:w-auto"
+                onClick={() => navigate("/register")}
+              >
+                Mulai Belajar
+              </button>
+              <button
+                className="border border-[#0055D4] text-[#0055D4] bg-white px-8 py-4 rounded-lg font-semibold text-[14px] tracking-[0.05em] inline-flex items-center justify-center hover:bg-[#e6eeff] transition-all w-full sm:w-auto"
+                onClick={() => navigate("/login")}
+              >
+                Lihat Program
+              </button>
             </div>
           </div>
         </section>

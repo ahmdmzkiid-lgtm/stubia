@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { articleService, careerService, teamService } from '../../services/api';
+import { articleService, careerService } from '../../services/api';
 import toast from 'react-hot-toast';
 
 export default function CMSDashboard() {
@@ -9,7 +9,6 @@ export default function CMSDashboard() {
     publishedArticles: 0,
     careers: 0,
     activeCareers: 0,
-    team: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -17,22 +16,30 @@ export default function CMSDashboard() {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const [articlesRes, careersRes, teamRes] = await Promise.all([
-          articleService.listAll(),
-          careerService.listAll(),
-          teamService.list(),
-        ]);
 
-        const articles = articlesRes.data.data || [];
-        const careers = careersRes.data.data || [];
-        const team = teamRes.data.data || [];
+        // Fetch each independently so one failure doesn't break everything
+        let articles = [];
+        let careers = [];
+
+        try {
+          const articlesRes = await articleService.listAll();
+          articles = articlesRes.data.data || [];
+        } catch (err) {
+          console.warn('Failed to fetch articles stats:', err);
+        }
+
+        try {
+          const careersRes = await careerService.listAll();
+          careers = careersRes.data.data || [];
+        } catch (err) {
+          console.warn('Failed to fetch careers stats:', err);
+        }
 
         setStats({
           articles: articles.length,
           publishedArticles: articles.filter(a => a.is_published).length,
           careers: careers.length,
           activeCareers: careers.filter(c => c.is_active).length,
-          team: team.length,
         });
       } catch (error) {
         console.error('Failed to fetch CMS stats:', error);
@@ -66,16 +73,6 @@ export default function CMSDashboard() {
       color: 'from-[#8b5cf6] to-[#ec4899]',
       bgColor: 'bg-purple-50 text-[#8b5cf6]',
     },
-    {
-      title: 'Manajemen Tim',
-      description: 'Kelola profil tim, pengurus, mentor, dan instruktur Stubia.',
-      path: '/cms/team',
-      count: stats.team,
-      subCountText: 'Anggota Aktif',
-      icon: 'badge',
-      color: 'from-[#10b981] to-[#14b8a6]',
-      bgColor: 'bg-emerald-50 text-[#10b981]',
-    },
   ];
 
   if (loading) {
@@ -98,13 +95,13 @@ export default function CMSDashboard() {
             Portal Korporasi & HR
           </h1>
           <p className="text-white/80 text-[15px] leading-relaxed">
-            Selamat datang di hub pengelolaan konten eksternal Stubia. Di sini Anda dapat memperbarui info karir, mempublikasikan artikel blog, serta mengatur profil tim perusahaan yang tampil pada landing page.
+            Selamat datang di hub pengelolaan konten eksternal Stubia. Di sini Anda dapat memperbarui info karir, mempublikasikan artikel blog, dan mengelola konten publik lainnya.
           </p>
         </div>
       </div>
 
       {/* Grid Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {cards.map((card) => (
           <div 
             key={card.path} 
@@ -144,11 +141,11 @@ export default function CMSDashboard() {
         <ul className="space-y-3.5 text-[13.5px] text-[#424656] leading-relaxed">
           <li className="flex items-start gap-2.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#0050cb] mt-2 shrink-0"></span>
-            <span>Semua data yang Anda buat atau edit di sini akan langsung direfleksikan ke halaman publik, seperti halaman <strong>Karir (/careers)</strong>, halaman <strong>Tim</strong>, dan halaman <strong>Blog</strong>.</span>
+            <span>Semua data yang Anda buat atau edit di sini akan langsung direfleksikan ke halaman publik, seperti halaman <strong>Karir (/careers)</strong> dan halaman <strong>Blog</strong>.</span>
           </li>
           <li className="flex items-start gap-2.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#0050cb] mt-2 shrink-0"></span>
-            <span>Untuk profil Karyawan/Tim, Anda dapat menambahkan link sosial media (LinkedIn, Instagram) dan mengunggah foto profil menggunakan server upload Stubia.</span>
+            <span>Di bagian Lowongan Kerja, Anda dapat menambahkan posisi baru, mengaktifkan/nonaktifkan lowongan, serta melihat lamaran yang masuk dari calon pelamar.</span>
           </li>
           <li className="flex items-start gap-2.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#0050cb] mt-2 shrink-0"></span>

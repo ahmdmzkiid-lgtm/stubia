@@ -223,12 +223,28 @@ export const uploadService = {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
+  uploadPublicImage: (file, folder = 'general') => {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('folder', folder);
+    return api.post('/upload/public/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
   deleteImage: (publicId) => api.delete('/upload/image', { data: { public_id: publicId } }),
   uploadDocument: (file, folder = 'documents') => {
     const formData = new FormData();
     formData.append('document', file);
     formData.append('folder', folder);
     return api.post('/upload/document', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  uploadPublicDocument: (file, folder = 'documents') => {
+    const formData = new FormData();
+    formData.append('document', file);
+    formData.append('folder', folder);
+    return api.post('/upload/public/document', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
@@ -239,13 +255,6 @@ export const teamService = {
   create: (data) => api.post('/admin/team', data),
   update: (id, data) => api.patch(`/admin/team/${id}`, data),
   delete: (id) => api.delete(`/admin/team/${id}`),
-};
-
-export const todoService = {
-  list: () => api.get('/admin/todos'),
-  create: (data) => api.post('/admin/todos', data),
-  update: (id, data) => api.patch(`/admin/todos/${id}`, data),
-  delete: (id) => api.delete(`/admin/todos/${id}`),
 };
 
 export const articleService = {
@@ -268,6 +277,16 @@ export const careerService = {
   apply: (id, data) => api.post(`/careers/${id}/apply`, data),
   listApplications: () => api.get('/careers/applications/all'),
   deleteApplication: (id) => api.delete(`/careers/applications/${id}`),
+};
+
+export const certificateService = {
+  list: () => api.get('/certificates'),
+  getById: (id) => api.get(`/certificates/${id}`),
+  create: (data) => api.post('/certificates', data),
+  update: (id, data) => api.put(`/certificates/${id}`, data),
+  delete: (id) => api.delete(`/certificates/${id}`),
+  verify: (id) => api.get(`/certificates/verify/${id}`),
+  search: (code) => api.get('/certificates/search', { params: { code } }),
 };
 
 export default api;

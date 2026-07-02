@@ -1,125 +1,59 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import PageWrapper from '../components/layout/PageWrapper';
 import Footer from '../components/Footer';
-import ImageUpload from '../components/ImageUpload';
-import { careerService, uploadService } from '../services/api';
+import { careerService, certificateService } from '../services/api';
 import toast from 'react-hot-toast';
 
 export default function Careers() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [showComingModal, setShowComingModal] = useState(false);
   const [careers, setCareers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [departmentFilter, setDepartmentFilter] = useState('Semua');
 
-  // Apply Modal & Form States
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [applyName, setApplyName] = useState('');
-  const [applyEmail, setApplyEmail] = useState('');
-  const [applyPhone, setApplyPhone] = useState('');
-  const [applyPhoto, setApplyPhoto] = useState('');
-  const [applyCv, setApplyCv] = useState('');
-  const [applyDesc, setApplyDesc] = useState('');
-  
-  // Extra fields
-  const [applyStartDate, setApplyStartDate] = useState('');
-  const [applyTraining, setApplyTraining] = useState(true);
-  const [applyPortfolio, setApplyPortfolio] = useState('');
-  const [applyEducation, setApplyEducation] = useState('S1');
+  // Scroll-based reveal animation
+  const [visibleSections, setVisibleSections] = useState({});
 
-  const [cvUploading, setCvUploading] = useState(false);
-  const [submittingApply, setSubmittingApply] = useState(false);
+  // Certificate verification state
+  const [verifyCode, setVerifyCode] = useState('');
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [verifyError, setVerifyError] = useState(null);
 
-  useEffect(() => {
-    if (user && showApplyModal) {
-      setApplyName(user.name || '');
-      setApplyEmail(user.email || '');
-    }
-  }, [user, showApplyModal]);
-
-  // Auto reopen pending job application after successful login redirect
-  useEffect(() => {
-    const pendingJobId = sessionStorage.getItem('pending_job_id');
-    if (pendingJobId && user && careers.length > 0) {
-      const job = careers.find(j => j.id === pendingJobId);
-      if (job) {
-        setSelectedJob(job);
-        setShowApplyModal(true);
-      }
-      sessionStorage.removeItem('pending_job_id');
-    }
-  }, [user, careers]);
-
-  const handleCvChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const allowed = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp'];
-    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    if (!allowed.includes(ext)) {
-      toast.error('Format file tidak didukung! Gunakan PDF, Word, atau gambar.');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Maksimal ukuran file 10MB.');
-      return;
-    }
-
-    setCvUploading(true);
-    try {
-      const res = await uploadService.uploadDocument(file, 'cvs');
-      if (res.data?.success) {
-        setApplyCv(res.data.data.url);
-        toast.success('CV berhasil diupload');
-      }
-    } catch (err) {
-      toast.error('Gagal mengupload CV');
-    } finally {
-      setCvUploading(false);
-    }
-  };
-
-  const handleApplySubmit = async (e) => {
+  const handleVerifyCertificate = async (e) => {
     e.preventDefault();
-    if (!applyName.trim() || !applyEmail.trim() || !applyPhone.trim() || !applyPhoto || !applyCv || !applyDesc.trim() || !applyStartDate.trim() || !applyEducation.trim()) {
-      toast.error('Harap isi semua kolom wajib pada form lamaran!');
-      return;
-    }
-    setSubmittingApply(true);
+    if (!verifyCode.trim()) return;
+    setVerifyLoading(true);
+    setVerifyResult(null);
+    setVerifyError(null);
     try {
-      await careerService.apply(selectedJob.id, {
-        name: applyName.trim(),
-        email: applyEmail.trim(),
-        phone: applyPhone.trim(),
-        photo_url: applyPhoto,
-        cv_url: applyCv,
-        description: applyDesc.trim(),
-        start_date: applyStartDate.trim(),
-        ready_for_training: applyTraining,
-        portfolio_url: applyPortfolio.trim() || null,
-        last_education: applyEducation.trim(),
-      });
-      toast.success('Lamaran Anda berhasil dikirim! Terima kasih.');
-      setShowApplyModal(false);
-      // Reset form states
-      setApplyPhoto('');
-      setApplyCv('');
-      setApplyDesc('');
-      setApplyPhone('');
-      setApplyStartDate('');
-      setApplyTraining(true);
-      setApplyPortfolio('');
-      setApplyEducation('S1');
+      const res = await certificateService.search(verifyCode.trim());
+      setVerifyResult(res.data.data);
     } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.error || 'Gagal mengirim lamaran.');
+      setVerifyError('Sertifikat tidak ditemukan. Periksa kembali kode yang Anda masukkan.');
     } finally {
-      setSubmittingApply(false);
+      setVerifyLoading(false);
     }
   };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisibleSections((prev) => ({ ...prev, [entry.target.id]: true }));
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+    );
+
+    const sections = document.querySelectorAll('[data-animate]');
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, [loading]);
 
   useEffect(() => {
     const fetchCareers = async () => {
@@ -128,9 +62,6 @@ export default function Careers() {
         const res = await careerService.list();
         const activeCareers = res.data.data || [];
         setCareers(activeCareers);
-        if (activeCareers.length === 0) {
-          setShowComingModal(true);
-        }
       } catch (err) {
         console.error(err);
         toast.error('Gagal mengambil daftar lowongan pekerjaan');
@@ -142,468 +73,450 @@ export default function Careers() {
     fetchCareers();
   }, []);
 
-  const renderNavbar = () => (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#c2c6d8]/30 h-[70px] flex items-center">
-      <div className="flex justify-between items-center px-6 max-w-[1440px] mx-auto w-full">
-        <div className="landing-logo cursor-pointer" onClick={() => navigate('/')}>
-          <img
-            src="/stubiabrandicon.png"
-            alt="Stubia"
-            className="h-10 w-auto"
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <button 
-            className="text-[#424656] hover:text-[#0050cb] font-bold text-sm px-4 py-2 transition-colors" 
-            onClick={() => navigate('/login')}
-          >
-            Login
-          </button>
-          <button 
-            className="bg-[#0050cb] hover:bg-[#003fa4] text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm shadow-[#0050cb]/10" 
-            onClick={() => navigate('/register')}
-          >
-            Daftar Gratis
-          </button>
-        </div>
-      </div>
-    </nav>
-  );
+  // Get unique departments for filter
+  const departments = ['Semua', ...new Set(careers.map(job => job.department))];
+  
+  const filteredCareers = departmentFilter === 'Semua' 
+    ? careers 
+    : careers.filter(job => job.department === departmentFilter);
 
-  const mainContent = (
-    <div>
-      {/* About Section */}
-      <section className="mb-20">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-8">Tentang Stubia</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <p className="text-gray-700 text-lg leading-relaxed mb-4">
-              Stubia adalah platform pembelajaran UTBK terdepan di Indonesia yang membantu ribuan siswa mencapai impian mereka untuk masuk ke universitas ternama.
-            </p>
-            <p className="text-gray-700 text-lg leading-relaxed">
-              Kami berkomitmen untuk menyediakan pengalaman belajar terbaik dengan teknologi terkini dan konten berkualitas tinggi.
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-700 text-lg leading-relaxed mb-4">
-              Di Stubia, kami percaya bahwa setiap anggota tim memiliki peran penting dalam kesuksesan siswa kami. Kami memberikan ruang bagi Anda untuk berinovasi dan berkembang.
-            </p>
-          </div>
-        </div>
-      </section>
+  const sectionClass = (id) =>
+    `transition-all duration-700 ${visibleSections[id] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`;
 
-      {/* Values */}
-      <section className="mb-20">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-12 text-center">Nilai Kami</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#c2c6d8]/30">
-            <h3 className="text-xl font-bold text-[#191b24] mb-3">🎓 Fokus pada Siswa</h3>
-            <p className="text-gray-700">
-              Setiap keputusan yang kami ambil selalu didasarkan pada dampak positif bagi pengalaman belajar siswa kami.
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#c2c6d8]/30">
-            <h3 className="text-xl font-bold text-[#191b24] mb-3">🚀 Inovasi Berkelanjutan</h3>
-            <p className="text-gray-700">
-              Kami terus memperbarui cara belajar, teknologi yang digunakan, dan konten materi untuk menjadi yang terbaik.
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#c2c6d8]/30">
-            <h3 className="text-xl font-bold text-[#191b24] mb-3">💼 Budaya Kerja</h3>
-            <p className="text-gray-700">
-              Tim yang kolaboratif, inovatif, dan saling mendukung untuk menciptakan produk yang luar biasa.
-            </p>
-          </div>
-        </div>
-      </section>
+  const getDeptIcon = (dept) => {
+    const d = (dept || '').toLowerCase();
+    if (d.includes('engineering') || d.includes('tech') || d.includes('dev')) return 'code';
+    if (d.includes('design') || d.includes('creative')) return 'palette';
+    if (d.includes('marketing') || d.includes('sales')) return 'campaign';
+    if (d.includes('content') || d.includes('curriculum') || d.includes('tutor') || d.includes('tentor') || d.includes('writer')) return 'menu_book';
+    return 'work';
+  };
 
-      {/* Open Positions */}
-      <section className="mb-20">
-        <h2 className="text-3xl font-extrabold text-[#191b24] mb-8">Lowongan Terbuka</h2>
-        
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-2 border-[#0050cb] border-t-transparent rounded-full animate-spin"></div>
+  const getDeptColor = (dept) => {
+    const d = (dept || '').toLowerCase();
+    if (d.includes('engineering') || d.includes('tech') || d.includes('dev')) return 'from-[#2563eb] to-[#3b82f6]';
+    if (d.includes('design') || d.includes('creative')) return 'from-[#db2777] to-[#f43f5e]';
+    if (d.includes('marketing') || d.includes('sales')) return 'from-[#7e22ce] to-[#a855f7]';
+    return 'from-[#0d9488] to-[#14b8a6]';
+  };
+
+  const values = [
+    {
+      icon: 'lightbulb',
+      title: 'Inovasi',
+      description: 'Kami menantang status quo dan mendorong ide-ide berani yang melampaui batas dari apa yang mungkin dilakukan di industri pendidikan.',
+    },
+    {
+      icon: 'groups',
+      title: 'Kolaborasi',
+      description: 'Kesuksesan adalah upaya kolektif. Kami meruntuhkan sekat-sekat untuk bekerja sama mencapai tujuan bersama dengan transparansi dan rasa hormat.',
+    },
+    {
+      icon: 'trending_up',
+      title: 'Pertumbuhan',
+      description: 'Kami berinvestasi pada sumber daya manusia kami. Mulai dari bimbingan hingga tunjangan belajar, kami memastikan evolusi profesional Anda tidak pernah berhenti.',
+    },
+  ];
+
+  const perks = [
+    { icon: 'home_work', label: 'Kerja Remote' },
+    { icon: 'medical_services', label: 'Asuransi Kesehatan' },
+    { icon: 'school', label: 'Anggaran Belajar' },
+    { icon: 'timer', label: 'Jam Kerja Fleksibel' },
+    { icon: 'payments', label: 'Gaji Kompetitif' },
+    { icon: 'flight', label: 'Cuti Tak Terbatas' },
+    { icon: 'laptop_mac', label: 'Teknologi Modern' },
+    { icon: 'celebration', label: 'Retret Tim' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#f8f9ff] flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
+      
+      {/* ── Navbar ── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#c3c6d6]/30 h-[70px] flex items-center">
+        <div className="flex justify-between items-center px-4 md:px-6 max-w-[1280px] mx-auto w-full">
+          <div className="cursor-pointer" onClick={() => navigate('/')}>
+            <img
+              src="/stubiabrandicon.png"
+              alt="Stubia"
+              className="h-10 w-auto"
+            />
           </div>
-        ) : careers.length === 0 ? (
-          <p className="text-gray-600 text-center py-12 bg-white rounded-3xl border border-[#c2c6d8]/35 shadow-sm">
-            Saat ini belum ada lowongan yang tersedia. Silakan periksa kembali di kemudian hari atau hubungi kami untuk informasi lebih lanjut.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {careers.map((job) => (
-              <div
-                key={job.id}
-                className="bg-white border border-[#c2c6d8]/40 rounded-3xl p-6 hover:shadow-md transition flex flex-col justify-between"
+          <div className="flex items-center gap-3">
+            {user ? (
+              <button 
+                className="bg-[#0055D4] hover:bg-[#003fa4] text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-all" 
+                onClick={() => navigate('/dashboard')}
               >
-                <div>
-                  <h3 className="text-xl font-bold text-[#191b24] mb-2">{job.title}</h3>
-                  <div className="flex gap-2.5 mb-4">
-                    <span className="inline-block bg-[#0050cb]/10 text-[#0050cb] text-xs font-semibold px-2.5 py-1 rounded-md">
-                      {job.department}
-                    </span>
-                    <span className="inline-block bg-gray-50 text-gray-700 text-xs font-semibold px-2.5 py-1 rounded-md">
-                      {job.type}
-                    </span>
-                  </div>
-                  <p className="text-[#424656] text-sm mb-3 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[16px] text-slate-400">location_on</span>
-                    {job.location}
-                  </p>
-                  <p className="text-gray-700 text-sm mb-4 leading-relaxed">{job.description}</p>
-                  
-                  {job.requirements && (
-                    <div className="mb-6">
-                      <h4 className="text-[13px] font-bold text-[#191b24] mb-2">Kualifikasi:</h4>
-                      <ul className="space-y-1">
-                        {job.requirements.split('\n').map((req, idx) => (
-                          <li key={idx} className="text-gray-600 text-[12.5px] leading-relaxed flex items-start gap-1">
-                            <span className="text-[#0050cb] select-none font-bold">•</span>
-                            <span>{req.replace(/^-\s*/, '')}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-                
-                <button
-                  onClick={() => {
-                    if (!user) {
-                      sessionStorage.setItem('pending_job_id', job.id);
-                      toast('Silakan login terlebih dahulu untuk melamar.', { icon: '🔒' });
-                      navigate('/login?redirect=/careers');
-                      return;
-                    }
-                    setSelectedJob(job); setShowApplyModal(true);
-                  }}
-                  className="w-full bg-[#0050cb] hover:bg-[#003fa4] text-white font-bold py-2.5 rounded-xl text-center text-sm block transition-all shadow-sm shadow-[#0050cb]/10 cursor-pointer"
+                Dashboard
+              </button>
+            ) : (
+              <>
+                <button 
+                  className="text-[#434654] hover:text-[#0055D4] font-semibold text-sm px-4 py-2 transition-colors" 
+                  onClick={() => navigate('/login')}
                 >
-                  Lamar Sekarang
+                  Login
                 </button>
+                <button 
+                  className="bg-[#0055D4] hover:bg-[#003fa4] text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-all" 
+                  onClick={() => navigate('/register')}
+                >
+                  Daftar Gratis
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* ── Hero Section ── */}
+      <section 
+        id="hero"
+        data-animate
+        className={`relative overflow-hidden pt-[120px] pb-16 md:pt-[160px] md:pb-24 px-4 md:px-6 max-w-[1280px] mx-auto flex flex-col items-center gap-12 ${sectionClass('hero')}`}
+      >
+        <div className="w-full flex flex-col items-center text-center space-y-8 z-10">
+          <div className="mb-4">
+            <img 
+              alt="stubia.id logo" 
+              className="h-16 w-auto mx-auto" 
+              src="/stubiabrandicon.png"
+            />
+          </div>
+          <h1 className="text-[24px] md:text-[48px] leading-[32px] md:leading-[56px] font-bold md:font-extrabold text-[#121c2a] max-w-3xl mx-auto tracking-tight md:tracking-[-0.02em]">
+            Bangun Masa Depan Anda bersama <span className="text-[#0055D4]">Stubia</span>
+          </h1>
+          <p className="text-[18px] leading-[28px] text-[#434654] max-w-2xl mx-auto">
+            Bergabunglah dengan tim visioner dan pemecah masalah. Kami sedang membangun infrastruktur pendidikan profesional generasi berikutnya yang menghargai perspektif unik dan keunggulan teknis Anda.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center">
+            <a 
+              href="#jobs" 
+              className="bg-[#0055D4] text-white px-8 py-4 rounded-lg font-semibold text-[14px] tracking-[0.05em] inline-flex items-center justify-center hover:opacity-90 transition-all"
+            >
+              Lihat Lowongan
+            </a>
+            <a 
+              href="#values" 
+              className="border border-[#0055D4] text-[#0055D4] px-8 py-4 rounded-lg font-semibold text-[14px] tracking-[0.05em] inline-flex items-center justify-center hover:bg-[#e6eeff] transition-all"
+            >
+              Budaya Kami
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Values / Culture Section ── */}
+      <section 
+        id="values"
+        data-animate
+        className={`bg-[#eff4ff] py-16 md:py-24 ${sectionClass('values')}`}
+      >
+        <div className="px-4 md:px-6 max-w-[1280px] mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-[32px] leading-[40px] font-bold text-[#121c2a] tracking-[-0.01em]">Budaya Kami</h2>
+            <p className="text-[16px] leading-[24px] text-[#434654] max-w-2xl mx-auto">
+              Kami beroperasi di atas fondasi kepercayaan, di mana setiap individu memiliki agensi untuk mendorong perubahan dan dukungan untuk mengembangkan karier mereka.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {values.map((value, idx) => (
+              <div 
+                key={idx} 
+                className="bg-white p-10 rounded-xl border border-[#c3c6d6] text-center flex flex-col items-center hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+              >
+                <div className="w-16 h-16 bg-[#e6eeff] rounded-full flex items-center justify-center mb-6">
+                  <span className="material-symbols-outlined text-[#0055D4] text-3xl">{value.icon}</span>
+                </div>
+                <h3 className="text-[24px] leading-[32px] font-semibold text-[#121c2a] mb-4">{value.title}</h3>
+                <p className="text-[16px] leading-[24px] text-[#434654]">{value.description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Job Listings Section ── */}
+      <section 
+        id="jobs"
+        data-animate
+        className={`py-16 md:py-24 px-4 md:px-6 max-w-[1280px] mx-auto w-full ${sectionClass('jobs')}`}
+      >
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+          <div className="space-y-4">
+            <h2 className="text-[32px] leading-[40px] font-bold text-[#121c2a] tracking-[-0.01em]">Lowongan Pekerjaan</h2>
+            <p className="text-[16px] leading-[24px] text-[#434654]">Temukan peran yang sesuai dengan keahlian dan ambisi Anda.</p>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 w-full md:w-auto scrollbar-hide">
+            {departments.map((dept) => (
+              <button
+                key={dept}
+                onClick={() => setDepartmentFilter(dept)}
+                className={`px-4 py-2 rounded-full text-[14px] font-semibold tracking-[0.05em] whitespace-nowrap cursor-pointer transition-colors ${
+                  departmentFilter === dept 
+                    ? 'bg-[#0055D4] text-white' 
+                    : 'bg-[#e6eeff] text-[#0055D4] hover:bg-[#dee9fc]'
+                }`}
+              >
+                {dept === 'Semua' ? 'Semua Peran' : dept}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-10 h-10 border-3 border-[#0055D4] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : filteredCareers.length === 0 ? (
+          <div className="bg-white border border-[#c3c6d6] rounded-xl py-20 text-center">
+            <span className="material-symbols-outlined text-[64px] text-[#c3c6d6] block mb-4">work_outline</span>
+            <h3 className="text-[24px] font-semibold text-[#121c2a] mb-2">Belum Ada Lowongan</h3>
+            <p className="text-[16px] text-[#434654] max-w-md mx-auto">
+              {departmentFilter !== 'Semua' 
+                ? `Saat ini belum ada lowongan untuk divisi ${departmentFilter}. Coba lihat divisi lainnya.`
+                : 'Saat ini belum ada lowongan yang tersedia. Silakan periksa kembali di kemudian hari.'
+              }
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {filteredCareers.map((job) => {
+              const typeSlug = (job.type || 'volunter').toLowerCase().replace(/\s+/g, '-');
+              const isRemote = (job.location || '').toLowerCase().includes('remote');
+              
+              // Parse bullets safely
+              const descBullets = (job.description || '').split('\n').filter(b => b.trim()).slice(0, 3);
+              const reqBullets = (job.requirements || '').split('\n').filter(b => b.trim()).slice(0, 3);
+
+              return (
+                <div 
+                  key={job.id} 
+                  className="bg-white border border-[#c3c6d6] rounded-3xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#0055D4]/40 hover:shadow-lg transition-all duration-300 relative"
+                >
+                  <div>
+                    {/* Header: megphone icon + Title + badges */}
+                    <div className="flex items-start gap-4 mb-5">
+                      <div className={`w-14 h-14 bg-gradient-to-tr ${getDeptIcon(job.department) === 'work' ? 'from-[#0055D4] to-[#3b82f6]' : getDeptColor(job.department)} rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm`}>
+                        <span className="material-symbols-outlined text-[28px]">{getDeptIcon(job.department)}</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <h3 className="text-[20px] leading-[26px] font-bold text-[#121c2a]">{job.title}</h3>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="bg-[#ffebd5] text-[#ea580c] font-bold text-[11px] px-3 py-1 rounded-full flex items-center gap-1 select-none">
+                            <span className="material-symbols-outlined text-[14px]">work</span> {job.type}
+                          </span>
+                          <span className="bg-[#dbeafe] text-[#2563eb] font-bold text-[11px] px-3 py-1 rounded-full flex items-center gap-1 select-none">
+                            <span className="material-symbols-outlined text-[14px]">{isRemote ? 'home_work' : 'location_on'}</span> {isRemote ? 'Remote' : job.location}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dashed line separator */}
+                    <div className="border-t border-dashed border-[#c3c6d6]/60 my-5"></div>
+
+                    {/* Deskripsi Pekerjaan */}
+                    {descBullets.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-[14px] font-bold text-[#121c2a] flex items-center gap-1.5 mb-2">
+                          <span className="material-symbols-outlined text-[18px] text-[#0055D4]">format_list_bulleted</span>
+                          Deskripsi Pekerjaan
+                        </h4>
+                        <ul className="space-y-1 text-[13px] text-[#434654] list-disc list-inside pl-1">
+                          {descBullets.map((bullet, idx) => (
+                            <li key={idx} className="leading-[20px] truncate">{bullet.replace(/^-\s*/, '')}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Kualifikasi */}
+                    {reqBullets.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="text-[14px] font-bold text-[#121c2a] flex items-center gap-1.5 mb-2">
+                          <span className="material-symbols-outlined text-[18px] text-[#0055D4]">person</span>
+                          Kualifikasi
+                        </h4>
+                        <ul className="space-y-1 text-[13px] text-[#434654] list-disc list-inside pl-1">
+                          {reqBullets.map((bullet, idx) => (
+                            <li key={idx} className="leading-[20px] truncate">{bullet.replace(/^-\s*/, '')}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Lamar button */}
+                  <button
+                    onClick={() => {
+                      navigate(`/careers/daftar/${typeSlug}/${job.id}`);
+                    }}
+                    className="w-full bg-[#0055D4] hover:bg-[#003fa4] text-white font-bold py-3.5 px-6 rounded-2xl text-center text-sm flex items-center justify-center gap-2 transition-all shadow-sm shadow-[#0055D4]/10 cursor-pointer"
+                  >
+                    <span>Lamar Sekarang</span>
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* Newsletter */}
-      <section className="bg-gradient-to-r from-[#0050cb] to-[#0050cb]/80 rounded-3xl p-12 text-center text-white shadow-sm shadow-[#0050cb]/10">
-        <h2 className="text-3xl font-extrabold mb-4">Dapatkan Notifikasi Lowongan Terbaru</h2>
-        <p className="text-white/90 mb-8 max-w-md mx-auto">
-          Daftarkan email Anda untuk menerima notifikasi ketika kami membuka lowongan baru.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-          <input
-            type="email"
-            placeholder="Masukkan email Anda"
-            className="flex-1 px-4 py-3 rounded-xl focus:outline-none text-[14px] text-gray-800"
-          />
-          <button className="bg-white text-[#0050cb] hover:bg-gray-100 font-bold px-6 py-3 rounded-xl transition text-[14px]">
-            Daftar
-          </button>
-        </div>
-      </section>
-
-      {/* Contact */}
-      <section className="mt-20">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-8">Hubungi Kami</h2>
-        <p className="text-gray-700 mb-6 text-lg">
-          Memiliki pertanyaan tentang karir di Stubia? Jangan ragu untuk menghubungi kami:
-        </p>
-        <div className="bg-white p-8 rounded-3xl border border-[#c2c6d8]/40 shadow-sm">
-          <p className="text-gray-800 mb-2"><strong>Email:</strong> careers@stubia.com</p>
-          <p className="text-gray-800 mb-2"><strong>Telepon:</strong> 085183147625</p>
-          <p className="text-gray-800"><strong>Alamat:</strong> Jakarta, Indonesia</p>
-        </div>
-      </section>
-
-      {/* Footer Link */}
-      <div className="py-8 border-t border-[#c2c6d8]/30 mt-20">
-        <Link 
-          to={user ? "/dashboard" : "/"} 
-          className="text-[#0050cb] hover:text-[#0050cb]/80 font-bold text-sm flex items-center gap-1"
-        >
-          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-          <span>{user ? "Kembali ke Dashboard" : "Kembali ke Beranda"}</span>
-        </Link>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-[#faf8ff] flex flex-col">
-      {/* Modal */}
-      {showComingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-xl border border-gray-100">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Lowongan Belum Dibuka</h2>
-              <p className="text-gray-600 mb-4 text-sm leading-relaxed">
-                Terima kasih atas minat Anda bergabung dengan tim Stubia!
-              </p>
-              <p className="text-gray-550 mb-8 text-xs leading-relaxed">
-                Saat ini kami belum memiliki lowongan pekerjaan terbuka. Namun, kami akan segera mengumumkan posisi terbaru. Silakan periksa kembali halaman ini atau hubungi kami untuk informasi lebih lanjut.
-              </p>
-              <button
-                onClick={() => setShowComingModal(false)}
-                className="bg-[#0050cb] text-white font-bold py-2.5 px-8 rounded-xl hover:bg-[#0050cb]/90 text-sm transition"
+      {/* ── Perks & Benefits Section ── */}
+      <section 
+        id="perks"
+        data-animate
+        className={`bg-[#e6eeff] py-16 md:py-24 ${sectionClass('perks')}`}
+      >
+        <div className="px-4 md:px-6 max-w-[1280px] mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-[32px] leading-[40px] font-bold text-[#121c2a] tracking-[-0.01em]">Tunjangan & Manfaat</h2>
+            <p className="text-[16px] leading-[24px] text-[#434654] max-w-2xl mx-auto">
+              Kami peduli dengan kesejahteraan Anda sama seperti pekerjaan Anda. Inilah yang kami tawarkan kepada tim kami.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+            {perks.map((perk, idx) => (
+              <div 
+                key={idx} 
+                className="bg-white p-8 rounded-xl flex flex-col items-center text-center hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
               >
-                Tutup
-              </button>
-            </div>
+                <span className="material-symbols-outlined text-[#0055D4] text-4xl mb-4">{perk.icon}</span>
+                <h4 className="text-[14px] leading-[20px] font-semibold tracking-[0.05em] text-[#121c2a]">{perk.label}</h4>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Apply Job Modal */}
-      {showApplyModal && selectedJob && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowApplyModal(false)}></div>
-          
-          <div className="bg-white border border-[#c2c6d8] rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col relative z-10 shadow-2xl animate-[fadeInScale_0.2s_ease-out]">
-            
-            {/* Modal Header */}
-            <div className="px-4 sm:px-6 py-4 border-b border-[#c2c6d8]/40 flex justify-between items-center bg-[#f2f3ff]/40">
-              <div>
-                <h2 className="text-[17px] font-bold text-[#191b24]">Form Lamaran Pekerjaan</h2>
-                <p className="text-[12px] text-[#727687] mt-0.5">Posisi: <strong className="text-[#0050cb]">{selectedJob.title}</strong> — {selectedJob.department}</p>
-              </div>
+      {/* ── CTA Section ── */}
+      <section 
+        id="cta"
+        data-animate
+        className={`py-16 md:py-24 px-4 md:px-6 max-w-[1280px] mx-auto w-full text-center ${sectionClass('cta')}`}
+      >
+        <div className="bg-[#0055D4] text-white p-12 md:p-24 rounded-2xl relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+          <div className="relative z-10 space-y-8">
+            <h2 className="text-[24px] md:text-[48px] leading-[32px] md:leading-[56px] font-bold md:font-extrabold tracking-tight md:tracking-[-0.02em]">Tidak menemukan yang cocok?</h2>
+            <p className="text-[18px] leading-[28px] text-white/90 max-w-2xl mx-auto">
+              Kami selalu mencari talenta luar biasa untuk bergabung dalam misi kami. Kirimkan CV Anda saja, dan kami akan mempertimbangkan Anda untuk lowongan di masa depan.
+            </p>
+            <div className="pt-6">
               <button 
-                onClick={() => setShowApplyModal(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#f2f3ff] text-[#424656] hover:text-[#0050cb] transition-colors shrink-0"
+                onClick={() => {
+                  window.open('mailto:careers@stubia.id?subject=Lamaran Spontan - Stubia', '_blank');
+                }}
+                className="bg-white text-[#0055D4] px-10 py-5 rounded-lg font-semibold text-[14px] tracking-[0.05em] hover:shadow-xl transition-all transform hover:-translate-y-1"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                Kirim Lamaran Spontan
               </button>
             </div>
-
-            {/* Modal Form */}
-            <form onSubmit={handleApplySubmit} className="flex-1 overflow-y-auto flex flex-col">
-              <div className="p-4 sm:p-6 space-y-5 flex-1">
-
-                {/* Upload Row: Photo & CV */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {/* Foto 3x4 */}
-                  <div>
-                    <ImageUpload
-                      value={applyPhoto}
-                      onChange={setApplyPhoto}
-                      folder="applications"
-                      label="Foto Pas 3x4 *"
-                      aspectRatio="aspect-[3/4]"
-                      uploadOnly={true}
-                    />
-                    <p className="text-[11px] text-[#727687] mt-1">Upload foto formal 3x4 (JPG/PNG, max 10MB).</p>
-                  </div>
-
-                  {/* CV Upload */}
-                  <div className="space-y-2">
-                    <label className="block text-[13px] font-semibold text-[#424656]">CV / Resume *</label>
-                    <div 
-                      className={`relative border-2 border-dashed rounded-xl overflow-hidden cursor-pointer transition-colors aspect-[3/4] flex flex-col items-center justify-center ${
-                        applyCv ? 'border-green-400 bg-green-50/30' : 'border-[#c2c6d8] hover:border-[#0050cb] bg-[#f2f3ff]/30'
-                      }`}
-                      onClick={() => document.getElementById('cv-file-input')?.click()}
-                    >
-                      <input 
-                        id="cv-file-input"
-                        type="file" 
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" 
-                        onChange={handleCvChange} 
-                        className="hidden"
-                      />
-                      {cvUploading ? (
-                        <>
-                          <span className="material-symbols-outlined text-[32px] text-[#0050cb] animate-spin">progress_activity</span>
-                          <p className="text-[13px] font-medium text-[#424656] mt-2">Mengupload...</p>
-                        </>
-                      ) : applyCv ? (
-                        <div className="text-center p-4">
-                          <span className="material-symbols-outlined text-[40px] text-green-500 mb-2">task</span>
-                          <p className="text-[13px] font-bold text-green-700">CV Berhasil Diupload</p>
-                          <a href={applyCv} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#0050cb] underline mt-1 block" onClick={e => e.stopPropagation()}>Lihat file</a>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setApplyCv(''); }}
-                            className="mt-3 px-3 py-1.5 rounded-lg bg-white border border-[#c2c6d8] text-[#ba1a1a] text-[11px] font-bold hover:bg-red-50 transition-colors flex items-center gap-1 mx-auto"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">delete</span>
-                            Hapus
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-[32px] text-[#727687]">upload_file</span>
-                          <p className="text-[13px] font-bold text-[#424656] mt-2">Klik untuk upload CV</p>
-                          <p className="text-[11px] text-[#727687]">PDF, Word, atau Gambar (max 10MB)</p>
-                        </>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-[#727687]">Upload CV/resume dalam format PDF, DOC, atau gambar.</p>
-                  </div>
-                </div>
-
-                {/* Name & Email Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[13px] font-bold text-[#727687] mb-1.5">Nama Lengkap *</label>
-                    <input
-                      type="text"
-                      value={applyName}
-                      onChange={(e) => setApplyName(e.target.value)}
-                      placeholder="Nama lengkap Anda"
-                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24] placeholder-slate-400"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[13px] font-bold text-[#727687] mb-1.5">Email *</label>
-                    <input
-                      type="email"
-                      value={applyEmail}
-                      onChange={(e) => setApplyEmail(e.target.value)}
-                      placeholder="contoh@email.com"
-                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24] placeholder-slate-400"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Education & Portfolio Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[13px] font-bold text-[#727687] mb-1.5">Pendidikan Terakhir *</label>
-                    <select
-                      value={applyEducation}
-                      onChange={(e) => setApplyEducation(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24]"
-                      required
-                    >
-                      <option value="SMA/SMK">SMA/SMK</option>
-                      <option value="D3">D3</option>
-                      <option value="S1">S1 (Sarjana)</option>
-                      <option value="S2">S2 (Magister)</option>
-                      <option value="Lainnya">Lainnya</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[13px] font-bold text-[#727687] mb-1.5">Link Portofolio (Opsional)</label>
-                    <input
-                      type="url"
-                      value={applyPortfolio}
-                      onChange={(e) => setApplyPortfolio(e.target.value)}
-                      placeholder="https://behance.net/username atau drive"
-                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24] placeholder-slate-400"
-                    />
-                  </div>
-                </div>
-
-                {/* Start Date & Ready for Training Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[13px] font-bold text-[#727687] mb-1.5">Tanggal Siap Mulai Bekerja *</label>
-                    <input
-                      type="date"
-                      value={applyStartDate}
-                      onChange={(e) => setApplyStartDate(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24]"
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col justify-center pl-1 pt-4 sm:pt-6">
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={applyTraining}
-                        onChange={(e) => setApplyTraining(e.target.checked)}
-                        className="w-4 h-4 rounded border-[#c2c6d8] bg-white text-[#0050cb] focus:ring-0"
-                      />
-                      <span className="text-[13px] font-semibold text-[#424656]">Bersedia mengikuti program training *</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* WhatsApp */}
-                <div>
-                  <label className="block text-[13px] font-bold text-[#727687] mb-1.5">Nomor WhatsApp *</label>
-                  <input
-                    type="tel"
-                    value={applyPhone}
-                    onChange={(e) => setApplyPhone(e.target.value)}
-                    placeholder="Contoh: 08xxxxxxxxxx"
-                    className="w-full px-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24] placeholder-slate-400"
-                    required
-                  />
-                </div>
-
-                {/* Description / Cover Letter */}
-                <div>
-                  <label className="block text-[13px] font-bold text-[#727687] mb-1.5">Deskripsi Diri / Cover Letter *</label>
-                  <textarea
-                    value={applyDesc}
-                    onChange={(e) => setApplyDesc(e.target.value)}
-                    placeholder="Ceritakan tentang diri Anda, pengalaman, motivasi melamar posisi ini, dan keahlian yang relevan..."
-                    rows={4}
-                    className="w-full px-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13.5px] text-[#191b24] placeholder-slate-400 resize-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Modal Footer Actions */}
-              <div className="px-4 sm:px-6 py-4 border-t border-[#c2c6d8]/40 bg-[#f2f3ff]/40 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowApplyModal(false)}
-                  className="px-5 py-2.5 rounded-xl bg-white border border-[#c2c6d8] hover:bg-gray-50 text-[#424656] font-semibold text-sm transition-all"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingApply}
-                  className="px-6 py-2.5 rounded-xl bg-[#0050cb] hover:bg-[#003fa4] text-white font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  {submittingApply && <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>}
-                  Kirim Lamaran
-                </button>
-              </div>
-            </form>
           </div>
         </div>
-      )}
+      </section>
 
-      {user ? (
-        <PageWrapper>
-          <div className="max-w-[1280px] mx-auto w-full py-4 sm:py-6 animate-fade-in">
-            <h1 className="text-3xl font-extrabold text-[#191b24] mb-8">Karir di Stubia</h1>
-            {mainContent}
-          </div>
-        </PageWrapper>
-      ) : (
-        <div className="flex-1 flex flex-col">
-          {renderNavbar()}
-          
+      {/* ── Certificate Verification Section ── */}
+      <section
+        id="verifikasi-sertifikat"
+        data-animate
+        className={`py-20 px-4 bg-gradient-to-b from-slate-50 to-white border-t border-slate-100 transition-all duration-700 ${visibleSections['verifikasi-sertifikat'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+      >
+        <div className="max-w-2xl mx-auto text-center">
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#0050cb] to-[#0050cb]/80 pt-[120px] pb-16">
-            <div className="max-w-[1280px] mx-auto px-6 w-full text-white">
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
-                Bergabunglah dengan Tim Stubia
-              </h1>
-              <p className="text-white/90 text-lg max-w-xl">
-                Kami mencari talenta terbaik untuk membangun masa depan pendidikan Indonesia
-              </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#EEF3FF] text-[#0055D4] border border-blue-200 mb-6">
+            <span className="material-symbols-outlined text-[16px]">verified</span>
+            Verifikasi Sertifikat
+          </div>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">
+            Cek Keaslian Sertifikat
+          </h2>
+          <p className="text-slate-500 text-lg mb-10 leading-relaxed">
+            Masukkan kode sertifikat Stubia.id untuk memverifikasi keasliannya secara instan.
+          </p>
+
+          {/* Input Form */}
+          <form onSubmit={handleVerifyCertificate} className="mb-6">
+            <div className="flex gap-3 max-w-lg mx-auto">
+              <input
+                type="text"
+                id="verifikasi-input"
+                value={verifyCode}
+                onChange={(e) => {
+                  setVerifyCode(e.target.value);
+                  setVerifyResult(null);
+                  setVerifyError(null);
+                }}
+                placeholder="Contoh: STUBIA/2025/INT/001"
+                className="flex-1 px-5 py-3.5 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#0055D4] focus:ring-2 focus:ring-[#0055D4]/10 text-slate-900 placeholder-slate-400 font-mono text-sm transition-all"
+              />
+              <button
+                id="verifikasi-btn"
+                type="submit"
+                disabled={verifyLoading || !verifyCode.trim()}
+                className="px-6 py-3.5 bg-[#0055D4] hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold flex items-center gap-2 transition-all shrink-0"
+              >
+                {verifyLoading ? (
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                ) : (
+                  <span className="material-symbols-outlined text-[18px]">search</span>
+                )}
+                Cek
+              </button>
             </div>
-          </div>
+          </form>
 
-          {/* Main Content */}
-          <div className="max-w-[1280px] mx-auto px-6 py-16 flex-1 w-full animate-fade-in">
-            {mainContent}
-          </div>
+          {/* Success Result */}
+          {verifyResult && (
+            <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-6 text-left max-w-lg mx-auto shadow-sm">
+              <div className="flex items-center gap-2.5 mb-5">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-emerald-600 text-[18px]">verified</span>
+                </div>
+                <span className="font-bold text-emerald-700 text-base">Sertifikat Terverifikasi</span>
+                <span className="ml-auto text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">VALID ✓</span>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { label: 'Nama Penerima', value: verifyResult.recipient_name },
+                  { label: 'Posisi / Jabatan', value: verifyResult.position },
+                  { label: 'Program', value: verifyResult.program_type === 'internship' ? 'Magang (Internship)' : 'Relawan (Volunteer)' },
+                  { label: 'Periode', value: `${new Date(verifyResult.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} – ${new Date(verifyResult.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` },
+                  { label: 'Kode Sertifikat', value: verifyResult.certificate_code, mono: true },
+                ].map((row) => (
+                  <div key={row.label} className="flex justify-between items-start gap-4 text-sm">
+                    <span className="text-slate-500 shrink-0">{row.label}</span>
+                    <span className={`font-semibold text-slate-900 text-right ${row.mono ? 'font-mono text-[#0055D4]' : ''}`}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <Footer />
+          {/* Error */}
+          {verifyError && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 flex items-center gap-3 max-w-lg mx-auto">
+              <span className="material-symbols-outlined text-red-500 text-[24px] shrink-0">cancel</span>
+              <p className="text-red-700 font-medium text-sm text-left">{verifyError}</p>
+            </div>
+          )}
         </div>
-      )}
+      </section>
+
+      {/* ── Footer ── */}
+      <Footer />
+
+      {/* ── Custom Styles ── */}
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }

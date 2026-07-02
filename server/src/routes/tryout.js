@@ -594,67 +594,71 @@ router.post("/start", verifyToken, async (req, res, next) => {
       });
     }
 
-    // Check if user has an active subscription/access plan for UTBK (unlimited access)
-    const activeUtbkRes = await client.query(
-      `SELECT 1 FROM subscriptions s
-       JOIN plans p ON p.id = s.plan_id
-       WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-         AND p.target_type = 'utbk' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
-       LIMIT 1`,
-      [req.user.id],
-    );
-    const hasUtbkUnlimited = activeUtbkRes.rows.length > 0;
+    const isStudent = !req.user.role || req.user.role === 'student';
 
-    if (!hasUtbkUnlimited) {
-      // Check if user has active tryout quota for UTBK
-      const quotaRes = await client.query(
-        `SELECT s.id, s.quota_remaining FROM subscriptions s
+    if (isStudent) {
+      // Check if user has an active subscription/access plan for UTBK (unlimited access)
+      const activeUtbkRes = await client.query(
+        `SELECT 1 FROM subscriptions s
          JOIN plans p ON p.id = s.plan_id
          WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-           AND p.plan_type = 'quota' AND p.target_type = 'utbk' AND s.quota_remaining > 0
-         ORDER BY s.expires_at ASC LIMIT 1`,
+           AND p.target_type = 'utbk' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+         LIMIT 1`,
         [req.user.id],
       );
+      const hasUtbkUnlimited = activeUtbkRes.rows.length > 0;
 
-      if (quotaRes.rows.length > 0) {
-        // Deduct 1 tryout quota credit
-        const quota = quotaRes.rows[0];
-        await client.query(
-          `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1`,
-          [quota.id],
-        );
-      } else {
-        // Check if this specific package has already been completed (one attempt per package for free users)
-        let packageDone = await isPackageCompleted(
-          client,
-          req.user.id,
-          "utbk",
-          package_id,
+      if (!hasUtbkUnlimited) {
+        // Check if user has active tryout quota for UTBK
+        const quotaRes = await client.query(
+          `SELECT s.id, s.quota_remaining FROM subscriptions s
+           JOIN plans p ON p.id = s.plan_id
+           WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+             AND p.plan_type = 'quota' AND p.target_type = 'utbk' AND s.quota_remaining > 0
+           ORDER BY s.expires_at ASC LIMIT 1`,
+          [req.user.id],
         );
 
-        if (packageDone) {
-          await client.query("ROLLBACK");
-          return res.status(403).json({
-            success: false,
-            error:
-              "Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.",
-            code: "FREE_LIMIT_REACHED",
-          });
-        }
+        if (quotaRes.rows.length > 0) {
+          // Deduct 1 tryout quota credit
+          const quota = quotaRes.rows[0];
+          await client.query(
+            `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1`,
+            [quota.id],
+          );
+        } else {
+          // Check if this specific package has already been completed (one attempt per package for free users)
+          let packageDone = await isPackageCompleted(
+            client,
+            req.user.id,
+            "utbk",
+            package_id,
+          );
 
-        // Check if registration exists and is approved for this package
-        const regRes = await client.query(
-          "SELECT status FROM tryout_registrations WHERE user_id = $1 AND utbk_package_id = $2 AND status = 'approved'",
-          [req.user.id, package_id],
-        );
+          if (packageDone) {
+            await client.query("ROLLBACK");
+            return res.status(403).json({
+              success: false,
+              error:
+                "Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.",
+              code: "FREE_LIMIT_REACHED",
+            });
+          }
 
-        if (regRes.rows.length === 0) {
-          await client.query("ROLLBACK");
-          return res.status(403).json({
-            success: false,
-            error: "Pendaftaran tryout belum diverifikasi admin.",
-            code: "NOT_VERIFIED",
-          });
+          // Check if registration exists and is approved for this package
+          const regRes = await client.query(
+            "SELECT status FROM tryout_registrations WHERE user_id = $1 AND utbk_package_id = $2 AND status = 'approved'",
+            [req.user.id, package_id],
+          );
+
+          if (regRes.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(403).json({
+              success: false,
+              error: "Pendaftaran tryout belum diverifikasi admin.",
+              code: "NOT_VERIFIED",
+            });
+          }
         }
       }
     }
@@ -2329,6 +2333,7 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
       WHERE ts.package_id = $1
         AND ts.submitted_at IS NOT NULL
         AND ts.total_score IS NOT NULL
+        AND u.role = 'student'
       ORDER BY ts.user_id, ts.submitted_at DESC
     `,
       [packageId],
@@ -2447,6 +2452,7 @@ router.get(
       WHERE ls.subject_id = $1
         AND ls.submitted_at IS NOT NULL
         AND ls.irt_score IS NOT NULL
+        AND u.role = 'student'
     `;
       const params = [subjectId];
 

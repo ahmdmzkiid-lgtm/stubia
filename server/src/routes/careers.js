@@ -8,7 +8,7 @@ const { logAdminActivity } = require('../utils/activityLogger');
 router.get('/', async (req, res, next) => {
   try {
     const result = await pool.query(
-      'SELECT id, title, department, location, type, description, requirements, is_active, created_at, updated_at FROM job_vacancies WHERE is_active = TRUE ORDER BY created_at DESC'
+      'SELECT id, title, department, location, type, description, requirements, benefits, responsibilities, is_active, created_at, updated_at FROM job_vacancies WHERE is_active = TRUE ORDER BY created_at DESC'
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
 router.get('/all', verifyToken, verifyAdmin, async (req, res, next) => {
   try {
     const result = await pool.query(
-      'SELECT id, title, department, location, type, description, requirements, is_active, created_at, updated_at FROM job_vacancies ORDER BY created_at DESC'
+      'SELECT id, title, department, location, type, description, requirements, benefits, responsibilities, is_active, created_at, updated_at FROM job_vacancies ORDER BY created_at DESC'
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -33,7 +33,8 @@ router.get('/applications/all', verifyToken, verifyAdmin, async (req, res, next)
   try {
     const result = await pool.query(
       `SELECT ja.id, ja.vacancy_id, ja.name, ja.email, ja.phone, ja.photo_url, ja.cv_url, ja.description, 
-              ja.start_date, ja.ready_for_training, ja.portfolio_url, ja.last_education, ja.created_at,
+              ja.start_date, ja.ready_for_training, ja.portfolio_url, ja.last_education,
+              ja.address, ja.birth_place_date, ja.institution_name, ja.experience_duration, ja.motivation, ja.ktp_url, ja.created_at,
               jv.title as vacancy_title, jv.department as vacancy_department
        FROM job_applications ja
        JOIN job_vacancies jv ON ja.vacancy_id = jv.id
@@ -76,10 +77,16 @@ router.post('/:id/apply', async (req, res, next) => {
       start_date,
       ready_for_training,
       portfolio_url,
-      last_education
+      last_education,
+      address,
+      birth_place_date,
+      institution_name,
+      experience_duration,
+      motivation,
+      ktp_url
     } = req.body;
 
-    if (!name || !email || !phone || !photo_url || !cv_url || !description || !start_date || ready_for_training === undefined || !last_education) {
+    if (!name || !email || !phone || !photo_url || !cv_url || !description || !start_date || ready_for_training === undefined || !last_education || !address || !birth_place_date || !institution_name || !experience_duration || !motivation || !ktp_url) {
       return res.status(400).json({ success: false, error: 'Harap isi semua kolom wajib pada form lamaran' });
     }
 
@@ -95,12 +102,14 @@ router.post('/:id/apply', async (req, res, next) => {
     const result = await pool.query(
       `INSERT INTO job_applications (
         vacancy_id, name, email, phone, photo_url, cv_url, description, 
-        start_date, ready_for_training, portfolio_url, last_education, created_at
+        start_date, ready_for_training, portfolio_url, last_education,
+        address, birth_place_date, institution_name, experience_duration, motivation, ktp_url, created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING *`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW()) RETURNING *`,
       [
         id, name, email, phone, photo_url, cv_url, description,
-        start_date, ready_for_training, portfolio_url || null, last_education
+        start_date, ready_for_training, portfolio_url || null, last_education,
+        address, birth_place_date, institution_name, experience_duration, motivation, ktp_url
       ]
     );
 
@@ -115,7 +124,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      'SELECT id, title, department, location, type, description, requirements, is_active, created_at FROM job_vacancies WHERE id = $1',
+      'SELECT id, title, department, location, type, description, requirements, benefits, responsibilities, is_active, created_at FROM job_vacancies WHERE id = $1',
       [id]
     );
 
@@ -161,15 +170,15 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/careers - Admin only: Create a new job vacancy
 router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
   try {
-    const { title, department, location, type, description, requirements, is_active } = req.body;
+    const { title, department, location, type, description, requirements, benefits, responsibilities, is_active } = req.body;
 
     if (!title || !department || !location || !type || !description) {
       return res.status(400).json({ success: false, error: 'Semua kolom wajib diisi kecuali persyaratan' });
     }
 
     const result = await pool.query(
-      `INSERT INTO job_vacancies (title, department, location, type, description, requirements, is_active, created_at, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING *`,
+      `INSERT INTO job_vacancies (title, department, location, type, description, requirements, benefits, responsibilities, is_active, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) RETURNING *`,
       [
         title,
         department,
@@ -177,6 +186,8 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
         type,
         description,
         requirements || null,
+        benefits || null,
+        responsibilities || null,
         is_active === undefined ? true : is_active
       ]
     );
@@ -192,7 +203,7 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
 router.put('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, department, location, type, description, requirements, is_active } = req.body;
+    const { title, department, location, type, description, requirements, benefits, responsibilities, is_active } = req.body;
 
     const jobCheck = await pool.query('SELECT * FROM job_vacancies WHERE id = $1', [id]);
     if (jobCheck.rows.length === 0) {
@@ -207,12 +218,14 @@ router.put('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
     const updatedType = type !== undefined ? type : oldJob.type;
     const updatedDesc = description !== undefined ? description : oldJob.description;
     const updatedReqs = requirements !== undefined ? requirements : oldJob.requirements;
+    const updatedBenefits = benefits !== undefined ? benefits : oldJob.benefits;
+    const updatedResponsibilities = responsibilities !== undefined ? responsibilities : oldJob.responsibilities;
     const updatedIsActive = is_active !== undefined ? is_active : oldJob.is_active;
 
     const result = await pool.query(
       `UPDATE job_vacancies 
-       SET title = $1, department = $2, location = $3, type = $4, description = $5, requirements = $6, is_active = $7, updated_at = NOW() 
-       WHERE id = $8 RETURNING *`,
+       SET title = $1, department = $2, location = $3, type = $4, description = $5, requirements = $6, benefits = $7, responsibilities = $8, is_active = $9, updated_at = NOW() 
+       WHERE id = $10 RETURNING *`,
       [
         updatedTitle,
         updatedDept,
@@ -220,6 +233,8 @@ router.put('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
         updatedType,
         updatedDesc,
         updatedReqs,
+        updatedBenefits,
+        updatedResponsibilities,
         updatedIsActive,
         id
       ]

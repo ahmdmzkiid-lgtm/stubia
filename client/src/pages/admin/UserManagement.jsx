@@ -21,6 +21,15 @@ const RoleBadge = ({ role }) => {
   if (role === 'admin') {
     return <span className="px-4 py-1.5 rounded-full bg-[#ffdbd0] text-[#832600] font-label-sm text-label-sm">Admin</span>;
   }
+  if (role === 'question_writer') {
+    return <span className="px-4 py-1.5 rounded-full bg-purple-100 text-purple-800 font-label-sm text-label-sm">Question Writer</span>;
+  }
+  if (role === 'quality_assurance') {
+    return <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-800 font-label-sm text-label-sm">QA</span>;
+  }
+  if (role === 'article_writer') {
+    return <span className="px-4 py-1.5 rounded-full bg-teal-100 text-teal-800 font-label-sm text-label-sm">Article Writer</span>;
+  }
   return <span className="px-4 py-1.5 rounded-full bg-[#c2e8ff] text-[#004d67] font-label-sm text-label-sm">Student</span>;
 };
 
@@ -207,6 +216,9 @@ const UserManagement = () => {
             { key: 'all', label: 'All Users' },
             { key: 'student', label: 'Students' },
             { key: 'admin', label: 'Admins' },
+            { key: 'question_writer', label: 'Question Writers' },
+            { key: 'quality_assurance', label: 'QA Staff' },
+            { key: 'article_writer', label: 'Article Writers' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -611,6 +623,9 @@ const UserManagement = () => {
                 >
                   <option value="student">Student</option>
                   <option value="admin">Admin</option>
+                  <option value="question_writer">Question Writer</option>
+                  <option value="quality_assurance">Quality Assurance</option>
+                  <option value="article_writer">Article Writer</option>
                 </select>
               </div>
             </div>

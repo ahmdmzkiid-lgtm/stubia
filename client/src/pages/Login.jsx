@@ -23,7 +23,9 @@ const Login = () => {
     try {
       const res = await login({ email, password });
       toast.success('Selamat datang kembali!');
-      const dest = res?.data?.user?.role === 'admin' ? '/admin' : (redirectTo || '/dashboard');
+      const userRole = res?.data?.user?.role;
+      const isStaff = ['admin', 'question_writer', 'quality_assurance', 'article_writer'].includes(userRole);
+      const dest = isStaff ? '/admin' : (redirectTo || '/dashboard');
       navigate(dest);
     } catch (err) {
       const msg = err.response?.data?.error || 'Email atau password salah. Silakan coba lagi.';
@@ -39,7 +41,9 @@ const Login = () => {
       setLoading(true);
       const res = await loginWithGoogle(credentialResponse.credential);
       toast.success('Berhasil masuk dengan Google!');
-      const dest = res?.data?.user?.role === 'admin' ? '/admin' : (redirectTo || '/dashboard');
+      const userRole = res?.data?.user?.role;
+      const isStaff = ['admin', 'question_writer', 'quality_assurance', 'article_writer'].includes(userRole);
+      const dest = isStaff ? '/admin' : (redirectTo || '/dashboard');
       navigate(dest);
     } catch (err) {
       const msg = err.response?.data?.error || 'Gagal masuk dengan Google. Silakan coba lagi.';

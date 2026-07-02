@@ -9,6 +9,7 @@ import Calculator from '../components/tryout/Calculator';
 import MathText from '../components/MathText';
 import ZoomableImage from '../components/ui/ZoomableImage';
 import ExitConfirmModal from '../components/ExitConfirmModal';
+import PreviewBanner from '../components/layout/PreviewBanner';
 
 const TryoutSession = () => {
   const { sessionId } = useParams();
@@ -371,7 +372,7 @@ const TryoutSession = () => {
     setShowSubjectDoneModal(false);
     const nextIdx = currentSubjectIndex + 1;
     const nextSubject = subjectsData[nextIdx];
-    const nextDuration = (nextSubject?.duration || 30) * 60;
+    const nextDuration = (nextSubject?.duration || 30) * 60 + (nextSubject?.durationSec || 0);
     
     setCurrentSubjectIndex(nextIdx);
     setCurrentQuestionIndex(0);
@@ -420,6 +421,7 @@ const TryoutSession = () => {
 
   return (
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24] flex flex-col">
+      <PreviewBanner />
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8ff]/95 backdrop-blur-md border-b border-[#e0e2f0] shadow-sm">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between">

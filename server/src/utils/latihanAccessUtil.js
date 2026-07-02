@@ -9,11 +9,12 @@ const SOCIAL_VERIFY_MSG =
  * Slow-path: cek DB jika JWT stale (misal baru dipromosikan tanpa re-login).
  */
 async function isAdminUser(userId, jwtRole) {
-  if (jwtRole === "admin") return true;
+  const staffRoles = ["admin", "question_writer", "quality_assurance"];
+  if (staffRoles.includes(jwtRole)) return true;
   const res = await pool.query("SELECT role FROM users WHERE id = $1", [
     userId,
   ]);
-  return res.rows[0]?.role === "admin";
+  return staffRoles.includes(res.rows[0]?.role);
 }
 
 function isGratisPlan(plan) {

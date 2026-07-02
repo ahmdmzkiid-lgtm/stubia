@@ -14,8 +14,11 @@ export default function CMSActivityLogs() {
   const [actionFilter, setActionFilter] = useState('ALL');
   const [targetFilter, setTargetFilter] = useState('ALL');
 
+  const [error, setError] = useState(null);
+
   const fetchLogs = async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await adminService.getActivityLogs({ page, limit: 15 });
       if (response.data && response.data.success) {
@@ -23,10 +26,12 @@ export default function CMSActivityLogs() {
         setTotalPages(response.data.data.totalPages);
         setTotalItems(response.data.data.total);
       } else {
+        setError('Gagal mengambil data log aktivitas.');
         toast.error('Gagal mengambil data log aktivitas');
       }
     } catch (error) {
       console.error(error);
+      setError('Gagal memuat log aktivitas. Silakan periksa koneksi Anda.');
       toast.error('Terjadi kesalahan saat memuat log aktivitas');
     } finally {
       setLoading(false);
@@ -182,6 +187,19 @@ export default function CMSActivityLogs() {
           <div className="p-20 text-center flex flex-col items-center justify-center">
             <div className="w-10 h-10 border-3 border-[#0050cb] border-t-transparent rounded-full animate-spin mb-4"></div>
             <p className="text-[14px] text-[#727687] font-semibold">Memuat log aktivitas...</p>
+          </div>
+        ) : error ? (
+          <div className="p-12 text-center max-w-md mx-auto">
+            <span className="material-symbols-outlined text-[48px] text-red-500 mb-3 animate-pulse">error</span>
+            <h3 className="text-[#191b24] font-bold text-lg">Gagal Memuat Data</h3>
+            <p className="text-[#727687] text-sm mt-1 mb-6">{error}</p>
+            <button 
+              onClick={fetchLogs}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0050cb] hover:bg-[#003da6] text-white font-semibold text-sm transition-all"
+            >
+              <span className="material-symbols-outlined text-[18px]">refresh</span>
+              Coba Lagi
+            </button>
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="p-20 text-center">

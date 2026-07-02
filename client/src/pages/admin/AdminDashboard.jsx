@@ -13,7 +13,7 @@ const AdminDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const currentPath = location.pathname;
-  const isOverview = currentPath === '/admin';
+  const isOverview = currentPath === '/admin' && user?.role === 'admin';
 
   const [showPinModal, setShowPinModal] = useState(false);
   const [pin, setPin] = useState('');
@@ -54,6 +54,18 @@ const AdminDashboard = () => {
     }
   }, [isOverview]);
 
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'article_writer') {
+        navigate('/cms/articles', { replace: true });
+      } else if (user.role === 'question_writer' || user.role === 'quality_assurance') {
+        if (location.pathname === '/admin') {
+          navigate('/admin/latihan', { replace: true });
+        }
+      }
+    }
+  }, [user, navigate, location.pathname]);
+
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -72,10 +84,45 @@ const AdminDashboard = () => {
     { path: '/admin/tryout-registrations', icon: 'verified', label: 'Verifikasi Tryout' },
     { path: '/admin/social-verifications', icon: 'favorite', label: 'Verifikasi Latihan' },
     { path: '/admin/users', icon: 'group', label: 'Users' },
-    { path: '/admin/todos', icon: 'checklist', label: 'Todo List' },
     { path: '/admin/settings', icon: 'ad_units', label: 'Banner' },
     { path: '/admin/activity', icon: 'monitoring', label: 'Activity' },
   ];
+
+  const filteredNavLinks = navLinks.filter((link) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (user.role === 'question_writer') {
+      return [
+        '/admin/input',
+        '/admin/import',
+        '/admin/duplicates',
+        '/admin/latihan',
+        '/admin/tryout',
+        '/admin/battle',
+        '/admin/ujian-mandiri',
+      ].includes(link.path);
+    }
+    if (user.role === 'quality_assurance') {
+      return [
+        '/admin/duplicates',
+        '/admin/latihan',
+        '/admin/tryout',
+        '/admin/ujian-mandiri'
+      ].includes(link.path);
+    }
+    return false;
+  });
+
+  const isAllowedPath = () => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (location.pathname === '/admin') return true;
+    return filteredNavLinks.some(
+      (link) =>
+        location.pathname === link.path ||
+        location.pathname.startsWith(link.path + '/')
+    );
+  };
 
   return (
     <div className="light bg-[#faf8ff] text-[#191b24] antialiased min-h-screen flex">
@@ -95,7 +142,7 @@ const AdminDashboard = () => {
         <div className="px-6 mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-[24px] font-semibold text-[#0050cb] leading-[32px]">Stubia Admin</h1>
-            <p className="text-[12px] font-semibold text-[#727687] leading-[16px]">Super Admin</p>
+            <p className="text-[12px] font-semibold text-[#727687] leading-[16px] capitalize">{user?.role?.replace('_', ' ') || 'Super Admin'}</p>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(false)}
@@ -106,7 +153,7 @@ const AdminDashboard = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-1">
-          {navLinks.map((link) => {
+          {filteredNavLinks.map((link) => {
             const isActive = currentPath === link.path;
             return (
               <Link
@@ -177,7 +224,23 @@ const AdminDashboard = () => {
         {/* Content View */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
           <div className="max-w-[1440px] mx-auto">
-            {isOverview ? (
+            {!isAllowedPath() ? (
+              <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-[#c2c6d8]/30 text-center min-h-[50vh] shadow-sm animate-fade-in">
+                <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center text-[#ba1a1a] mb-6">
+                  <span className="material-symbols-outlined text-[32px]">block</span>
+                </div>
+                <h3 className="text-[20px] font-bold text-[#191b24] mb-2">Akses Dibatasi</h3>
+                <p className="text-[14px] text-[#727687] max-w-md">
+                  Akun Anda ({user?.role?.replace('_', ' ').toUpperCase()}) tidak memiliki wewenang untuk mengakses halaman ini.
+                </p>
+                <button
+                  onClick={() => navigate(filteredNavLinks[0]?.path || '/dashboard')}
+                  className="mt-6 px-6 py-3 bg-[#0050cb] hover:bg-[#003da6] text-white font-bold rounded-xl transition-all shadow-md text-[14px]"
+                >
+                  Kembali ke Halaman Utama
+                </button>
+              </div>
+            ) : isOverview ? (
               <div className="space-y-8 sm:space-y-12">
                 <section>
                   <h2 className="text-[28px] sm:text-[40px] font-bold text-[#191b24] mb-2 leading-tight">Platform at a Glance</h2>

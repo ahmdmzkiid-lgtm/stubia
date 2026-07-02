@@ -5,9 +5,9 @@ import PageWrapper from './PageWrapper';
 
 // Prevents logged-in users from accessing login/register
 export const PublicRoute = () => {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isStaff, loading } = useAuth();
   if (loading) return null;
-  if (isAuthenticated) return <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />;
+  if (isAuthenticated) return <Navigate to={isStaff ? "/admin" : "/dashboard"} replace />;
   return <Outlet />;
 };
 
@@ -96,7 +96,7 @@ export const ProtectedRoute = () => {
 
 // Admin-only routes
 export const AdminRoute = () => {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isStaff, loading } = useAuth();
   if (loading) return null;
-  return isAuthenticated && isAdmin ? <Outlet /> : <Navigate to="/dashboard" replace />;
+  return isAuthenticated && isStaff ? <Outlet /> : <Navigate to="/dashboard" replace />;
 };

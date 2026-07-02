@@ -8,6 +8,7 @@ import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import MathText from '../components/MathText';
 import ZoomableImage from '../components/ui/ZoomableImage';
+import PreviewBanner from '../components/layout/PreviewBanner';
 
 /**
  * TryoutSession - Menggunakan useTryoutFetch Hook
@@ -126,6 +127,7 @@ const TryoutSessionNew = () => {
   // ===== RENDER: MAIN =====
   return (
     <div className="min-h-screen bg-gray-50">
+      <PreviewBanner />
       {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white shadow-md border-b-4 border-indigo-600">
         <div className="max-w-7xl mx-auto px-4 py-3">

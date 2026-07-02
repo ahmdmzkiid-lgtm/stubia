@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import ImageUpload from "../../components/ImageUpload";
 import MathText from "../../components/MathText";
+import { useAuth } from "../../hooks/useAuth";
 
 // Urutan kanonik subtes UTBK + prioritas plan
 const SUBTEST_ORDER = [
@@ -54,6 +55,7 @@ const ICON_OPTIONS = [
 ];
 
 const ManageLatihan = () => {
+  const { user } = useAuth();
   const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -1016,24 +1018,26 @@ const ManageLatihan = () => {
                         {t.icon || "notes"}
                       </span>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleOpenTopicModal(t)}
-                        className="p-2 text-[#727687] hover:text-[#0050cb] hover:bg-[#dae1ff]/30 rounded-full transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">
-                          edit
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTopic(t.id)}
-                        className="p-2 text-[#727687] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/30 rounded-full transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">
-                          delete
-                        </span>
-                      </button>
-                    </div>
+                    {user?.role !== "quality_assurance" && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleOpenTopicModal(t)}
+                          className="p-2 text-[#727687] hover:text-[#0050cb] hover:bg-[#dae1ff]/30 rounded-full transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">
+                            edit
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTopic(t.id)}
+                          className="p-2 text-[#727687] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/30 rounded-full transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">
+                            delete
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <h4 className="text-[18px] font-bold text-[#191b24] mb-1">
                     {t.title}
@@ -1050,15 +1054,25 @@ const ManageLatihan = () => {
                         {t.questions_count || 0} Soal
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleOpenKelolaSoal(t)}
-                      className="text-[12px] font-bold text-[#0050cb] flex items-center gap-1 hover:underline"
-                    >
-                      Kelola Soal
-                      <span className="material-symbols-outlined text-[14px]">
-                        arrow_forward
-                      </span>
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => window.open(`/latihan/praktik/${selectedSubject.id}?topic_id=${t.id}&preview=true`, '_blank')}
+                        className="text-[12px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
+                        title="Live Preview Soal"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => handleOpenKelolaSoal(t)}
+                        className="text-[12px] font-bold text-[#0050cb] flex items-center gap-1 hover:underline"
+                      >
+                        Kelola Soal
+                        <span className="material-symbols-outlined text-[14px]">
+                          arrow_forward
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

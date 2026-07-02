@@ -49,13 +49,17 @@ export default function CMSArticles() {
     }, 0);
   };
 
+  const [error, setError] = useState(null);
+
   const fetchArticles = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await articleService.listAll();
       setArticles(res.data.data || []);
     } catch (err) {
       console.error(err);
+      setError('Gagal mengambil daftar artikel. Silakan periksa koneksi Anda.');
       toast.error('Gagal mengambil daftar artikel');
     } finally {
       setLoading(false);
@@ -287,6 +291,19 @@ export default function CMSArticles() {
         <div className="flex items-center justify-center min-h-[30vh]">
           <div className="w-8 h-8 border-3 border-[#0050cb] border-t-transparent rounded-full animate-spin"></div>
         </div>
+      ) : error ? (
+            <div className="bg-white border border-red-200 rounded-3xl py-12 px-6 text-center max-w-md mx-auto shadow-sm">
+              <span className="material-symbols-outlined text-[48px] text-red-500 mb-3">error</span>
+              <h3 className="text-[#191b24] font-bold text-lg">Gagal Memuat Data</h3>
+              <p className="text-[#727687] text-sm mt-1 mb-6">{error}</p>
+              <button 
+                onClick={fetchArticles}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0050cb] hover:bg-[#003da6] text-white font-semibold text-sm transition-all"
+              >
+                <span className="material-symbols-outlined text-[18px]">refresh</span>
+                Coba Lagi
+              </button>
+            </div>
       ) : filteredArticles.length === 0 ? (
         <div className="bg-white border border-[#c2c6d8]/40 rounded-3xl py-16 text-center">
           <span className="material-symbols-outlined text-[48px] text-slate-400 mb-3">auto_stories</span>

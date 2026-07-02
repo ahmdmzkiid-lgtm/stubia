@@ -5,8 +5,10 @@ import * as XLSX from 'xlsx';
 import ImageUpload from '../../components/ImageUpload';
 import MathText from '../../components/MathText';
 import ZoomableImage from '../../components/ui/ZoomableImage';
+import { useAuth } from '../../hooks/useAuth';
 
 const ManageTryout = () => {
+  const { user } = useAuth();
   const [packages, setPackages] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -176,6 +178,23 @@ const ManageTryout = () => {
     }).catch((err) => {
       const msg = err.response?.data?.error || 'Gagal menghapus tryout.';
       toast.error(msg);
+    });
+  };
+
+  const handlePreview = (e, pkgId) => {
+    e.stopPropagation();
+    toast.loading("Mempersiapkan preview...", { id: "preview-loading" });
+    tryoutService.start(pkgId, null).then((res) => {
+      toast.dismiss("preview-loading");
+      const sessionId = res.data?.data?.session_id;
+      if (sessionId) {
+        window.open(`/tryout/${sessionId}?preview=true`, '_blank');
+      } else {
+        toast.error("Gagal mendapatkan Session ID");
+      }
+    }).catch((err) => {
+      toast.dismiss("preview-loading");
+      toast.error(err.response?.data?.error || "Gagal memulai sesi preview.");
     });
   };
 
@@ -568,17 +587,29 @@ const ManageTryout = () => {
                       </div>
                       <div className="flex gap-2">
                         <button 
-                          onClick={() => handleOpenModal(pkg)}
-                          className="w-12 h-12 rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#0050cb] hover:text-white transition-all shadow-sm"
+                          onClick={(e) => handlePreview(e, pkg.id)}
+                          className="px-4 h-12 rounded-2xl bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center gap-1.5 transition-all shadow-sm font-bold text-sm"
+                          title="Live Preview Tryout"
                         >
-                          <span className="material-symbols-outlined text-[22px]">edit</span>
+                          <span className="material-symbols-outlined text-[20px]">visibility</span>
+                          Live Preview
                         </button>
-                        <button 
-                          onClick={(e) => handleDelete(e, pkg.id)}
-                          className="w-12 h-12 rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#ba1a1a] hover:text-white transition-all shadow-sm"
-                        >
-                          <span className="material-symbols-outlined text-[22px]">delete</span>
-                        </button>
+                        {user?.role !== 'quality_assurance' && (
+                          <>
+                            <button 
+                              onClick={() => handleOpenModal(pkg)}
+                              className="w-12 h-12 rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#0050cb] hover:text-white transition-all shadow-sm"
+                            >
+                              <span className="material-symbols-outlined text-[22px]">edit</span>
+                            </button>
+                            <button 
+                              onClick={(e) => handleDelete(e, pkg.id)}
+                              className="w-12 h-12 rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#ba1a1a] hover:text-white transition-all shadow-sm"
+                            >
+                              <span className="material-symbols-outlined text-[22px]">delete</span>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 

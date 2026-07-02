@@ -1129,79 +1129,83 @@ router.post("/tryout/start", verifyToken, async (req, res, next) => {
       });
     }
 
-    // Check if user has an active subscription/access plan for UM (unlimited access)
-    const activeUmRes = await client.query(
-      `SELECT 1 FROM subscriptions s
-       JOIN plans p ON p.id = s.plan_id
-       WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-         AND p.target_type = 'um' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
-       LIMIT 1`,
-      [userId],
-    );
-    const hasUmUnlimited = activeUmRes.rows.length > 0;
+    const isStudent = !req.user.role || req.user.role === 'student';
 
-    if (!hasUmUnlimited) {
-      // Check if user has active tryout quota for UM
-      const quotaRes = await client.query(
-        `SELECT s.id, s.quota_remaining FROM subscriptions s
+    if (isStudent) {
+      // Check if user has an active subscription/access plan for UM (unlimited access)
+      const activeUmRes = await client.query(
+        `SELECT 1 FROM subscriptions s
          JOIN plans p ON p.id = s.plan_id
-         WHERE s.user_id = $1 AND s.status = 'active' AND p.plan_type = 'quota' AND p.target_type = 'um' AND s.quota_remaining > 0
-         ORDER BY s.expires_at ASC LIMIT 1`,
+         WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+           AND p.target_type = 'um' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+         LIMIT 1`,
         [userId],
       );
+      const hasUmUnlimited = activeUmRes.rows.length > 0;
 
-      if (quotaRes.rows.length > 0) {
-        // Deduct 1 tryout quota credit
-        const quota = quotaRes.rows[0];
-        await client.query(
-          `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1`,
-          [quota.id],
+      if (!hasUmUnlimited) {
+        // Check if user has active tryout quota for UM
+        const quotaRes = await client.query(
+          `SELECT s.id, s.quota_remaining FROM subscriptions s
+           JOIN plans p ON p.id = s.plan_id
+           WHERE s.user_id = $1 AND s.status = 'active' AND p.plan_type = 'quota' AND p.target_type = 'um' AND s.quota_remaining > 0
+           ORDER BY s.expires_at ASC LIMIT 1`,
+          [userId],
         );
-      } else {
-        // Check if this specific package has already been completed
-        const umCompleted = await isPackageCompleted(
-          client,
-          userId,
-          "um",
-          tryout_package_id,
-        );
-        if (!umCompleted) {
-          const sessionCompleted = await client.query(
-            "SELECT 1 FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL LIMIT 1",
+
+        if (quotaRes.rows.length > 0) {
+          // Deduct 1 tryout quota credit
+          const quota = quotaRes.rows[0];
+          await client.query(
+            `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1`,
+            [quota.id],
+          );
+        } else {
+          // Check if this specific package has already been completed
+          const umCompleted = await isPackageCompleted(
+            client,
+            userId,
+            "um",
+            tryout_package_id,
+          );
+          if (!umCompleted) {
+            const sessionCompleted = await client.query(
+              "SELECT 1 FROM um_tryout_sessions WHERE user_id = $1 AND package_id = $2 AND submitted_at IS NOT NULL LIMIT 1",
+              [userId, tryout_package_id],
+            );
+            if (sessionCompleted.rows.length > 0) {
+              await markPackageCompleted(client, userId, "um", tryout_package_id);
+            }
+          }
+
+          const packageDone =
+            umCompleted ||
+            (await isPackageCompleted(client, userId, "um", tryout_package_id));
+
+          if (packageDone) {
+            await client.query("ROLLBACK");
+            return res.status(403).json({
+              success: false,
+              error:
+                "Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.",
+              code: "FREE_LIMIT_REACHED",
+            });
+          }
+
+          // Check if registration exists and is approved for this package
+          const regRes = await client.query(
+            "SELECT status FROM tryout_registrations WHERE user_id = $1 AND um_package_id = $2 AND status = 'approved'",
             [userId, tryout_package_id],
           );
-          if (sessionCompleted.rows.length > 0) {
-            await markPackageCompleted(client, userId, "um", tryout_package_id);
+
+          if (regRes.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(403).json({
+              success: false,
+              error: "Pendaftaran tryout belum diverifikasi admin.",
+              code: "NOT_VERIFIED",
+            });
           }
-        }
-
-        const packageDone =
-          umCompleted ||
-          (await isPackageCompleted(client, userId, "um", tryout_package_id));
-
-        if (packageDone) {
-          await client.query("ROLLBACK");
-          return res.status(403).json({
-            success: false,
-            error:
-              "Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.",
-            code: "FREE_LIMIT_REACHED",
-          });
-        }
-
-        // Check if registration exists and is approved for this package
-        const regRes = await client.query(
-          "SELECT status FROM tryout_registrations WHERE user_id = $1 AND um_package_id = $2 AND status = 'approved'",
-          [userId, tryout_package_id],
-        );
-
-        if (regRes.rows.length === 0) {
-          await client.query("ROLLBACK");
-          return res.status(403).json({
-            success: false,
-            error: "Pendaftaran tryout belum diverifikasi admin.",
-            code: "NOT_VERIFIED",
-          });
         }
       }
     }
@@ -1762,6 +1766,7 @@ router.get(
       WHERE ts.package_id = $1
         AND ts.submitted_at IS NOT NULL
         AND ts.total_score IS NOT NULL
+        AND u.role = 'student'
       ORDER BY ts.user_id, ts.submitted_at DESC
     `,
         [packageId],
@@ -1829,6 +1834,7 @@ router.get(
       WHERE ls.latihan_id = $1
         AND ls.submitted_at IS NOT NULL
         AND ls.irt_score IS NOT NULL
+        AND u.role = 'student'
       ORDER BY ls.user_id, ls.submitted_at DESC
     `,
         [latihanId],

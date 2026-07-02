@@ -165,4 +165,107 @@ router.post('/document', verifyToken, (req, res, next) => {
   }
 });
 
+// Public Upload single image (No token required)
+router.post('/public/image', (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'Ukuran file maksimal 5MB.' });
+      }
+      return res.status(400).json({ success: false, error: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'File gambar tidak ditemukan' });
+    }
+
+    const folder = req.body.folder || 'stubia';
+
+    // Upload to Cloudinary using buffer
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `stubia/${folder}`,
+          resource_type: 'image',
+          transformation: [
+            { quality: 'auto:good' },
+            { fetch_format: 'auto' },
+          ],
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        public_id: result.public_id,
+        width: result.width,
+        height: result.height,
+      },
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload image' });
+  }
+});
+
+// Public Upload document (No token required)
+router.post('/public/document', (req, res, next) => {
+  documentUpload.single('document')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'Ukuran file maksimal 10MB.' });
+      }
+      return res.status(400).json({ success: false, error: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'File dokumen tidak ditemukan' });
+    }
+
+    const folder = req.body.folder || 'documents';
+
+    // Upload to Cloudinary using buffer
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: `stubia/${folder}`,
+          resource_type: 'auto',
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(req.file.buffer);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        public_id: result.public_id,
+      },
+    });
+  } catch (error) {
+    console.error('Upload document error:', error);
+    res.status(500).json({ success: false, error: 'Gagal mengupload dokumen' });
+  }
+});
+
 module.exports = router;

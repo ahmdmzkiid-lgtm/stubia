@@ -6,6 +6,7 @@ import { ujianMandiriService } from '../../services/api';
 import { STATUS_OPTIONS, getStatusConfig } from '../../data/ujianMandiriData';
 import MathText from '../../components/MathText';
 import ZoomableImage from '../../components/ui/ZoomableImage';
+import { useAuth } from '../../hooks/useAuth';
 
 const DEFAULT_BANNER = {
   badge: 'AKADEMIK 2026', title: 'Eksplorasi Ujian Mandiri 2026',
@@ -74,6 +75,7 @@ const PLAN_OPTIONS = [
 ];
 
 export default function ManageUjianMandiri() {
+  const { user } = useAuth();
   const [tab, setTab] = useState('list');
   const [items, setItems] = useState([]);
   const [banner, setBanner] = useState(DEFAULT_BANNER);
@@ -704,20 +706,32 @@ export default function ManageUjianMandiri() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => openTryoutModal(ujian.id, pkg)}
-                              className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
-                              title="Edit Paket"
+                              onClick={() => window.open(`/ujian-mandiri/${ujian.id}/tryout/${pkg.id}?preview=true`, '_blank')}
+                              className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center transition-all"
+                              title="Live Preview Tryout"
                             >
-                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                              <span className="material-symbols-outlined text-[18px]">visibility</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTryout(ujian.id, pkg.id)}
-                              className="w-9 h-9 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
-                              title="Hapus Paket"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
-                            </button>
+                            {user?.role !== 'quality_assurance' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openTryoutModal(ujian.id, pkg)}
+                                  className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
+                                  title="Edit Paket"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTryout(ujian.id, pkg.id)}
+                                  className="w-9 h-9 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
+                                  title="Hapus Paket"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -854,20 +868,32 @@ export default function ManageUjianMandiri() {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => openExerciseModal(ujian.id, pkgName, lat)}
-                                        className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
-                                        title="Edit Latihan"
+                                        onClick={() => window.open(`/ujian-mandiri/${ujian.id}/latihan/${lat.id}?preview=true`, '_blank')}
+                                        className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center transition-all"
+                                        title="Live Preview Latihan"
                                       >
-                                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        <span className="material-symbols-outlined text-[18px]">visibility</span>
                                       </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteLatihan(ujian.id, lat.id)}
-                                        className="w-9 h-9 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
-                                        title="Hapus Latihan"
-                                      >
-                                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                                      </button>
+                                      {user?.role !== 'quality_assurance' && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => openExerciseModal(ujian.id, pkgName, lat)}
+                                            className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center transition-all"
+                                            title="Edit Latihan"
+                                          >
+                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteLatihan(ujian.id, lat.id)}
+                                            className="w-9 h-9 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all"
+                                            title="Hapus Latihan"
+                                          >
+                                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                                          </button>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 ))}

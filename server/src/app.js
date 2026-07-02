@@ -78,6 +78,7 @@ const vouchersRoutes = require('./routes/vouchers');
 const articlesRoutes = require('./routes/articles');
 const careersRoutes = require('./routes/careers');
 const sitemapRoutes = require('./routes/sitemap');
+const certificatesRoutes = require('./routes/certificates');
 
 // Mount routes
 app.use('/sitemap.xml', sitemapRoutes);
@@ -101,6 +102,7 @@ app.use('/api/team', teamRoutes);
 app.use('/api/vouchers', vouchersRoutes);
 app.use('/api/articles', articlesRoutes);
 app.use('/api/careers', careersRoutes);
+app.use('/api/certificates', certificatesRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

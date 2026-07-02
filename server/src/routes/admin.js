@@ -262,7 +262,8 @@ router.patch('/users/:id/role', verifyToken, verifyAdmin, async (req, res, next)
   try {
     const { id } = req.params;
     const { role } = req.body;
-    if (!['student', 'admin'].includes(role)) {
+    const allowedRoles = ['student', 'admin', 'question_writer', 'quality_assurance', 'article_writer'];
+    if (!allowedRoles.includes(role)) {
       return res.status(400).json({ success: false, error: 'Invalid role' });
     }
     const result = await pool.query(
@@ -659,109 +660,7 @@ router.get('/questions/duplicates', verifyToken, verifyAdmin, async (req, res, n
   }
 });
 
-// GET /api/admin/todos - List all todo items
-router.get('/todos', verifyToken, verifyAdmin, async (req, res, next) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        t.*,
-        c.name as creator_name,
-        c.email as creator_email,
-        a.name as assigned_name,
-        a.email as assigned_email
-      FROM admin_todos t
-      LEFT JOIN users c ON t.created_by = c.id
-      LEFT JOIN users a ON t.assigned_to = a.id
-      ORDER BY t.due_date ASC, t.created_at DESC
-    `);
-    res.json({ success: true, data: result.rows });
-  } catch (error) {
-    next(error);
-  }
-});
 
-// POST /api/admin/todos - Create a new todo item
-router.post('/todos', verifyToken, verifyAdmin, async (req, res, next) => {
-  const { title, description, assigned_to, due_date } = req.body;
-  const created_by = req.user.id;
-  try {
-    if (!title) {
-      return res.status(400).json({ success: false, error: 'Title is required' });
-    }
-    const result = await pool.query(
-      `INSERT INTO admin_todos (title, description, assigned_to, due_date, created_by)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [title, description || null, assigned_to || null, due_date || null, created_by]
-    );
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// PATCH /api/admin/todos/:id - Update todo item status/details
-router.patch('/todos/:id', verifyToken, verifyAdmin, async (req, res, next) => {
-  const { id } = req.params;
-  const { title, description, assigned_to, due_date, status } = req.body;
-  try {
-    const fields = [];
-    const values = [];
-    let valIdx = 1;
-
-    if (title !== undefined) {
-      fields.push(`title = $${valIdx++}`);
-      values.push(title);
-    }
-    if (description !== undefined) {
-      fields.push(`description = $${valIdx++}`);
-      values.push(description);
-    }
-    if (assigned_to !== undefined) {
-      fields.push(`assigned_to = $${valIdx++}`);
-      values.push(assigned_to);
-    }
-    if (due_date !== undefined) {
-      fields.push(`due_date = $${valIdx++}`);
-      values.push(due_date);
-    }
-    if (status !== undefined) {
-      fields.push(`status = $${valIdx++}`);
-      values.push(status);
-    }
-
-    if (fields.length === 0) {
-      return res.status(400).json({ success: false, error: 'No fields to update' });
-    }
-
-    fields.push(`updated_at = NOW()`);
-    values.push(id);
-
-    const query = `UPDATE admin_todos SET ${fields.join(', ')} WHERE id = $${valIdx} RETURNING *`;
-    const result = await pool.query(query, values);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Todo not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// DELETE /api/admin/todos/:id - Delete todo item
-router.delete('/todos/:id', verifyToken, verifyAdmin, async (req, res, next) => {
-  const { id } = req.params;
-  try {
-    const result = await pool.query('DELETE FROM admin_todos WHERE id = $1 RETURNING *', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Todo not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    next(error);
-  }
-});
 
 // GET /api/admin/activity-logs - Admin only: Get paginated admin activity logs
 router.get('/activity-logs', verifyToken, verifyAdmin, async (req, res, next) => {

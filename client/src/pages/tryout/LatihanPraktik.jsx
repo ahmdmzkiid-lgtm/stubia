@@ -10,6 +10,7 @@ import SocialFollowModal from '../../components/SocialFollowModal';
 import LatihanPreRequirementModal from '../../components/LatihanPreRequirementModal';
 import MathText from '../../components/MathText';
 import ExitConfirmModal from '../../components/ExitConfirmModal';
+import PreviewBanner from '../../components/layout/PreviewBanner';
 
 const LatihanPraktik = () => {
   const navigate = useNavigate();
@@ -399,6 +400,7 @@ const LatihanPraktik = () => {
 
   return (
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24] flex flex-col">
+      <PreviewBanner />
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8ff]/95 backdrop-blur-md border-b border-[#e0e2f0] shadow-sm">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between">

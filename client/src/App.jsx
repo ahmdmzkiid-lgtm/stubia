@@ -21,7 +21,6 @@ const InputSoal = React.lazy(() => import('./pages/admin/InputSoal'));
 const ImportCSV = React.lazy(() => import('./pages/admin/ImportCSV'));
 const UserManagement = React.lazy(() => import('./pages/admin/UserManagement'));
 const AdminSettings = React.lazy(() => import('./pages/admin/AdminSettings'));
-const ManageTodos = React.lazy(() => import('./pages/admin/ManageTodos'));
 const ManageLatihan = React.lazy(() => import('./pages/admin/ManageLatihan'));
 const LatihanPraktik = React.lazy(() => import('./pages/tryout/LatihanPraktik'));
 const LatihanResult = React.lazy(() => import('./pages/tryout/LatihanResult'));
@@ -55,13 +54,14 @@ const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
 const TermsAndConditions = React.lazy(() => import('./pages/TermsAndConditions'));
 const ContactUs = React.lazy(() => import('./pages/ContactUs'));
 const Careers = React.lazy(() => import('./pages/Careers'));
+const ApplyJob = React.lazy(() => import('./pages/ApplyJob'));
 const BlogList = React.lazy(() => import('./pages/BlogList'));
 const BlogDetail = React.lazy(() => import('./pages/BlogDetail'));
 const CMSLayout = React.lazy(() => import('./components/layout/CMSLayout'));
+const CertificateVerify = React.lazy(() => import('./pages/CertificateVerify'));
 const CMSDashboard = React.lazy(() => import('./pages/cms/CMSDashboard'));
 const CMSArticles = React.lazy(() => import('./pages/cms/CMSArticles'));
 const CMSCareers = React.lazy(() => import('./pages/cms/CMSCareers'));
-const CMSTeam = React.lazy(() => import('./pages/cms/CMSTeam'));
 const CMSActivityLogs = React.lazy(() => import('./pages/cms/CMSActivityLogs'));
 import ScrollToTop from './components/ScrollToTop';
 
@@ -91,6 +91,8 @@ function App() {
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/contact-us" element={<ContactUs />} />
             <Route path="/careers" element={<Careers />} />
+            <Route path="/careers/daftar/:type/:jobId" element={<ApplyJob />} />
+            <Route path="/careers/verify/:id" element={<CertificateVerify />} />
             <Route path="/blog" element={<BlogList />} />
             <Route path="/blog/:slug" element={<BlogDetail />} />
             <Route element={<PublicRoute />}>
@@ -141,7 +143,6 @@ function App() {
                 <Route path="input" element={<InputSoal />} />
                 <Route path="import" element={<ImportCSV />} />
                 <Route path="users" element={<UserManagement />} />
-                <Route path="todos" element={<ManageTodos />} />
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="latihan" element={<ManageLatihan />} />
                 <Route path="tryout" element={<ManageTryout />} />
@@ -157,7 +158,6 @@ function App() {
                 <Route index element={<CMSDashboard />} />
                 <Route path="articles" element={<CMSArticles />} />
                 <Route path="careers" element={<CMSCareers />} />
-                <Route path="team" element={<CMSTeam />} />
                 <Route path="activity" element={<CMSActivityLogs />} />
               </Route>
             </Route>
