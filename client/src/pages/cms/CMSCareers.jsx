@@ -643,7 +643,7 @@ export default function CMSCareers() {
                           <option value="Part-time">Part-time</option>
                           <option value="Internship">Internship</option>
                           <option value="Contract">Contract</option>
-                          <option value="Volunter">Volunter</option>
+                          <option value="Volunteer">Volunteer</option>
                         </select>
                       </div>
                     </div>
@@ -834,9 +834,15 @@ export default function CMSCareers() {
                     </div>
                     {/* Info */}
                     <div className="sm:col-span-2 space-y-3">
-                      <div>
-                        <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Nama Lengkap</p>
-                        <p className="text-[15px] font-bold text-[#191b24]">{selectedApp.name}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Nama Lengkap</p>
+                          <p className="text-[15px] font-bold text-[#191b24]">{selectedApp.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Nomor Pendaftaran</p>
+                          <p className="text-[15px] font-mono font-bold text-[#0050cb]">{selectedApp.registration_number || '-'}</p>
+                        </div>
                       </div>
                       <div>
                         <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Posisi Dilamar</p>
@@ -873,6 +879,26 @@ export default function CMSCareers() {
                         <div>
                           <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Tanggal Melamar</p>
                           <p className="text-[12px] text-[#424656] font-semibold">{new Date(selectedApp.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Kapan Bisa Mulai</p>
+                          <p className="text-[13px] text-[#424656] font-semibold">
+                            {selectedApp.start_date 
+                              ? (() => {
+                                  const d = new Date(selectedApp.start_date);
+                                  return isNaN(d.getTime()) 
+                                    ? selectedApp.start_date 
+                                    : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                                })()
+                              : '-'
+                            }
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Durasi Komitmen</p>
+                          <p className="text-[13px] text-[#424656] font-semibold">{selectedApp.work_duration || '-'}</p>
                         </div>
                       </div>
                       <div>

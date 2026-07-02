@@ -34,7 +34,7 @@ router.get('/applications/all', verifyToken, verifyAdmin, async (req, res, next)
     const result = await pool.query(
       `SELECT ja.id, ja.vacancy_id, ja.name, ja.email, ja.phone, ja.photo_url, ja.cv_url, ja.description, 
               ja.start_date, ja.ready_for_training, ja.portfolio_url, ja.last_education,
-              ja.address, ja.birth_place_date, ja.institution_name, ja.experience_duration, ja.motivation, ja.ktp_url, ja.created_at,
+              ja.address, ja.birth_place_date, ja.institution_name, ja.experience_duration, ja.motivation, ja.ktp_url, ja.work_duration, ja.created_at,
               jv.title as vacancy_title, jv.department as vacancy_department
        FROM job_applications ja
        JOIN job_vacancies jv ON ja.vacancy_id = jv.id
@@ -83,15 +83,16 @@ router.post('/:id/apply', async (req, res, next) => {
       institution_name,
       experience_duration,
       motivation,
-      ktp_url
+      ktp_url,
+      work_duration
     } = req.body;
 
-    if (!name || !email || !phone || !photo_url || !cv_url || !description || !start_date || ready_for_training === undefined || !last_education || !address || !birth_place_date || !institution_name || !experience_duration || !motivation || !ktp_url) {
+    if (!name || !email || !phone || !photo_url || !cv_url || !description || !start_date || ready_for_training === undefined || !last_education || !address || !birth_place_date || !institution_name || !experience_duration || !motivation || !ktp_url || !work_duration) {
       return res.status(400).json({ success: false, error: 'Harap isi semua kolom wajib pada form lamaran' });
     }
 
     // Verify vacancy exists and is active
-    const vacancyCheck = await pool.query('SELECT is_active FROM job_vacancies WHERE id = $1', [id]);
+    const vacancyCheck = await pool.query('SELECT is_active, title FROM job_vacancies WHERE id = $1', [id]);
     if (vacancyCheck.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Lowongan pekerjaan tidak ditemukan' });
     }
@@ -99,19 +100,48 @@ router.post('/:id/apply', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Lowongan pekerjaan ini sudah tidak aktif' });
     }
 
+    // Generate sequential registration number
+    const currentYear = new Date().getFullYear();
+    const regCheck = await pool.query(
+      `SELECT registration_number FROM job_applications 
+       WHERE registration_number LIKE $1 
+       ORDER BY created_at DESC LIMIT 1`,
+      [`APP/${currentYear}/%`]
+    );
+
+    let nextNum = 1;
+    if (regCheck.rows.length > 0) {
+      const lastCode = regCheck.rows[0].registration_number;
+      if (lastCode) {
+        const parts = lastCode.split('/');
+        const lastNumStr = parts[parts.length - 1];
+        const lastNum = parseInt(lastNumStr, 10);
+        if (!isNaN(lastNum)) {
+          nextNum = lastNum + 1;
+        }
+      }
+    }
+    const paddedNum = String(nextNum).padStart(4, '0');
+    const registration_number = `APP/${currentYear}/${paddedNum}`;
+
     const result = await pool.query(
       `INSERT INTO job_applications (
         vacancy_id, name, email, phone, photo_url, cv_url, description, 
         start_date, ready_for_training, portfolio_url, last_education,
-        address, birth_place_date, institution_name, experience_duration, motivation, ktp_url, created_at
+        address, birth_place_date, institution_name, experience_duration, motivation, ktp_url, work_duration, registration_number, created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW()) RETURNING *`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW()) RETURNING *`,
       [
         id, name, email, phone, photo_url, cv_url, description,
         start_date, ready_for_training, portfolio_url || null, last_education,
-        address, birth_place_date, institution_name, experience_duration, motivation, ktp_url
+        address, birth_place_date, institution_name, experience_duration, motivation, ktp_url, work_duration, registration_number
       ]
     );
+
+    const jobTitle = vacancyCheck.rows[0].title;
+    const { sendJobApplicationSubmittedEmail } = require('../services/emailService');
+    sendJobApplicationSubmittedEmail(email, name, registration_number, jobTitle)
+      .catch(err => console.error('Error sending confirmation email:', err));
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {

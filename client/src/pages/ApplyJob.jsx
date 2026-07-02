@@ -220,7 +220,9 @@ export default function ApplyJob() {
   const [applyBirthPlaceDate, setApplyBirthPlaceDate] = useState('');
   const [applyEducation, setApplyEducation] = useState('S1');
   const [applyInstitutionName, setApplyInstitutionName] = useState('');
-  const [applyExperienceDuration, setApplyExperienceDuration] = useState('Freshgraduate/Newbie');
+  const [applyExperienceDuration, setApplyExperienceDuration] = useState('Freshgraduate');
+  const [applyStartDate, setApplyStartDate] = useState('');
+  const [applyWorkDuration, setApplyWorkDuration] = useState('');
   const [applyDesc, setApplyDesc] = useState('');
   const [applyMotivation, setApplyMotivation] = useState('');
   const [applyKtp, setApplyKtp] = useState('');
@@ -234,6 +236,7 @@ export default function ApplyJob() {
   const [cvUploading, setCvUploading] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [submittingApply, setSubmittingApply] = useState(false);
+  const [submittedRegNumber, setSubmittedRegNumber] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -300,13 +303,13 @@ export default function ApplyJob() {
       experience_duration: applyExperienceDuration, description: applyDesc.trim(),
       motivation: applyMotivation.trim(), ktp_url: applyKtp, cv_url: applyCv,
       photo_url: applyPhoto, portfolio_url: applyPortfolio.trim(),
-      start_date: 'ASAP', ready_for_training: true
+      start_date: applyStartDate.trim(), work_duration: applyWorkDuration.trim(), ready_for_training: true
     };
     setSubmittingApply(true);
     try {
-      await careerService.apply(jobId, payload);
+      const res = await careerService.apply(jobId, payload);
+      setSubmittedRegNumber(res.data.data.registration_number);
       toast.success('Lamaran Anda berhasil dikirim! Terima kasih.');
-      navigate('/careers');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Gagal mengirim lamaran.');
     } finally { setSubmittingApply(false); }
@@ -328,6 +331,8 @@ export default function ApplyJob() {
       if (!applyExperienceDuration.trim()) { toast.error('Lama Pengalaman wajib dipilih!'); return false; }
       if (!applyDesc.trim()) { toast.error('Deskripsi Pengalaman wajib diisi!'); return false; }
       if (!applyMotivation.trim()) { toast.error('Motivasi wajib diisi!'); return false; }
+      if (!applyStartDate.trim()) { toast.error('Kapan bisa mulai wajib diisi!'); return false; }
+      if (!applyWorkDuration.trim()) { toast.error('Durasi komitmen wajib dipilih!'); return false; }
     }
     if (step === 4) {
       if (!applyKtp) { toast.error('Dokumen KTP wajib diunggah!'); return false; }
@@ -346,6 +351,44 @@ export default function ApplyJob() {
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-[3px] border-[#0055D4] border-t-transparent rounded-full animate-spin" />
           <p className="text-[13px] text-[#737685] font-medium">Memuat informasi lowongan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (submittedRegNumber) {
+    return (
+      <div className="min-h-screen bg-[#f4f6fd] flex flex-col justify-center items-center px-4" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <div className="bg-white rounded-3xl border border-[#e2e5f0] shadow-xl p-8 max-w-[500px] w-full text-center space-y-6">
+          <div className="w-16 h-16 bg-[#ecfdf5] text-[#10b981] rounded-full flex items-center justify-center mx-auto shadow-sm">
+            <span className="material-symbols-outlined text-[40px]">check_circle</span>
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-[24px] font-extrabold text-[#0f1729]">Lamaran Terkirim!</h2>
+            <p className="text-[14px] text-[#4b5573] leading-relaxed">
+              Terima kasih telah melamar posisi <strong>{job?.title}</strong>. Berkas lamaran Anda telah berhasil kami terima.
+            </p>
+          </div>
+
+          <div className="bg-[#eff4ff] border-2 border-dashed border-[#0055D4]/30 rounded-2xl p-5 space-y-1.5">
+            <span className="text-[11px] font-bold text-[#0055D4] uppercase tracking-wider block">Nomor Pendaftaran</span>
+            <span className="text-[22px] font-mono font-extrabold text-[#0055D4] tracking-wider block">{submittedRegNumber}</span>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-4 flex gap-3 text-left">
+            <span className="material-symbols-outlined text-amber-600 text-[20px] shrink-0 mt-0.5">mail</span>
+            <p className="text-[12.5px] text-amber-850 leading-relaxed">
+              Kami telah mengirimkan email konfirmasi ke <strong>{applyEmail}</strong>. Harap simpan nomor pendaftaran ini sebagai bukti pendaftaran Anda.
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate('/careers')}
+            className="w-full py-3.5 rounded-xl bg-[#0055D4] hover:bg-[#003fa4] text-white font-bold text-[14px] shadow-lg shadow-blue-200 transition-all duration-300"
+          >
+            Kembali ke Halaman Karir
+          </button>
         </div>
       </div>
     );
@@ -397,116 +440,118 @@ export default function ApplyJob() {
       </nav>
 
       {/* ── Main Layout ── */}
-      <main className="flex-1 pt-[80px] pb-16 px-4 md:px-6 max-w-[1280px] mx-auto w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-start mt-6">
+      <main className="flex-1 pt-[80px] pb-16 px-4 md:px-6 max-w-[1000px] mx-auto w-full">
+        <div className="space-y-8 mt-6">
 
-          {/* ── LEFT: Job Detail Card ── on mobile shown AFTER form */}
-          <div className="lg:col-span-5 space-y-4 order-2 lg:order-1">
+          {/* ── TOP: Unified Job Detail Card ── */}
+          <div className="bg-white rounded-3xl border border-[#e2e5f0] overflow-hidden shadow-sm">
+            {/* Accent bar */}
+            <div className="h-1.5 bg-gradient-to-r from-[#0055D4] via-[#4d8ef5] to-[#0055D4]" />
+            
+            <div className="p-6 sm:p-8">
+              {/* Header Info */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${deptStyle.bg} ${deptStyle.text}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${deptStyle.dot}`} />
+                  {job?.department}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#f3f0ff] text-[#6d28d9]">
+                  <IconTag />
+                  {job?.type}
+                </span>
+              </div>
 
-            {/* Header Card */}
-            <div className="bg-white rounded-2xl border border-[#e2e5f0] overflow-hidden shadow-sm">
-              {/* Accent bar */}
-              <div className="h-1.5 bg-gradient-to-r from-[#0055D4] via-[#4d8ef5] to-[#0055D4]" />
+              <h1 className="text-[28px] font-extrabold text-[#0f1729] tracking-tight leading-[1.2] mb-3">
+                {job?.title}
+              </h1>
 
-              <div className="p-6">
-                {/* Type + Dept Badge */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${deptStyle.bg} ${deptStyle.text}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${deptStyle.dot}`} />
-                    {job?.department}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#f3f0ff] text-[#6d28d9]">
-                    <IconTag />
-                    {job?.type}
-                  </span>
+              {job?.location && (
+                <div className="flex items-center gap-1.5 text-[12.5px] text-[#737685] font-medium mb-4">
+                  <IconMapPin />
+                  <span>{job.location}</span>
                 </div>
+              )}
 
-                <h1 className="text-[26px] font-extrabold text-[#0f1729] tracking-tight leading-[1.2] mb-3">
-                  {job?.title}
-                </h1>
+              {job?.description && (
+                <p className="text-[14px] text-[#4b5573] leading-[24px]">
+                  {job.description}
+                </p>
+              )}
 
-                {/* Meta chips */}
-                {job?.location && (
-                  <div className="flex items-center gap-1.5 text-[12px] text-[#737685] font-medium mb-4">
-                    <IconMapPin />
-                    <span>{job.location}</span>
+              {/* Grid content inside the same card (responsibilities, requirements, benefits) */}
+              {(job?.responsibilities || job?.requirements || job?.benefits) && (
+                <>
+                  <div className="border-t border-[#e2e5f0] my-8" />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Responsibilities */}
+                    {job?.responsibilities && (
+                      <div className="space-y-4">
+                        <h3 className="flex items-center gap-2 text-[12.5px] font-bold text-[#0f1729] uppercase tracking-wider">
+                          <span className="w-6 h-6 rounded-lg bg-[#eff4ff] flex items-center justify-center text-[#0055D4]">
+                            <IconList />
+                          </span>
+                          Tugas & Tanggung Jawab
+                        </h3>
+                        <ul className="space-y-3">
+                          {parseBullets(job.responsibilities).map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#4b5573] leading-[20px]">
+                              <span className="w-5 h-5 rounded-full bg-[#eff4ff] text-[#0055D4] text-[10px] font-bold flex-shrink-0 flex items-center justify-center mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <span className="flex-1">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Requirements */}
+                    {job?.requirements && (
+                      <div className="space-y-4">
+                        <h3 className="flex items-center gap-2 text-[12.5px] font-bold text-[#0f1729] uppercase tracking-wider">
+                          <span className="w-6 h-6 rounded-lg bg-[#fef3f2] flex items-center justify-center text-[#b54708]">
+                            <IconStar />
+                          </span>
+                          Kualifikasi
+                        </h3>
+                        <ul className="space-y-3">
+                          {parseBullets(job.requirements).map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#4b5573] leading-[20px]">
+                              <span className="text-[#0055D4] mt-0.5 flex-shrink-0"><IconCheck /></span>
+                              <span className="flex-1">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Benefits */}
+                    {job?.benefits && (
+                      <div className="space-y-4">
+                        <h3 className="flex items-center gap-2 text-[12.5px] font-bold text-[#0f1729] uppercase tracking-wider">
+                          <span className="w-6 h-6 rounded-lg bg-[#ecfdf5] flex items-center justify-center text-[#059669]">
+                            <IconGift />
+                          </span>
+                          Benefit & Fasilitas
+                        </h3>
+                        <ul className="space-y-3">
+                          {parseBullets(job.benefits).map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#334155] leading-[20px] font-medium">
+                              <span className="text-[#059669] mt-0.5 flex-shrink-0"><IconCheck /></span>
+                              <span className="flex-1">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                )}
-
-                {job?.description && (
-                  <p className="text-[13.5px] text-[#4b5573] leading-[22px]">
-                    {job.description}
-                  </p>
-                )}
-              </div>
+                </>
+              )}
             </div>
-
-            {/* Responsibilities */}
-            {job?.responsibilities && (
-              <div className="bg-white rounded-2xl border border-[#e2e5f0] p-6 shadow-sm">
-                <h3 className="flex items-center gap-2 text-[13px] font-bold text-[#0f1729] uppercase tracking-wider mb-4">
-                  <span className="w-6 h-6 rounded-lg bg-[#eff4ff] flex items-center justify-center text-[#0055D4]">
-                    <IconList />
-                  </span>
-                  Tugas & Tanggung Jawab
-                </h3>
-                <ul className="space-y-2.5">
-                  {parseBullets(job.responsibilities).map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-3 text-[13px] text-[#4b5573] leading-[20px]">
-                      <span className="w-5 h-5 rounded-full bg-[#0055D4] text-white text-[10px] font-bold flex-shrink-0 flex items-center justify-center mt-0.5">
-                        {idx + 1}
-                      </span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Requirements */}
-            {job?.requirements && (
-              <div className="bg-white rounded-2xl border border-[#e2e5f0] p-6 shadow-sm">
-                <h3 className="flex items-center gap-2 text-[13px] font-bold text-[#0f1729] uppercase tracking-wider mb-4">
-                  <span className="w-6 h-6 rounded-lg bg-[#fef3f2] flex items-center justify-center text-[#b54708]">
-                    <IconStar />
-                  </span>
-                  Kualifikasi
-                </h3>
-                <ul className="space-y-2.5">
-                  {parseBullets(job.requirements).map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#4b5573] leading-[20px]">
-                      <span className="text-[#0055D4] mt-0.5 flex-shrink-0"><IconCheck /></span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Benefits */}
-            {job?.benefits && (
-              <div className="bg-white rounded-2xl border border-[#e2e5f0] p-6 shadow-sm">
-                <h3 className="flex items-center gap-2 text-[13px] font-bold text-[#0f1729] uppercase tracking-wider mb-4">
-                  <span className="w-6 h-6 rounded-lg bg-[#ecfdf5] flex items-center justify-center text-[#059669]">
-                    <IconGift />
-                  </span>
-                  Benefit & Fasilitas
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {parseBullets(job.benefits).map((item, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ecfdf5] text-[#059669] text-[12px] font-semibold border border-[#a7f3d0]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* ── RIGHT: Application Form — shown FIRST on mobile ── */}
-          <div className="lg:col-span-7 order-1 lg:order-2">
-            <div className="bg-white rounded-2xl border border-[#e2e5f0] shadow-sm overflow-hidden">
+          {/* ── BOTTOM: Application Form ── */}
+          <div className="bg-white rounded-3xl border border-[#e2e5f0] shadow-sm overflow-hidden">
 
               {/* Form top accent */}
               <div className="bg-gradient-to-r from-[#0055D4] to-[#2563eb] px-6 py-5">
@@ -656,8 +701,10 @@ export default function ApplyJob() {
                       <label className="block text-[12px] font-bold text-[#434654] mb-1.5 uppercase tracking-wide">Lama Pengalaman di Bidang Ini *</label>
                       <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
                         {[
-                          { val: 'Freshgraduate/Newbie', label: '🎓 Fresh Graduate / Newbie' },
-                          { val: '1 tahun-5 tahun', label: '💼 1 – 5 Tahun Pengalaman' },
+                          { val: 'Freshgraduate', label: '🎓 Freshgraduate' },
+                          { val: '1 Tahun', label: '💼 1 Tahun' },
+                          { val: '2 Tahun', label: '💼 2 Tahun' },
+                          { val: '3 Tahun', label: '💼 3 Tahun' },
                         ].map(({ val, label: optLabel }) => (
                           <button
                             key={val}
@@ -693,6 +740,34 @@ export default function ApplyJob() {
                         className="w-full px-4 py-3 rounded-xl bg-[#f8f9ff] border-2 border-[#e2e5f0] focus:border-[#0055D4] focus:bg-white focus:outline-none text-[13.5px] text-[#0f1729] resize-none transition-all"
                         required
                       />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[12px] font-bold text-[#434654] mb-1.5 uppercase tracking-wide">Kapan Bisa Mulai *</label>
+                        <input
+                          type="date"
+                          value={applyStartDate}
+                          onChange={e => setApplyStartDate(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl bg-[#f8f9ff] border-2 border-[#e2e5f0] focus:border-[#0055D4] focus:bg-white focus:outline-none text-[13.5px] text-[#0f1729] transition-all"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] font-bold text-[#434654] mb-1.5 uppercase tracking-wide">Durasi Komitmen *</label>
+                        <select
+                          value={applyWorkDuration}
+                          onChange={e => setApplyWorkDuration(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl bg-[#f8f9ff] border-2 border-[#e2e5f0] focus:border-[#0055D4] focus:bg-white focus:outline-none text-[13.5px] text-[#0f1729] transition-all cursor-pointer"
+                          required
+                        >
+                          <option value="" disabled>Pilih durasi komitmen...</option>
+                          <option value="1 Bulan">1 Bulan</option>
+                          <option value="2 Bulan">2 Bulan</option>
+                          <option value="3 Bulan">3 Bulan</option>
+                          <option value="6 Bulan">6 Bulan</option>
+                          <option value="Lebih dari 6 Bulan">Lebih dari 6 Bulan</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -767,6 +842,8 @@ export default function ApplyJob() {
                           { label: 'Pendidikan Terakhir', value: `${applyEducation} — ${applyInstitutionName}`, full: true },
                           { label: 'Alamat Domisili', value: applyAddress, full: true },
                           { label: 'Lama Pengalaman', value: applyExperienceDuration },
+                          { label: 'Kapan Bisa Mulai', value: applyStartDate ? new Date(applyStartDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '' },
+                          { label: 'Durasi Komitmen', value: applyWorkDuration },
                         ].map(({ label, value, full }) => (
                           <div key={label} className={full ? 'sm:col-span-2' : ''}>
                             <p className="text-[10px] font-bold text-[#9ba3bb] uppercase tracking-wider mb-0.5">{label}</p>
@@ -862,7 +939,6 @@ export default function ApplyJob() {
 
               </form>
             </div>
-          </div>
 
         </div>
       </main>

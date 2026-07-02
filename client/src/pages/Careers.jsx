@@ -283,7 +283,7 @@ export default function Careers() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {filteredCareers.map((job) => {
-              const typeSlug = (job.type || 'volunter').toLowerCase().replace(/\s+/g, '-');
+              const typeSlug = (job.type || 'volunteer').toLowerCase().replace(/\s+/g, '-');
               const isRemote = (job.location || '').toLowerCase().includes('remote');
               
               // Parse bullets safely

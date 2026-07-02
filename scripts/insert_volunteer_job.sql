@@ -1,4 +1,4 @@
--- Insert contoh lowongan volunter: Content Writer Volunteer
+-- Insert contoh lowongan volunteer: Content Writer Volunteer
 INSERT INTO job_vacancies (
   title,
   department,

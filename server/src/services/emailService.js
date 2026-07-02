@@ -65,39 +65,6 @@ function baseTemplate({
                 </tr>
               </table>
 
-              <!-- ── PROMO STRIP ── -->
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td style="background-color:#f9fafb;border-top:1px solid #f0f0f2;padding:32px 48px;">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                      <tr>
-                        <td align="center" style="padding-bottom:16px;">
-                          <p style="margin:0 0 2px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;">Penawaran Terbatas</p>
-                          <p style="margin:0;font-size:17px;font-weight:700;color:#111827;line-height:1.4;">Hemat <span style="color:${accentColor};">65%</span> untuk semua paket Premium</p>
-                          <p style="margin:6px 0 0;font-size:13px;color:#6b7280;">Masukkan kode berikut saat checkout:</p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td align="center" style="padding:4px 0 20px;">
-                          <div style="display:inline-block;background:#ffffff;border:1.5px solid #e5e7eb;border-radius:10px;padding:12px 28px;text-align:center;">
-                            <span style="display:block;font-size:11px;color:#9ca3af;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px;">Kode Voucher</span>
-                            <span style="font-size:24px;font-weight:800;color:#0050cb;letter-spacing:6px;font-family:'Courier New',Courier,monospace;">STUBIA65</span>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td align="center">
-                          <a href="https://stubia.id/dashboard#pricing-plans"
-                            style="display:inline-block;background:#0050cb;color:#ffffff;font-size:13px;font-weight:600;padding:11px 28px;border-radius:8px;text-decoration:none;letter-spacing:0.2px;">
-                            Klaim Diskon Sekarang
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-
             </td>
           </tr>
 
@@ -575,9 +542,52 @@ ${hr()}
   });
 }
 
+async function sendJobApplicationSubmittedEmail(userEmail, userName, registrationNumber, jobTitle) {
+  const html = baseTemplate({
+    preheader: `Konfirmasi Lamaran Pekerjaan — ${jobTitle}`,
+    headerLabel: "Stubia Karir",
+    headerTitle: "Lamaran Diterima",
+    body: `
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+  Halo <strong>${userName}</strong>,
+</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+  Terima kasih telah mendaftar untuk posisi <strong>${jobTitle}</strong> di Stubia.id. Kami mengonfirmasi bahwa berkas lamaran Anda telah berhasil kami terima.
+</p>
+
+${callout({
+  text: `
+    <strong>Nomor Pendaftaran:</strong> <span style="font-family:monospace; font-size:14px; color:#0050cb; font-weight:bold;">${registrationNumber}</span><br/>
+    <strong>Posisi Dilamar:</strong> ${jobTitle}<br/>
+    <strong>Status:</strong> Dalam Review
+  `
+})}
+
+<p style="margin:24px 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+  Tim rekrutmen kami saat ini sedang meninjau berkas profil dan dokumen yang Anda unggah. Jika kualifikasi Anda sesuai dengan kebutuhan kami, kami akan menghubungi Anda kembali melalui WhatsApp atau Email untuk tahap wawancara selanjutnya.
+</p>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">
+  Semoga sukses dalam proses seleksi ini!
+</p>
+${hr()}
+<p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5;">
+  Salam hangat,<br/>
+  <strong style="color:#111827;">Tim Rekrutmen Stubia.id</strong>
+</p>`,
+  });
+
+  return sendEmail({
+    toEmail: userEmail,
+    toName: userName,
+    subject: `Lamaran Diterima — No. Pendaftaran ${registrationNumber} (${jobTitle})`,
+    html,
+  });
+}
+
 module.exports = {
   sendWelcomeEmail,
   sendPremiumPlanActivatedEmail,
   sendTryoutRegistrationApprovedEmail,
   sendTryoutRegistrationRejectedEmail,
+  sendJobApplicationSubmittedEmail,
 };
