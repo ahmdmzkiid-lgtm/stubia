@@ -73,12 +73,16 @@ export default function Careers() {
     fetchCareers();
   }, []);
 
+  // Filter jobs by type (normal jobs vs fellowship jobs)
+  const normalJobs = careers.filter(job => job.type?.toLowerCase() !== 'fellowship');
+  const fellowshipJobs = careers.filter(job => job.type?.toLowerCase() === 'fellowship');
+
   // Get unique departments for filter
-  const departments = ['Semua', ...new Set(careers.map(job => job.department))];
+  const departments = ['Semua', ...new Set(normalJobs.map(job => job.department))];
   
   const filteredCareers = departmentFilter === 'Semua' 
-    ? careers 
-    : careers.filter(job => job.department === departmentFilter);
+    ? normalJobs 
+    : normalJobs.filter(job => job.department === departmentFilter);
 
   const sectionClass = (id) =>
     `transition-all duration-700 ${visibleSections[id] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`;
@@ -297,6 +301,113 @@ export default function Careers() {
                 >
                   <div>
                     {/* Header: megphone icon + Title + badges */}
+                    <div className="flex items-start gap-4 mb-5">
+                      <div className={`w-14 h-14 bg-gradient-to-tr ${getDeptIcon(job.department) === 'work' ? 'from-[#0055D4] to-[#3b82f6]' : getDeptColor(job.department)} rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm`}>
+                        <span className="material-symbols-outlined text-[28px]">{getDeptIcon(job.department)}</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <h3 className="text-[20px] leading-[26px] font-bold text-[#121c2a]">{job.title}</h3>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="bg-[#ffebd5] text-[#ea580c] font-bold text-[11px] px-3 py-1 rounded-full flex items-center gap-1 select-none">
+                            <span className="material-symbols-outlined text-[14px]">work</span> {job.type}
+                          </span>
+                          <span className="bg-[#dbeafe] text-[#2563eb] font-bold text-[11px] px-3 py-1 rounded-full flex items-center gap-1 select-none">
+                            <span className="material-symbols-outlined text-[14px]">{isRemote ? 'home_work' : 'location_on'}</span> {isRemote ? 'Remote' : job.location}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dashed line separator */}
+                    <div className="border-t border-dashed border-[#c3c6d6]/60 my-5"></div>
+
+                    {/* Deskripsi Pekerjaan */}
+                    {descBullets.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-[14px] font-bold text-[#121c2a] flex items-center gap-1.5 mb-2">
+                          <span className="material-symbols-outlined text-[18px] text-[#0055D4]">format_list_bulleted</span>
+                          Deskripsi Pekerjaan
+                        </h4>
+                        <ul className="space-y-1 text-[13px] text-[#434654] list-disc list-inside pl-1">
+                          {descBullets.map((bullet, idx) => (
+                            <li key={idx} className="leading-[20px] truncate">{bullet.replace(/^-\s*/, '')}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Kualifikasi */}
+                    {reqBullets.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="text-[14px] font-bold text-[#121c2a] flex items-center gap-1.5 mb-2">
+                          <span className="material-symbols-outlined text-[18px] text-[#0055D4]">person</span>
+                          Kualifikasi
+                        </h4>
+                        <ul className="space-y-1 text-[13px] text-[#434654] list-disc list-inside pl-1">
+                          {reqBullets.map((bullet, idx) => (
+                            <li key={idx} className="leading-[20px] truncate">{bullet.replace(/^-\s*/, '')}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Lamar button */}
+                  <button
+                    onClick={() => {
+                      navigate(`/careers/daftar/${typeSlug}/${job.id}`);
+                    }}
+                    className="w-full bg-[#0055D4] hover:bg-[#003fa4] text-white font-bold py-3.5 px-6 rounded-2xl text-center text-sm flex items-center justify-center gap-2 transition-all shadow-sm shadow-[#0055D4]/10 cursor-pointer"
+                  >
+                    <span>Lamar Sekarang</span>
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Program Fellowship Section ── */}
+      <section 
+        id="fellowships"
+        data-animate
+        className={`py-16 md:py-24 px-4 md:px-6 max-w-[1280px] mx-auto w-full border-t border-slate-100 ${sectionClass('fellowships')}`}
+      >
+        <div className="text-left mb-12 space-y-4">
+          <h2 className="text-[32px] leading-[40px] font-bold text-[#121c2a] tracking-[-0.01em]">Program Fellowship</h2>
+          <p className="text-[16px] leading-[24px] text-[#434654]">Temukan kesempatan berkontribusi nyata dalam mendemokrasikan pendidikan berkualitas melalui program fellowship kami.</p>
+        </div>
+        
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-10 h-10 border-3 border-[#0055D4] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : fellowshipJobs.length === 0 ? (
+          <div className="bg-white border border-[#c3c6d6] rounded-xl py-20 text-center">
+            <span className="material-symbols-outlined text-[64px] text-[#c3c6d6] block mb-4">work_outline</span>
+            <h3 className="text-[24px] font-semibold text-[#121c2a] mb-2">Belum Ada Lowongan Fellowship</h3>
+            <p className="text-[16px] text-[#434654] max-w-md mx-auto">
+              Saat ini pendaftaran program Fellowship belum dibuka. Silakan periksa kembali di kemudian hari.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {fellowshipJobs.map((job) => {
+              const typeSlug = (job.type || 'fellowship').toLowerCase().replace(/\s+/g, '-');
+              const isRemote = (job.location || '').toLowerCase().includes('remote');
+              
+              const descBullets = (job.description || '').split('\n').filter(b => b.trim()).slice(0, 3);
+              const reqBullets = (job.requirements || '').split('\n').filter(b => b.trim()).slice(0, 3);
+
+              return (
+                <div 
+                  key={job.id} 
+                  className="bg-white border border-[#c3c6d6] rounded-3xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#0055D4]/40 hover:shadow-lg transition-all duration-300 relative"
+                >
+                  <div>
+                    {/* Header: icon + Title + badges */}
                     <div className="flex items-start gap-4 mb-5">
                       <div className={`w-14 h-14 bg-gradient-to-tr ${getDeptIcon(job.department) === 'work' ? 'from-[#0055D4] to-[#3b82f6]' : getDeptColor(job.department)} rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm`}>
                         <span className="material-symbols-outlined text-[28px]">{getDeptIcon(job.department)}</span>

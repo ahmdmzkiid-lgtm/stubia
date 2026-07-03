@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { certificateService } from '../services/api';
 import Footer from '../components/Footer';
 
@@ -26,8 +27,10 @@ export default function CertificateVerify() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [cert, setCert] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [searchCode, setSearchCode] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     const verifyCert = async () => {
@@ -43,8 +46,38 @@ export default function CertificateVerify() {
         setLoading(false);
       }
     };
-    if (id) verifyCert();
+    if (id) {
+      verifyCert();
+    } else {
+      setCert(null);
+      setLoading(false);
+      setError(null);
+    }
   }, [id]);
+
+  const handleSearchSubmit = async (e) => {
+    e.preventDefault();
+    if (!searchCode.trim()) {
+      toast.error('Silakan masukkan kode sertifikat');
+      return;
+    }
+    try {
+      setSearchLoading(true);
+      setError(null);
+      const res = await certificateService.search(searchCode);
+      if (res.data?.success && res.data.data) {
+        toast.success('Sertifikat ditemukan!');
+        navigate(`/careers/verify/${res.data.data.id}`);
+      } else {
+        setError('Sertifikat tidak ditemukan dengan kode tersebut.');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Kode sertifikat tidak ditemukan atau tidak valid.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -81,30 +114,53 @@ export default function CertificateVerify() {
               <p className="text-[13px] text-[#737685] font-semibold">Memverifikasi keaslian sertifikat...</p>
             </div>
           </div>
-        ) : error ? (
+        ) : (!id && !cert) || error ? (
           <div className="max-w-md w-full bg-white border border-[#e2e5f0] rounded-3xl shadow-lg overflow-hidden">
             {/* Top Banner Accent */}
             <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600" />
-            <div className="p-8 text-center space-y-6">
-              <IconInvalid />
-              <div>
-                <h2 className="text-[20px] font-extrabold text-[#0f1729]">Sertifikat Tidak Valid</h2>
-                <p className="text-[13px] text-red-600 font-medium mt-2 leading-relaxed bg-red-50 border border-red-100 p-3.5 rounded-xl">
-                  {error}
-                </p>
+            <div className="p-8 space-y-6">
+              <div className="text-center space-y-2">
+                <span className="material-symbols-outlined text-[48px] text-[#0055D4] block">verified_user</span>
+                <h2 className="text-[20px] font-extrabold text-[#0f1729]">Verifikasi Sertifikat Stubia</h2>
+                <p className="text-[13px] text-[#737685]">Masukkan kode sertifikat untuk memeriksa keabsahannya.</p>
               </div>
-              <p className="text-[12px] text-[#737685] leading-relaxed">
-                Pastikan Anda memindai kode QR resmi yang diterbitkan oleh Stubia.id. Hubungi administrator kami jika Anda yakin ini adalah kesalahan.
-              </p>
-              <button
-                onClick={() => navigate('/')}
-                className="w-full py-3 rounded-xl bg-[#0f1729] text-white font-bold text-[13px] hover:bg-black transition-all"
-              >
-                Kembali ke Beranda
-              </button>
+
+              {error && (
+                <div className="text-[12.5px] text-red-600 font-medium leading-relaxed bg-red-50 border border-red-100 p-3.5 rounded-xl text-center">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSearchSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#434654] mb-1.5 uppercase tracking-wide">Kode Sertifikat</label>
+                  <input
+                    type="text"
+                    value={searchCode}
+                    onChange={(e) => setSearchCode(e.target.value)}
+                    placeholder="Contoh: STUBIA/VOL/2026/0001"
+                    className="w-full px-4 py-3 rounded-xl bg-[#f8f9ff] border-2 border-[#e2e5f0] focus:border-[#0055D4] focus:bg-white focus:outline-none text-[13.5px] text-[#0f1729] transition-all font-mono"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={searchLoading}
+                  className="w-full py-3.5 rounded-xl bg-[#0055D4] hover:bg-[#003fa4] text-white font-bold text-[13px] transition-all shadow-md shadow-blue-100 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {searchLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[16px]">search</span>
+                      <span>Verifikasi Sertifikat</span>
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
           </div>
-        ) : (
+        ) : cert ? (
           <div className="max-w-6xl w-full flex flex-col lg:flex-row gap-8 items-center lg:items-stretch justify-center">
             {/* Certificate (Left) */}
             <div 
@@ -184,7 +240,7 @@ export default function CertificateVerify() {
                     </div>
                     <div style={{ margin: '0.44cqw 0' }}>
                       <h3 style={{ fontSize: '1.77cqw', fontWeight: 700, color: '#1A2E5A', margin: '0 0 0.44cqw', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                        {cert.program_type === 'internship' ? 'Internship' : 'Volunteer'} {cert.position}
+                        {cert.program_type === 'internship' ? 'Internship' : cert.program_type === 'fellowship' ? 'Academic Fellow:' : 'Volunteer'} {cert.position}
                       </h3>
                       <div>
                         <p style={{ fontSize: '1.33cqw', color: '#8A7340', margin: 0, fontWeight: 500 }}>
@@ -275,7 +331,7 @@ export default function CertificateVerify() {
                       <div>
                         <span className="text-[10px] font-bold text-[#9ba3bb] uppercase tracking-wider">Program</span>
                         <p className="text-[13px] font-bold text-[#0f1729] mt-0.5 capitalize">
-                          {cert.program_type === 'internship' ? 'Magang (Internship)' : 'Relawan (Volunteer)'}
+                          {cert.program_type === 'internship' ? 'Magang (Internship)' : cert.program_type === 'fellowship' ? 'Academic Fellowship' : 'Relawan (Volunteer)'}
                         </p>
                       </div>
                       <div>
@@ -317,7 +373,7 @@ export default function CertificateVerify() {
             </div>
 
           </div>
-        )}
+        ) : null}
       </main>
 
       <Footer />

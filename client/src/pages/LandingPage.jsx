@@ -615,6 +615,12 @@ const LandingPage = () => {
             >
               Karir
             </button>
+            <button
+              onClick={() => navigate("/fellowship")}
+              className="cursor-pointer hover:text-[#0050cb] transition"
+            >
+              Fellowship
+            </button>
           </div>
           <div className="footer-copy">© 2026 Stubia. All rights reserved.</div>
         </div>

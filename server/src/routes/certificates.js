@@ -7,7 +7,9 @@ const { logAdminActivity } = require('../utils/activityLogger');
 // Helper to generate sequential certificate code
 async function generateCertificateCode(programType) {
   const currentYear = new Date().getFullYear();
-  const codePrefix = programType === 'internship' ? 'INT' : 'VOL';
+  let codePrefix = 'VOL';
+  if (programType === 'internship') codePrefix = 'INT';
+  else if (programType === 'fellowship') codePrefix = 'FLW';
   
   // Find latest number for this type and year
   const result = await pool.query(
@@ -44,7 +46,9 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
       end_date,
       signer_name,
       signer_role,
-      signature_url
+      signature_url,
+      location,
+      competencies
     } = req.body;
 
     if (!recipient_name || !program_type || !position || !start_date || !end_date || !signer_name || !signer_role || !signature_url) {
@@ -56,9 +60,9 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
     const result = await pool.query(
       `INSERT INTO certificates (
         certificate_code, recipient_name, program_type, position, 
-        start_date, end_date, signer_name, signer_role, signature_url, created_at, updated_at
+        start_date, end_date, signer_name, signer_role, signature_url, location, competencies, created_at, updated_at
       ) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) RETURNING *`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()) RETURNING *`,
       [
         certificate_code,
         recipient_name,
@@ -68,7 +72,9 @@ router.post('/', verifyToken, verifyAdmin, async (req, res, next) => {
         end_date,
         signer_name,
         signer_role,
-        signature_url
+        signature_url,
+        location || 'Jakarta',
+        competencies || []
       ]
     );
 
@@ -164,7 +170,9 @@ router.put('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
       end_date,
       signer_name,
       signer_role,
-      signature_url
+      signature_url,
+      location,
+      competencies
     } = req.body;
 
     const certCheck = await pool.query('SELECT * FROM certificates WHERE id = $1', [id]);
@@ -182,13 +190,15 @@ router.put('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
     const updatedSigner = signer_name !== undefined ? signer_name : oldCert.signer_name;
     const updatedRole = signer_role !== undefined ? signer_role : oldCert.signer_role;
     const updatedSig = signature_url !== undefined ? signature_url : oldCert.signature_url;
+    const updatedLocation = location !== undefined ? location : oldCert.location;
+    const updatedCompetencies = competencies !== undefined ? competencies : oldCert.competencies;
 
     const result = await pool.query(
       `UPDATE certificates 
        SET recipient_name = $1, program_type = $2, position = $3, 
            start_date = $4, end_date = $5, signer_name = $6, signer_role = $7, 
-           signature_url = $8, updated_at = NOW() 
-       WHERE id = $9 RETURNING *`,
+           signature_url = $8, location = $9, competencies = $10, updated_at = NOW() 
+       WHERE id = $11 RETURNING *`,
       [
         updatedName,
         updatedType,
@@ -198,6 +208,8 @@ router.put('/:id', verifyToken, verifyAdmin, async (req, res, next) => {
         updatedSigner,
         updatedRole,
         updatedSig,
+        updatedLocation,
+        updatedCompetencies,
         id
       ]
     );

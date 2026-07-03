@@ -27,11 +27,22 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const message = error.response?.data?.error || 'Something went wrong';
+    const url = error.config?.url || '';
+    const isAuthMe = url.includes('auth/me') || url.includes('/auth/me');
+    
+    console.error("AXIOS INTERCEPTOR ERROR:", {
+      url,
+      status: error.response?.status,
+      message
+    });
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       // window.location.href = '/login'; // Optional: auto redirect
     }
-    toast.error(message);
+    if (!isAuthMe) {
+      toast.error(message);
+    }
     return Promise.reject(error);
   }
 );
@@ -287,6 +298,13 @@ export const certificateService = {
   delete: (id) => api.delete(`/certificates/${id}`),
   verify: (id) => api.get(`/certificates/verify/${id}`),
   search: (code) => api.get('/certificates/search', { params: { code } }),
+};
+
+export const fellowshipService = {
+  listBuddies: () => api.get('/fellowship/buddies'),
+  createBuddy: (data) => api.post('/fellowship/buddies', data),
+  updateBuddy: (id, data) => api.put(`/fellowship/buddies/${id}`, data),
+  deleteBuddy: (id) => api.delete(`/fellowship/buddies/${id}`),
 };
 
 export default api;

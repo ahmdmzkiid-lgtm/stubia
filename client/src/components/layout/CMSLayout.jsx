@@ -19,6 +19,7 @@ export default function CMSLayout() {
     { path: '/cms', icon: 'dashboard', label: 'Overview' },
     { path: '/cms/articles', icon: 'article', label: 'Artikel & Blog' },
     { path: '/cms/careers', icon: 'work', label: 'Lowongan Kerja' },
+    { path: '/cms/fellowship', icon: 'school', label: 'Fellowship Program' },
     { path: '/cms/activity', icon: 'history', label: 'Aktivitas Admin' },
   ];
 

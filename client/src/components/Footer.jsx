@@ -15,7 +15,7 @@ const Footer = () => {
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 lg:gap-12">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 lg:gap-12">
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-[#191b24] uppercase tracking-widest text-[12px]">Platform</h4>
             <nav className="flex flex-col gap-3 font-normal text-[#424656] text-[16px]">
@@ -23,6 +23,12 @@ const Footer = () => {
               <Link to="/tryout/packages" className="hover:text-[#0050cb] transition-colors">Tryout</Link>
               <Link to="/blog" className="hover:text-[#0050cb] transition-colors">Blog</Link>
               <Link to="/pricing" className="hover:text-[#0050cb] transition-colors">Harga</Link>
+            </nav>
+          </div>
+          <div className="flex flex-col gap-4">
+            <h4 className="font-bold text-[#191b24] uppercase tracking-widest text-[12px]">Program</h4>
+            <nav className="flex flex-col gap-3 font-normal text-[#424656] text-[16px]">
+              <Link to="/fellowship" className="hover:text-[#0050cb] transition-colors">Fellowship</Link>
             </nav>
           </div>
           <div className="flex flex-col gap-4">

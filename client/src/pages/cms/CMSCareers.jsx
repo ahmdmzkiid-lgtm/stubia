@@ -30,7 +30,8 @@ export default function CMSCareers() {
     end_date: '',
     signer_name: 'Zakaria (Kak Z)',
     signer_role: 'Chief Executive Officer',
-    signature_url: ''
+    signature_url: '',
+    location: 'Jakarta'
   });
 
   // Applications State
@@ -115,7 +116,8 @@ export default function CMSCareers() {
         end_date: cert.end_date ? cert.end_date.substring(0, 10) : '',
         signer_name: cert.signer_name,
         signer_role: cert.signer_role,
-        signature_url: cert.signature_url
+        signature_url: cert.signature_url,
+        location: cert.location || 'Jakarta'
       });
     } else {
       setCurrentCertId(null);
@@ -127,7 +129,8 @@ export default function CMSCareers() {
         end_date: '',
         signer_name: 'Zakaria (Kak Z)',
         signer_role: 'Chief Executive Officer',
-        signature_url: ''
+        signature_url: '',
+        location: 'Jakarta'
       });
     }
     setIsCertModalOpen(true);
@@ -644,6 +647,7 @@ export default function CMSCareers() {
                           <option value="Internship">Internship</option>
                           <option value="Contract">Contract</option>
                           <option value="Volunteer">Volunteer</option>
+                          <option value="Fellowship">Fellowship</option>
                         </select>
                       </div>
                     </div>
@@ -1065,9 +1069,13 @@ export default function CMSCareers() {
                           <td className="px-6 py-4 font-bold text-[#191b24]">{c.recipient_name}</td>
                           <td className="px-6 py-4">
                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider mr-2 ${
-                              c.program_type === 'internship' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'
+                              c.program_type === 'internship' 
+                                ? 'bg-blue-50 text-blue-700' 
+                                : c.program_type === 'fellowship'
+                                ? 'bg-purple-50 text-purple-700'
+                                : 'bg-emerald-50 text-emerald-700'
                             }`}>
-                              {c.program_type === 'internship' ? 'Magang' : 'Volunteer'}
+                              {c.program_type === 'internship' ? 'Magang' : c.program_type === 'fellowship' ? 'Fellowship' : 'Volunteer'}
                             </span>
                             <span>{c.position}</span>
                           </td>
@@ -1143,11 +1151,19 @@ export default function CMSCareers() {
                   <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">Tipe Program *</label>
                   <select
                     value={certFormData.program_type}
-                    onChange={(e) => setCertFormData(p => ({ ...p, program_type: e.target.value }))}
+                    onChange={(e) => {
+                      const type = e.target.value;
+                      setCertFormData(p => ({
+                        ...p,
+                        program_type: type,
+                        location: type === 'fellowship' ? 'Depok' : 'Jakarta'
+                      }));
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px] font-semibold cursor-pointer"
                   >
                     <option value="internship">Magang (Internship)</option>
                     <option value="volunteer">Relawan (Volunteer)</option>
+                    <option value="fellowship">Academic Fellowship</option>
                   </select>
                 </div>
                 <div>
@@ -1207,6 +1223,18 @@ export default function CMSCareers() {
                     className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">Lokasi Penerbitan *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Jakarta / Depok"
+                  value={certFormData.location}
+                  onChange={(e) => setCertFormData(p => ({ ...p, location: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px] mb-4"
+                />
               </div>
 
               <div>
@@ -1384,9 +1412,13 @@ export default function CMSCareers() {
                   </h1>
                   <div style={{ width: 240, height: 1.5, background: 'linear-gradient(90deg, transparent, #B8860B, transparent)', margin: '0 auto 12px' }} />
                 </div>
-                <div style={{ margin: '4px 0' }}>
+                 <div style={{ margin: '4px 0' }}>
                   <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A2E5A', margin: '0 0 4px', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                    {selectedCertForPrint.program_type === 'internship' ? 'Internship' : 'Volunteer'} {selectedCertForPrint.position}
+                    {selectedCertForPrint.program_type === 'internship' 
+                      ? 'Internship' 
+                      : selectedCertForPrint.program_type === 'fellowship'
+                      ? 'Academic Fellow:'
+                      : 'Volunteer'} {selectedCertForPrint.position}
                   </h3>
                   <div>
                     <p style={{ fontSize: 12, color: '#8A7340', margin: 0, fontWeight: 500 }}>
@@ -1401,8 +1433,16 @@ export default function CMSCareers() {
                     </p>
                   </div>
                 </div>
-                <p style={{ fontSize: 12.5, color: '#3A3A4E', maxWidth: 540, margin: '4px auto 0', lineHeight: 1.7 }}>
-                  Sebagai bentuk penghargaan atas dedikasi, komitmen, dan kontribusi berharga yang telah diberikan dalam menyukseskan program kerja serta pengembangan ekosistem Stubia.id.
+                <p style={{ 
+                  fontSize: selectedCertForPrint.program_type === 'fellowship' ? 11.5 : 12.5, 
+                  color: '#3A3A4E', 
+                  maxWidth: selectedCertForPrint.program_type === 'fellowship' ? 580 : 540, 
+                  margin: '4px auto 0', 
+                  lineHeight: selectedCertForPrint.program_type === 'fellowship' ? 1.5 : 1.7 
+                }}>
+                  {selectedCertForPrint.program_type === 'fellowship'
+                    ? 'Selama program berlangsung, yang bersangkutan telah menunjukkan kompetensi profesional, kerja sama tim yang baik, serta komitmen tinggi dalam memperluas akses pendidikan digital di Indonesia.'
+                    : 'Sebagai bentuk penghargaan atas dedikasi, komitmen, dan kontribusi berharga yang telah diberikan dalam menyukseskan program kerja serta pengembangan ekosistem Stubia.id.'}
                 </p>
               </div>
 
@@ -1431,7 +1471,7 @@ export default function CMSCareers() {
                   {/* Signature */}
                   <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div style={{ fontSize: 9.5, color: '#5A5A6E', marginBottom: 5 }}>
-                      Jakarta, {new Date(selectedCertForPrint.issue_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {selectedCertForPrint.location || 'Jakarta'}, {new Date(selectedCertForPrint.issue_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </div>
                     <div style={{ height: 58, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
                       <img

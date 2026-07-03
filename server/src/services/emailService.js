@@ -542,12 +542,45 @@ ${hr()}
   });
 }
 
-async function sendJobApplicationSubmittedEmail(userEmail, userName, registrationNumber, jobTitle) {
+async function sendJobApplicationSubmittedEmail(userEmail, userName, registrationNumber, jobTitle, jobType) {
+  const isFellowship = jobType?.toLowerCase() === 'fellowship';
+  
   const html = baseTemplate({
-    preheader: `Konfirmasi Lamaran Pekerjaan — ${jobTitle}`,
-    headerLabel: "Stubia Karir",
-    headerTitle: "Lamaran Diterima",
-    body: `
+    preheader: isFellowship 
+      ? `Konfirmasi Pendaftaran STUBIA Academic Fellowship — ${jobTitle}`
+      : `Konfirmasi Lamaran Pekerjaan — ${jobTitle}`,
+    headerLabel: isFellowship ? "Academic Fellowship" : "Stubia Karir",
+    headerTitle: isFellowship ? "Pendaftaran Diterima" : "Lamaran Diterima",
+    body: isFellowship ? `
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+  Halo <strong>${userName}</strong>,
+</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+  Terima kasih telah mendaftar dalam program <strong>STUBIA Academic Fellowship</strong> untuk peran <strong>${jobTitle}</strong>. Kami mengonfirmasi bahwa berkas pendaftaran Anda telah berhasil kami terima.
+</p>
+
+${callout({
+  text: `
+    <strong>Nomor Pendaftaran:</strong> <span style="font-family:monospace; font-size:14px; color:#0050cb; font-weight:bold;">${registrationNumber}</span><br/>
+    <strong>Peran Fellowship:</strong> ${jobTitle}<br/>
+    <strong>Status:</strong> Seleksi Berkas / Dalam Review
+  `
+})}
+
+<p style="margin:24px 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+  Program fellowship ini dirancang khusus bagi mahasiswa terpilih untuk bertumbuh bersama praktisi EdTech dan mendesain materi belajar berkualitas. Tim kurator dan rekrutmen kami saat ini sedang meninjau kelayakan berkas (CV, foto, portofolio, dan esai motivasi) Anda.
+</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+  Apabila profil Anda memenuhi kualifikasi awal, tim kami akan menghubungi Anda secara personal melalui WhatsApp atau Email untuk koordinasi ke tahap wawancara selanjutnya.
+</p>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">
+  Selamat berjuang, semoga Anda terpilih menjadi bagian dari angkatan baru STUBIA Academic Fellow!
+</p>
+${hr()}
+<p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5;">
+  Salam hangat,<br/>
+  <strong style="color:#111827;">Tim Rekrutmen STUBIA Academic Fellowship</strong>
+</p>` : `
 <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
   Halo <strong>${userName}</strong>,
 </p>
@@ -579,7 +612,9 @@ ${hr()}
   return sendEmail({
     toEmail: userEmail,
     toName: userName,
-    subject: `Lamaran Diterima — No. Pendaftaran ${registrationNumber} (${jobTitle})`,
+    subject: isFellowship 
+      ? `Terima Kasih Telah Mendaftar STUBIA Academic Fellowship — ${registrationNumber}`
+      : `Lamaran Diterima — No. Pendaftaran ${registrationNumber} (${jobTitle})`,
     html,
   });
 }

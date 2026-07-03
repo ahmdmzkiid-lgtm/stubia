@@ -92,7 +92,7 @@ router.post('/:id/apply', async (req, res, next) => {
     }
 
     // Verify vacancy exists and is active
-    const vacancyCheck = await pool.query('SELECT is_active, title FROM job_vacancies WHERE id = $1', [id]);
+    const vacancyCheck = await pool.query('SELECT is_active, title, type FROM job_vacancies WHERE id = $1', [id]);
     if (vacancyCheck.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Lowongan pekerjaan tidak ditemukan' });
     }
@@ -139,8 +139,9 @@ router.post('/:id/apply', async (req, res, next) => {
     );
 
     const jobTitle = vacancyCheck.rows[0].title;
+    const jobType = vacancyCheck.rows[0].type;
     const { sendJobApplicationSubmittedEmail } = require('../services/emailService');
-    sendJobApplicationSubmittedEmail(email, name, registration_number, jobTitle)
+    sendJobApplicationSubmittedEmail(email, name, registration_number, jobTitle, jobType)
       .catch(err => console.error('Error sending confirmation email:', err));
 
     res.status(201).json({ success: true, data: result.rows[0] });

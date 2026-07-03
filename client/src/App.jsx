@@ -57,11 +57,13 @@ const Careers = React.lazy(() => import('./pages/Careers'));
 const ApplyJob = React.lazy(() => import('./pages/ApplyJob'));
 const BlogList = React.lazy(() => import('./pages/BlogList'));
 const BlogDetail = React.lazy(() => import('./pages/BlogDetail'));
+const Fellowship = React.lazy(() => import('./pages/Fellowship'));
 const CMSLayout = React.lazy(() => import('./components/layout/CMSLayout'));
 const CertificateVerify = React.lazy(() => import('./pages/CertificateVerify'));
 const CMSDashboard = React.lazy(() => import('./pages/cms/CMSDashboard'));
 const CMSArticles = React.lazy(() => import('./pages/cms/CMSArticles'));
 const CMSCareers = React.lazy(() => import('./pages/cms/CMSCareers'));
+const CMSFellowship = React.lazy(() => import('./pages/cms/CMSFellowship'));
 const CMSActivityLogs = React.lazy(() => import('./pages/cms/CMSActivityLogs'));
 import ScrollToTop from './components/ScrollToTop';
 
@@ -93,8 +95,10 @@ function App() {
             <Route path="/careers" element={<Careers />} />
             <Route path="/careers/daftar/:type/:jobId" element={<ApplyJob />} />
             <Route path="/careers/verify/:id" element={<CertificateVerify />} />
+            <Route path="/careers/verify" element={<CertificateVerify />} />
             <Route path="/blog" element={<BlogList />} />
             <Route path="/blog/:slug" element={<BlogDetail />} />
+            <Route path="/fellowship" element={<Fellowship />} />
             <Route element={<PublicRoute />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -158,6 +162,7 @@ function App() {
                 <Route index element={<CMSDashboard />} />
                 <Route path="articles" element={<CMSArticles />} />
                 <Route path="careers" element={<CMSCareers />} />
+                <Route path="fellowship" element={<CMSFellowship />} />
                 <Route path="activity" element={<CMSActivityLogs />} />
               </Route>
             </Route>
