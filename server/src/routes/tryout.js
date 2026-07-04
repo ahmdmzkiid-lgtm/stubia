@@ -602,7 +602,7 @@ router.post("/start", verifyToken, async (req, res, next) => {
         `SELECT 1 FROM subscriptions s
          JOIN plans p ON p.id = s.plan_id
          WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-           AND p.target_type = 'utbk' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+           AND (p.target_type = 'utbk' OR p.name = 'sultan') AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
          LIMIT 1`,
         [req.user.id],
       );
@@ -1596,33 +1596,53 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
       if (!Array.isArray(choices)) choices = [];
 
       const isShortAnswer = q.question_type === "short_answer";
+      const isComplex = q.question_type === "complex_mc_tf";
 
       let userAnswerLabel = null;
-      if (!isShortAnswer && q.chosen_choice_id) {
+      if (isShortAnswer || isComplex) {
+        userAnswerLabel = q.answer_text || null;
+      } else if (q.chosen_choice_id) {
         const chosenChoice = choices.find((c) => c.id === q.chosen_choice_id);
         if (chosenChoice) userAnswerLabel = chosenChoice.label;
-      } else if (isShortAnswer) {
-        userAnswerLabel = q.answer_text || null;
       }
 
       let correctAnswerLabel = null;
       let questionExplanation = null;
-      const correctChoice = choices.find((c) => c.is_correct === true);
-      if (correctChoice) {
-        correctAnswerLabel = isShortAnswer
-          ? correctChoice.content
-          : correctChoice.label;
-        questionExplanation = correctChoice.explanation;
+      if (isComplex) {
+        const correctObj = {};
+        choices.forEach((c) => {
+          correctObj[c.label] = c.is_correct === true;
+        });
+        correctAnswerLabel = JSON.stringify(correctObj);
+        questionExplanation = choices.find((c) => c.explanation)?.explanation || null;
+      } else {
+        const correctChoice = choices.find((c) => c.is_correct === true);
+        if (correctChoice) {
+          correctAnswerLabel = isShortAnswer
+            ? correctChoice.content
+            : correctChoice.label;
+          questionExplanation = correctChoice.explanation;
+        }
       }
 
       let isCorrect = false;
       if (isShortAnswer) {
+        const correctChoice = choices.find((c) => c.is_correct === true);
         isCorrect = !!(
           correctChoice &&
           q.answer_text &&
           correctChoice.content.trim().toLowerCase() ===
             q.answer_text.trim().toLowerCase()
         );
+      } else if (isComplex) {
+        let userAnswersObj = {};
+        try {
+          userAnswersObj = q.answer_text ? JSON.parse(q.answer_text) : {};
+        } catch (e) {}
+        isCorrect = choices.length > 0 && choices.every((c) => {
+          const studentAns = userAnswersObj[c.label];
+          return studentAns !== undefined && studentAns === c.is_correct;
+        });
       } else {
         isCorrect = q.chosen_choice_id
           ? choices.find((c) => c.id === q.chosen_choice_id)?.is_correct ===

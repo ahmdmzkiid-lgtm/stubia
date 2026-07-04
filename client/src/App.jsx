@@ -37,6 +37,7 @@ const BattleLobby = React.lazy(() => import('./pages/BattleLobby'));
 const BattleGame = React.lazy(() => import('./pages/BattleGame'));
 const BattleLeaderboard = React.lazy(() => import('./pages/BattleLeaderboard'));
 const PrediksiSkor = React.lazy(() => import('./pages/PrediksiSkor'));
+const Rasionalisasi = React.lazy(() => import('./pages/Rasionalisasi'));
 const UjianMandiri = React.lazy(() => import('./pages/UjianMandiri'));
 const UjianMandiriDetail = React.lazy(() => import('./pages/UjianMandiriDetail'));
 const ManageUjianMandiri = React.lazy(() => import('./pages/admin/ManageUjianMandiri'));
@@ -123,6 +124,7 @@ function App() {
               <Route path="/battle/game/:matchId" element={<BattleGame />} />
               <Route path="/battle/leaderboard/:subjectId" element={<BattleLeaderboard />} />
               <Route path="/prediksi-skor" element={<PrediksiSkor />} />
+              <Route path="/rasionalisasi" element={<Rasionalisasi />} />
               <Route path="/ujian-mandiri" element={<UjianMandiri />} />
               <Route path="/ujian-mandiri/:id" element={<UjianMandiriDetail />} />
               <Route path="/ujian-mandiri/:ujianId/latihan/:latihanId" element={<LatihanSoalUM />} />

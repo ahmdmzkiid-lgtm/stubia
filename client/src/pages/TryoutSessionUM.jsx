@@ -162,7 +162,7 @@ const TryoutSessionUM = () => {
               const serverStartedAt = pkg.started_at;
               const totalSeconds = (pkg.duration || 60) * 60;
               if (serverStartedAt) {
-                const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+                const elapsed = Math.max(0, Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000));
                 setTimeLeft(Math.max(totalSeconds - elapsed, 0));
               } else {
                 setTimeLeft(totalSeconds);
@@ -173,7 +173,7 @@ const TryoutSessionUM = () => {
             const serverStartedAt = pkg.started_at;
             const totalSeconds = (pkg.duration || 60) * 60;
             if (serverStartedAt) {
-              const elapsed = Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000);
+              const elapsed = Math.max(0, Math.floor((Date.now() - new Date(serverStartedAt).getTime()) / 1000));
               setTimeLeft(Math.max(totalSeconds - elapsed, 0));
             } else {
               setTimeLeft(totalSeconds);

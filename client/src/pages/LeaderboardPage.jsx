@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { tryoutService, ujianMandiriService } from '../services/api';
-import { PTN_DATA } from '../data/ptnData';
+import { PTN_DATA, getPtnLogo } from '../data/ptnData';
 
 const LeaderboardPage = () => {
   const { type, id } = useParams();
@@ -142,38 +142,44 @@ const LeaderboardPage = () => {
         )}
 
         {/* Target Major Info Box */}
-        {leaderboardTab === 'major' && leaderboard?.targetPtn && leaderboard?.targetMajor && (
-          <div className="bg-white rounded-xl p-5 border border-[#c2c6d8]/20 mb-6 space-y-3 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#6d28d9] text-[22px]">school</span>
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-[#727687] font-bold">Universitas Target</p>
-                <p className="text-[15px] font-bold text-[#191b24]">{leaderboard.targetPtn}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#6d28d9] text-[22px]">menu_book</span>
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-[#727687] font-bold">Program Studi</p>
-                <p className="text-[15px] font-bold text-[#191b24]">{leaderboard.targetMajor}</p>
-              </div>
-            </div>
-            {(() => {
-              const ptnEntry = PTN_DATA.find(p => leaderboard.targetPtn?.includes(p.singkatan) || leaderboard.targetPtn?.includes(p.nama));
-              const majorEntry = ptnEntry?.prodi?.find(m => m.nama === leaderboard.targetMajor);
-              const targetScore = majorEntry?.skor;
-              const userScore = leaderboard?.user_rank?.score || leaderboard?.userMajorRank?.score || 0;
-              if (!targetScore) return null;
-              const passed = userScore >= targetScore;
-              return (
-                <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold ${passed ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fef3f2] text-[#ba1a1a]'}`}>
-                  <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>{passed ? 'check_circle' : 'cancel'}</span>
-                  {passed ? `Skormu melewati target (${targetScore})` : `Target skor: ${targetScore} (kurang ${targetScore - userScore})`}
+        {leaderboardTab === 'major' && leaderboard?.targetPtn && leaderboard?.targetMajor && (() => {
+          const ptnEntry = PTN_DATA.find(p => leaderboard.targetPtn?.includes(p.singkatan) || leaderboard.targetPtn?.includes(p.nama));
+          const logoUrl = ptnEntry?.id ? getPtnLogo(ptnEntry.id) : null;
+          const majorEntry = ptnEntry?.prodi?.find(m => m.nama === leaderboard.targetMajor);
+          const targetScore = majorEntry?.skor;
+          const userScore = leaderboard?.user_rank?.score || leaderboard?.userMajorRank?.score || 0;
+          const passed = targetScore ? userScore >= targetScore : false;
+
+          return (
+            <div className="bg-white rounded-xl p-5 border border-[#c2c6d8]/20 mb-6 flex items-start gap-4 shadow-sm">
+              {logoUrl ? (
+                <img src={logoUrl} alt={ptnEntry?.singkatan || 'Logo'} className="w-14 h-14 object-contain rounded-lg bg-white p-1.5 border border-gray-200 flex-shrink-0" />
+              ) : (
+                <div className="w-14 h-14 rounded-lg bg-[#ede9fe] flex items-center justify-center text-[#6d28d9] flex-shrink-0">
+                  <span className="material-symbols-outlined text-[26px]">school</span>
                 </div>
-              );
-            })()}
-          </div>
-        )}
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-[#727687] font-bold">Universitas Target</p>
+                    <p className="text-[15px] font-bold text-[#191b24]">{leaderboard.targetPtn}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-[#727687] font-bold">Program Studi</p>
+                    <p className="text-[15px] font-bold text-[#191b24]">{leaderboard.targetMajor}</p>
+                  </div>
+                </div>
+                {targetScore && (
+                  <div className={`mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold ${passed ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fef3f2] text-[#ba1a1a]'}`}>
+                    <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>{passed ? 'check_circle' : 'cancel'}</span>
+                    {passed ? `Skormu melewati target (${targetScore})` : `Target skor: ${targetScore} (kurang ${targetScore - userScore})`}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* User Rank Card */}
         {leaderboardTab === 'general' && leaderboard?.user_rank && (

@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { useAuth } from '../hooks/useAuth';
-import { PTN_DATA, SUBTES_SHORT } from '../data/ptnData';
+import { PTN_DATA, SUBTES_SHORT, getPtnLogo } from '../data/ptnData';
 import StudentNavbar from '../components/layout/StudentNavbar';
 
 /* ─── Main Page ─── */
@@ -13,9 +13,11 @@ export default function PrediksiSkor() {
   // PTN & Prodi selection
   const [selectedPtnId, setSelectedPtnId] = useState('ui');
   const [selectedProdiIdx, setSelectedProdiIdx] = useState(0);
-  const [showPtnModal, setShowPtnModal] = useState(false);
   const [prodiSearch, setProdiSearch] = useState('');
   const [ptnSearch, setPtnSearch] = useState('');
+
+  // Ref for scrolling prodi list to top on PTN change
+  const prodiListRef = useRef(null);
 
   // Get current PTN and Prodi
   const currentPtn = useMemo(() => PTN_DATA.find(p => p.id === selectedPtnId) || PTN_DATA[0], [selectedPtnId]);
@@ -47,11 +49,11 @@ export default function PrediksiSkor() {
       <main className="flex-grow px-4 sm:px-6 lg:px-10 max-w-[1440px] mx-auto w-full pb-16">
 
         {/* ── Hero Section ── */}
-        <div className="bg-[#0050cb] text-white rounded-3xl shadow-md overflow-hidden relative mb-12 mt-6">
+        <div className="bg-[#0050cb] text-white rounded-3xl shadow-md overflow-hidden relative mb-8 mt-6">
           {/* Campus image background */}
           <div className="absolute inset-0 z-0">
             <img 
-              src={currentPtn.image} 
+              src={getPtnLogo(currentPtn.id, currentPtn.image)} 
               alt={currentPtn.nama}
               className="w-full h-full object-cover opacity-20"
             />
@@ -63,9 +65,9 @@ export default function PrediksiSkor() {
               {/* Left: PTN & Prodi Info */}
               <div className="flex-1">
                 <div className="flex items-center gap-4 mb-4">
-                  {currentPtn.logo ? (
+                  {getPtnLogo(currentPtn.id, currentPtn.logo) ? (
                     <img 
-                      src={currentPtn.logo} 
+                      src={getPtnLogo(currentPtn.id, currentPtn.logo)} 
                       alt={currentPtn.singkatan}
                       className="w-16 h-16 object-contain bg-white rounded-xl p-2"
                     />
@@ -107,14 +109,181 @@ export default function PrediksiSkor() {
                   {currentProdi.skor}
                 </span>
                 <p className="text-[14px] text-white/70 mt-2">Rata-rata skor peserta yang lolos</p>
-                
-                <button
-                  onClick={() => setShowPtnModal(true)}
-                  className="mt-6 px-8 py-3 bg-white text-[#0050cb] rounded-xl font-bold hover:bg-[#f2f3ff] transition-all text-[14px] inline-flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
-                  Ganti PTN & Prodi
-                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Inline PTN & Prodi Selector ── */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="material-symbols-outlined text-[#0050cb] text-[28px]">school</span>
+            <div>
+              <h2 className="text-[22px] lg:text-[26px] font-bold text-[#191b24]">Pilih PTN & Program Studi</h2>
+              <p className="text-[14px] text-[#727687] mt-0.5">Pilih perguruan tinggi dan program studi untuk melihat prediksi skor</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* ── Left Column - PTN List ── */}
+            <div className="w-full lg:w-[420px] lg:shrink-0 flex flex-col">
+              {/* Search */}
+              <div className="mb-4">
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#727687] text-[20px]">search</span>
+                  <input
+                    type="text"
+                    placeholder="Cari PTN berdasarkan nama atau lokasi..."
+                    value={ptnSearch}
+                    onChange={(e) => setPtnSearch(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-[#c2c6d8]/30 bg-white focus:border-[#0050cb] focus:outline-none focus:ring-2 focus:ring-[#0050cb]/10 text-[14px] transition-all"
+                  />
+                  {ptnSearch && (
+                    <button onClick={() => setPtnSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#e6e7f4] flex items-center justify-center hover:bg-[#c2c6d8] transition-colors">
+                      <span className="material-symbols-outlined text-[14px] text-[#424656]">close</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-[12px] text-[#727687] mt-2 pl-1">{filteredPtn.length} perguruan tinggi ditemukan</p>
+              </div>
+
+              {/* PTN List */}
+              <div className="h-[320px] lg:h-[520px] overflow-y-auto pr-1 space-y-1.5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
+                {filteredPtn.map(ptn => {
+                  const isSelected = selectedPtnId === ptn.id;
+                  return (
+                    <button
+                      key={ptn.id}
+                      onClick={() => {
+                        setSelectedPtnId(ptn.id);
+                        setSelectedProdiIdx(0);
+                        setProdiSearch('');
+                        if (prodiListRef.current) prodiListRef.current.scrollTop = 0;
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left group ${
+                        isSelected 
+                          ? 'border-[#0050cb] bg-[#0050cb]/[0.06] shadow-sm' 
+                          : 'border-[#c2c6d8]/20 bg-white hover:border-[#0050cb]/40 hover:bg-[#f5f5ff]'
+                      }`}
+                    >
+                      <img 
+                        src={getPtnLogo(ptn.id, ptn.logo)} 
+                        alt={ptn.singkatan} 
+                        className="w-10 h-10 object-contain shrink-0 rounded-lg bg-white border border-[#e6e7f4] p-1" 
+                        onError={e => { e.target.style.display='none'; }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[13px] font-bold leading-tight ${isSelected ? 'text-[#0050cb]' : 'text-[#191b24]'}`}>
+                          {ptn.nama}
+                        </p>
+                        <p className="text-[11px] text-[#727687] mt-0.5">{ptn.lokasi}</p>
+                      </div>
+                      {isSelected && (
+                        <span className="material-symbols-outlined text-[#0050cb] text-[18px] shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                      )}
+                    </button>
+                  );
+                })}
+                {filteredPtn.length === 0 && (
+                  <div className="text-center py-12 text-[#727687]">
+                    <span className="material-symbols-outlined text-[48px] mb-2 text-[#c2c6d8]">search_off</span>
+                    <p className="text-[14px]">Tidak ada PTN yang cocok</p>
+                    <p className="text-[12px] mt-1">Coba ubah kata kunci pencarian</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Right Column - Prodi List ── */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Header + Search */}
+              <div className="mb-4">
+                <div className="flex items-center gap-3 mb-3">
+                  {getPtnLogo(currentPtn.id, currentPtn.logo) && (
+                    <img 
+                      src={getPtnLogo(currentPtn.id, currentPtn.logo)} 
+                      alt={currentPtn.singkatan}
+                      className="w-8 h-8 object-contain rounded-lg bg-white border border-[#e6e7f4] p-0.5"
+                    />
+                  )}
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#424656]">
+                      Program Studi — <span className="text-[#0050cb]">{currentPtn.nama}</span>
+                    </p>
+                    <p className="text-[11px] text-[#727687]">{currentPtn.prodi.length} program studi tersedia</p>
+                  </div>
+                </div>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#727687] text-[20px]">search</span>
+                  <input
+                    type="text"
+                    placeholder="Cari program studi..."
+                    value={prodiSearch}
+                    onChange={(e) => setProdiSearch(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-[#c2c6d8]/30 bg-white focus:border-[#0050cb] focus:outline-none focus:ring-2 focus:ring-[#0050cb]/10 text-[14px] transition-all"
+                  />
+                  {prodiSearch && (
+                    <button onClick={() => setProdiSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#e6e7f4] flex items-center justify-center hover:bg-[#c2c6d8] transition-colors">
+                      <span className="material-symbols-outlined text-[14px] text-[#424656]">close</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Prodi List */}
+              <div ref={prodiListRef} className="h-[360px] lg:h-[520px] overflow-y-auto space-y-2 pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
+                {filteredProdi.map((prodi, idx) => {
+                  const realIdx = currentPtn.prodi.indexOf(prodi);
+                  const isSelected = realIdx === selectedProdiIdx;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setSelectedProdiIdx(realIdx);
+                      }}
+                      className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all text-left ${
+                        isSelected 
+                          ? 'border-[#0050cb] bg-[#0050cb]/[0.06] shadow-sm' 
+                          : 'border-[#c2c6d8]/20 bg-white hover:border-[#0050cb]/40 hover:bg-[#f5f5ff]'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`font-bold text-[14px] ${isSelected ? 'text-[#0050cb]' : 'text-[#191b24]'}`}>{prodi.nama}</p>
+                          {isSelected && (
+                            <span className="material-symbols-outlined text-[#0050cb] text-[16px] shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[12px] text-[#424656] font-medium">{prodi.jenjang}</span>
+                          <span className="text-[10px] text-[#c2c6d8]">•</span>
+                          <span className="text-[12px] text-[#727687]">Daya tampung: {prodi.daya_tampung || '-'}</span>
+                        </div>
+                        <div className="flex gap-1.5 mt-2 flex-wrap">
+                          {prodi.subtes.map((sub, i) => {
+                            const cfg = SUBTES_SHORT[sub];
+                            return (
+                              <span key={i} className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${cfg?.color || 'bg-gray-100 text-gray-700'}`}>
+                                {cfg?.label || sub}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="text-right ml-4 shrink-0">
+                        <p className="text-[10px] text-[#727687] uppercase tracking-wider font-medium">Skor min.</p>
+                        <p className={`text-[20px] font-black ${isSelected ? 'text-[#0050cb]' : 'text-[#191b24]'}`}>{prodi.skor}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+                {filteredProdi.length === 0 && (
+                  <div className="text-center py-12 text-[#727687]">
+                    <span className="material-symbols-outlined text-[48px] mb-2 text-[#c2c6d8]">search_off</span>
+                    <p className="text-[14px]">Tidak ada prodi yang cocok</p>
+                    <p className="text-[12px] mt-1">Coba ubah kata kunci pencarian</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -179,133 +348,6 @@ export default function PrediksiSkor() {
           </div>
         </div>
       </main>
-
-      {/* ── PTN & Prodi Modal ── */}
-      {showPtnModal && (
-        <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowPtnModal(false)}>
-          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[20px] font-bold text-[#191b24]">Pilih PTN & Program Studi</h3>
-              <button onClick={() => setShowPtnModal(false)} className="w-9 h-9 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656] hover:bg-[#e6e7f4]">
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-            
-            {/* Two Column Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 lg:gap-8 min-h-0 overflow-y-auto lg:overflow-hidden pr-1">
-              {/* Left Column - PTN */}
-              <div className="w-full lg:w-1/2 flex flex-col shrink-0 lg:shrink lg:min-h-0">
-                <div className="mb-4">
-                  <label className="block text-[13px] font-semibold text-[#424656] mb-2">Cari Perguruan Tinggi Negeri</label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#727687] text-[20px]">search</span>
-                    <input
-                      type="text"
-                      placeholder="Ketik nama PTN, singkatan, atau lokasi..."
-                      value={ptnSearch}
-                      onChange={(e) => setPtnSearch(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 rounded-xl border border-[#c2c6d8]/30 focus:border-[#0050cb] focus:outline-none text-[14px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="h-[140px] lg:h-auto lg:flex-1 overflow-y-auto pr-1 min-h-0">
-                  <div className="grid grid-cols-2 gap-2">
-                    {filteredPtn.map(ptn => (
-                      <button
-                        key={ptn.id}
-                        onClick={() => {
-                          setSelectedPtnId(ptn.id);
-                          setSelectedProdiIdx(0);
-                          setProdiSearch('');
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left ${selectedPtnId === ptn.id ? 'border-[#0050cb] bg-[#f2f3ff]' : 'border-[#c2c6d8]/30 hover:border-[#0050cb]/40'}`}
-                      >
-                        <img src={ptn.logo} alt={ptn.singkatan} className="w-8 h-8 object-contain shrink-0" />
-                        <span className="font-bold text-[13px] text-[#191b24] truncate">{ptn.singkatan}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {filteredPtn.length === 0 && (
-                    <div className="text-center py-8 text-[#727687]">
-                      <span className="material-symbols-outlined text-[48px] mb-2">search_off</span>
-                      <p>Tidak ada PTN yang cocok</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="hidden lg:block w-px bg-[#c2c6d8]/30" />
-
-              {/* Right Column - Prodi */}
-              <div className="w-full lg:w-1/2 flex flex-col shrink-0 lg:shrink lg:min-h-0">
-                <div className="mb-4">
-                  <label className="block text-[13px] font-semibold text-[#424656] mb-2">
-                    Program Studi - <span className="text-[#0050cb]">{currentPtn.singkatan}</span>
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#727687] text-[20px]">search</span>
-                    <input
-                      type="text"
-                      placeholder="Ketik nama prodi..."
-                      value={prodiSearch}
-                      onChange={(e) => setProdiSearch(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 rounded-xl border border-[#c2c6d8]/30 focus:border-[#0050cb] focus:outline-none text-[14px]"
-                    />
-                  </div>
-                </div>
-                
-                <div className="h-[200px] lg:h-auto lg:flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
-                  {filteredProdi.map((prodi, idx) => {
-                    const realIdx = currentPtn.prodi.indexOf(prodi);
-                    const isSelected = realIdx === selectedProdiIdx;
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          setSelectedProdiIdx(realIdx);
-                          setShowPtnModal(false);
-                        }}
-                        className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${isSelected ? 'border-[#0050cb] bg-[#f2f3ff]' : 'border-[#c2c6d8]/30 hover:border-[#0050cb]/40 hover:bg-[#f2f3ff]/50'}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-[13px] text-[#191b24] truncate">{prodi.nama}</p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className="text-[11px] text-[#424656]">{prodi.jenjang}</span>
-                            <span className="text-[10px] text-[#727687]">•</span>
-                            <span className="text-[11px] text-[#727687]">Daya tampung: {prodi.daya_tampung || '-'}</span>
-                          </div>
-                          <div className="flex gap-1 mt-1.5 flex-wrap">
-                            {prodi.subtes.map((sub, i) => {
-                              const cfg = SUBTES_SHORT[sub];
-                              return (
-                                <span key={i} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${cfg?.color || 'bg-gray-100 text-gray-700'}`}>
-                                  {cfg?.label || sub}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        <div className="text-right ml-3 shrink-0">
-                          <p className="text-[10px] text-[#727687]">Skor min.</p>
-                          <p className="text-[16px] font-bold text-[#0050cb]">{prodi.skor}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {filteredProdi.length === 0 && (
-                    <div className="text-center py-8 text-[#727687]">
-                      <span className="material-symbols-outlined text-[48px] mb-2">search_off</span>
-                      <p>Tidak ada prodi yang cocok</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <Footer />
     </div>

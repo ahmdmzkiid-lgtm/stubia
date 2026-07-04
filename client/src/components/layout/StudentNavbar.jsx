@@ -5,9 +5,36 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const activePath = location.pathname;
+
+  useEffect(() => {
+    const updateCartCount = () => {
+      const storedCart = localStorage.getItem('stubia_cart');
+      if (storedCart) {
+        try {
+          const parsed = JSON.parse(storedCart);
+          setCartCount(Array.isArray(parsed) ? parsed.length : 0);
+        } catch (e) {
+          setCartCount(0);
+        }
+      } else {
+        setCartCount(0);
+      }
+    };
+
+    updateCartCount();
+
+    window.addEventListener('storage', updateCartCount);
+    window.addEventListener('cart-update', updateCartCount);
+
+    return () => {
+      window.removeEventListener('storage', updateCartCount);
+      window.removeEventListener('cart-update', updateCartCount);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
@@ -44,11 +71,11 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
     { to: '/paket-belajar', label: 'Paket Belajar', active: activePath === '/paket-belajar' },
   ];
 
-  // Secondary Nav Links (Grouped in Dropdown)
   const dropdownLinks = [
     { to: '/battle', label: 'Battle', active: activePath === '/battle' },
     { to: '/riwayat', label: 'Riwayat', active: activePath === '/riwayat' },
     { to: '/prediksi-skor', label: 'Prediksi Skor', active: activePath === '/prediksi-skor' },
+    { to: '/rasionalisasi', label: 'Rasionalisasi', active: activePath === '/rasionalisasi' },
     { to: '/profile', label: 'Profil Saya', active: activePath === '/profile' },
   ];
 
@@ -183,6 +210,21 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
 
           {/* Right Side Tools & Profile */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <Link
+              to="/cart"
+              className={`relative p-2 transition-colors flex items-center ${
+                transparent && !scrolled ? 'text-white/85 hover:text-white' : 'text-[#424656] hover:text-[#0050cb]'
+              }`}
+              title="Keranjang Belanja"
+            >
+              <span className="material-symbols-outlined text-[22px] sm:text-2xl">shopping_cart</span>
+              {cartCount > 0 && (
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full flex items-center justify-center font-bold">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+
             <div className={`hidden sm:flex items-center gap-3 pl-4 border-l ${scrolled || !transparent ? 'border-[#c2c6d8]/30' : 'border-white/20'}`}>
               <div className="flex flex-col items-end justify-center">
                 <p className={`text-[14px] font-medium ${scrolled || !transparent ? 'text-[#191b24]' : 'text-white'}`}>

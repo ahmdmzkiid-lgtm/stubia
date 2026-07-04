@@ -343,6 +343,7 @@ router.get("/riwayat", verifyToken, async (req, res, next) => {
         subject_name as name,
         subject_id,
         topic_id,
+        latihan_id,
         total_questions,
         correct_count,
         irt_score as score,
@@ -535,7 +536,7 @@ router.get("/riwayat", verifyToken, async (req, res, next) => {
     // Format latihan entries
     const latihanHistory = latihanRes.rows.map((row) => ({
       id: row.id,
-      type: "latihan",
+      type: row.latihan_id ? "ujian_mandiri_latihan" : "latihan",
       name: row.name || "Latihan",
       subject_id: row.subject_id,
       topic_id: row.topic_id,
@@ -1028,5 +1029,53 @@ router.get(
     }
   },
 );
+
+// Get best tryout scores per subtest for PTN rationalization
+router.get("/my-best-scores", verifyToken, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // Fetch the user's tryout session with the highest score
+    const bestSessionRes = await pool.query(
+      `SELECT id, total_score, score_breakdown, submitted_at
+       FROM tryout_sessions
+       WHERE user_id = $1 AND score_breakdown IS NOT NULL AND submitted_at IS NOT NULL
+       ORDER BY total_score DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (bestSessionRes.rows.length === 0) {
+      return res.json({ success: true, data: null });
+    }
+
+    const session = bestSessionRes.rows[0];
+    const breakdown = session.score_breakdown;
+
+    // Extract subjectScores from breakdown
+    const subjectScores = breakdown.subjectScores || {};
+    const scores = {};
+
+    // Map DB subject names to score values
+    Object.keys(subjectScores).forEach((subjName) => {
+      if (subjectScores[subjName]) {
+        scores[subjName] = subjectScores[subjName].score || 0;
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalScore: session.total_score,
+        sessionId: session.id,
+        date: session.submitted_at,
+        scores
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching best tryout scores:", error);
+    next(error);
+  }
+});
 
 module.exports = router;

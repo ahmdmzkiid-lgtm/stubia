@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import TryoutVerificationModal from '../../components/tryout/TryoutVerificationModal';
 import StudentNavbar from '../../components/layout/StudentNavbar';
 import StartConfirmationModal from '../../components/StartConfirmationModal';
-import { PTN_DATA } from '../../data/ptnData';
+import { PTN_DATA, getPtnLogo } from '../../data/ptnData';
 
 
 const ICON_MAP = {
@@ -570,7 +570,7 @@ const TryoutSubtesSelect = () => {
                               : 'hover:bg-[#f5f5ff] border border-transparent'
                           }`}
                         >
-                          <img src={ptn.logo} alt={ptn.singkatan} className="w-10 h-10 rounded-lg object-contain bg-white border border-[#e6e7f4] p-1 shrink-0" onError={e => { e.target.style.display='none'; }} />
+                          <img src={getPtnLogo(ptn.id, ptn.logo)} alt={ptn.singkatan} className="w-10 h-10 rounded-lg object-contain bg-white border border-[#e6e7f4] p-1 shrink-0" onError={e => { e.target.style.display='none'; }} />
                           <div className="flex-1 min-w-0">
                             <p className="text-[14px] font-semibold text-[#191b24] truncate">{ptn.nama}</p>
                             <p className="text-[12px] text-[#727687]">{ptn.singkatan} · {ptn.lokasi}</p>

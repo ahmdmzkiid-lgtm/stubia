@@ -2,10 +2,13 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { subscriptionService } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
+import StudentNavbar from '../components/layout/StudentNavbar';
 import toast from 'react-hot-toast';
 
 export default function PaketBelajar() {
   const { user } = useContext(AuthContext);
+  const { logout } = useAuth();
   const [plans, setPlans] = useState([]);
   const [currentSub, setCurrentSub] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,7 @@ export default function PaketBelajar() {
 
     setCart(updatedCart);
     localStorage.setItem('stubia_cart', JSON.stringify(updatedCart));
+    window.dispatchEvent(new Event('cart-update'));
   };
 
   const isInCart = (planId) => {
@@ -90,37 +94,7 @@ export default function PaketBelajar() {
 
   return (
     <div className="min-h-screen bg-[#faf8ff] pb-24 text-[#191b24] font-sans">
-      {/* Header Navigation */}
-      <nav className="bg-white border-b border-[#c2c6d8]/30 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 sm:h-20 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center">
-            <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-10 md:h-12" />
-          </Link>
-          
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate('/cart')} 
-              className="relative p-2 text-[#424656] hover:text-[#0050cb] transition-colors flex items-center"
-            >
-              <span className="material-symbols-outlined text-2xl">shopping_cart</span>
-              {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                  {cart.length}
-                </span>
-              )}
-            </button>
-            {user ? (
-              <button onClick={() => navigate('/dashboard')} className="text-sm font-semibold text-[#424656] hover:text-[#0050cb] transition-colors">
-                ← Dashboard
-              </button>
-            ) : (
-              <button onClick={() => navigate('/login')} className="text-sm font-semibold bg-[#0050cb] text-white px-4 py-2 rounded-lg hover:bg-[#003fa4] transition-all shadow-md">
-                Masuk
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
+      <StudentNavbar user={user} isAdmin={user?.role === 'admin'} onLogout={() => { logout(); navigate('/'); }} />
 
       {/* Main Banner */}
       <div className="text-center pt-12 pb-8 px-4">

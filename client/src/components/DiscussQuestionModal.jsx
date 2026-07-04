@@ -185,7 +185,7 @@ const DiscussQuestionModal = ({ isOpen, onClose, question }) => {
               <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
             </button>
           </form>
-          <p className="text-center mt-4 text-[10px] text-[#727687] font-bold tracking-widest uppercase opacity-50">Powered by Gemini AI Technology</p>
+          <p className="text-center mt-4 text-[10px] text-[#727687] font-bold tracking-widest uppercase opacity-50">Powered by Stubia AI Technology</p>
         </div>
       </div>
     </div>

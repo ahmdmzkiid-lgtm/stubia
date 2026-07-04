@@ -94,7 +94,7 @@ const TryoutSession = () => {
             const durSec = currentSub?.durationSec || 0;
             const totalSeconds = dur * 60 + durSec;
             if (serverStartedAt) {
-              const elapsed = Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000);
+              const elapsed = Math.max(0, Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000));
               const remaining = Math.max(totalSeconds - elapsed, 0);
               setTimeLeft(remaining);
             } else {
@@ -108,7 +108,7 @@ const TryoutSession = () => {
           const durSec = data[0]?.durationSec || 0;
           const totalSeconds = dur * 60 + durSec;
           if (serverStartedAt) {
-            const elapsed = Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000);
+            const elapsed = Math.max(0, Math.floor((new Date(serverTime).getTime() - new Date(serverStartedAt).getTime()) / 1000));
             setTimeLeft(Math.max(totalSeconds - elapsed, 0));
           } else {
             setTimeLeft(totalSeconds);

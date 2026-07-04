@@ -139,6 +139,7 @@ export const activityService = {
   getRiwayat: () => api.get('/activity/riwayat'),
   submitLatihan: (data) => api.post('/activity/latihan/submit', data),
   getLatihanResult: (sessionId) => api.get(`/activity/latihan/result/${sessionId}`),
+  getMyBestScores: () => api.get('/activity/my-best-scores'),
 };
 
 export const socialService = {

@@ -1137,7 +1137,7 @@ router.post("/tryout/start", verifyToken, async (req, res, next) => {
         `SELECT 1 FROM subscriptions s
          JOIN plans p ON p.id = s.plan_id
          WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-           AND p.target_type = 'um' AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+           AND (p.target_type = 'um' OR p.name = 'sultan') AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
          LIMIT 1`,
         [userId],
       );

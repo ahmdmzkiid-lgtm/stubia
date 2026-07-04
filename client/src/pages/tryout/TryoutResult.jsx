@@ -6,7 +6,7 @@ import DiscussQuestionModal from '../../components/DiscussQuestionModal';
 import MathText from '../../components/MathText';
 import NationalLeaderboardCard from '../../components/NationalLeaderboardCard';
 import StudentNavbar from '../../components/layout/StudentNavbar';
-import { PTN_DATA } from '../../data/ptnData';
+import { PTN_DATA, getPtnLogo } from '../../data/ptnData';
 
 // Helper functions defined outside the component
 const getSubjectColors = (statusColor) => {
@@ -480,28 +480,36 @@ const TryoutResult = () => {
                 /* Major Leaderboard */
                 <>
                   {/* Target info */}
-                  <div className="bg-[#f5f5ff] rounded-xl p-3 mb-4 border border-[#e6e7f4]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="material-symbols-outlined text-[16px] text-[#0050cb]">school</span>
-                      <p className="text-[12px] font-bold text-[#0050cb]">{leaderboard?.targetPtn}</p>
-                    </div>
-                    <p className="text-[13px] font-medium text-[#191b24] ml-6">{leaderboard?.targetMajor}</p>
-                    {(() => {
-                      // Look up target score from ptnData
-                      const ptnEntry = PTN_DATA.find(p => leaderboard?.targetPtn?.includes(p.singkatan) || leaderboard?.targetPtn?.includes(p.nama));
-                      const majorEntry = ptnEntry?.prodi?.find(m => m.nama === leaderboard?.targetMajor);
-                      const targetScore = majorEntry?.skor;
-                      const userScore = leaderboard?.user_rank?.score || leaderboard?.userMajorRank?.score || 0;
-                      if (!targetScore) return null;
-                      const passed = userScore >= targetScore;
-                      return (
-                        <div className={`mt-2 ml-6 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${passed ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fef3f2] text-[#ba1a1a]'}`}>
-                          <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>{passed ? 'check_circle' : 'cancel'}</span>
-                          {passed ? `Skormu melewati target (${targetScore})` : `Target skor: ${targetScore} (kurang ${targetScore - userScore})`}
+                  {(() => {
+                    const ptnEntry = PTN_DATA.find(p => leaderboard?.targetPtn?.includes(p.singkatan) || leaderboard?.targetPtn?.includes(p.nama));
+                    const logoUrl = ptnEntry?.id ? getPtnLogo(ptnEntry.id) : null;
+                    const majorEntry = ptnEntry?.prodi?.find(m => m.nama === leaderboard?.targetMajor);
+                    const targetScore = majorEntry?.skor;
+                    const userScore = leaderboard?.user_rank?.score || leaderboard?.userMajorRank?.score || 0;
+                    const passed = targetScore ? userScore >= targetScore : false;
+
+                    return (
+                      <div className="bg-[#f5f5ff] rounded-xl p-4 mb-4 border border-[#e6e7f4] flex items-start gap-3">
+                        {logoUrl ? (
+                          <img src={logoUrl} alt={ptnEntry?.singkatan || 'Logo'} className="w-12 h-12 object-contain rounded-lg bg-white p-1 border border-gray-100 flex-shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-[#dae1ff] flex items-center justify-center text-[#0050cb] flex-shrink-0">
+                            <span className="material-symbols-outlined text-[24px]">school</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-bold text-[#0050cb]">{leaderboard?.targetPtn}</p>
+                          <p className="text-[13px] font-semibold text-[#191b24] mt-0.5">{leaderboard?.targetMajor}</p>
+                          {targetScore && (
+                            <div className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${passed ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fef3f2] text-[#ba1a1a]'}`}>
+                              <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>{passed ? 'check_circle' : 'cancel'}</span>
+                              {passed ? `Skormu melewati target (${targetScore})` : `Target skor: ${targetScore} (kurang ${targetScore - userScore})`}
+                            </div>
+                          )}
                         </div>
-                      );
-                    })()}
-                  </div>
+                      </div>
+                    );
+                  })()}
 
                   {leaderboard?.userMajorRank && (
                     <div className="bg-gradient-to-r from-[#6d28d9] to-[#4c1d95] text-white rounded-xl p-3.5 mb-4">

@@ -130,7 +130,7 @@ router.post('/google', async (req, res, next) => {
 router.get('/me', verifyToken, async (req, res, next) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, role, current_plan, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, role, current_plan, target_ptn, target_major, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -147,7 +147,7 @@ router.get('/me', verifyToken, async (req, res, next) => {
 // Update Profile Name
 router.put('/update-profile', verifyToken, async (req, res, next) => {
   try {
-    const { name } = req.body;
+    const { name, target_ptn, target_major } = req.body;
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ success: false, error: 'Nama tidak boleh kosong.' });
     }
@@ -157,12 +157,20 @@ router.put('/update-profile', verifyToken, async (req, res, next) => {
     }
 
     const result = await pool.query(
-      'UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name, email, role, current_plan, created_at',
-      [name.trim(), req.user.id]
+      'UPDATE users SET name = $1, target_ptn = $2, target_major = $3 WHERE id = $4 RETURNING id, name, email, role, current_plan, target_ptn, target_major, created_at',
+      [name.trim(), target_ptn || null, target_major || null, req.user.id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'User tidak ditemukan.' });
+    }
+
+    // Also update all target_ptn and target_major in active sessions for this user so leaderboard updates
+    if (target_ptn && target_major) {
+      await pool.query(
+        'UPDATE tryout_sessions SET target_ptn = $1, target_major = $2 WHERE user_id = $3',
+        [target_ptn, target_major, req.user.id]
+      );
     }
 
     res.json({ success: true, data: result.rows[0], message: 'Profil berhasil diperbarui.' });
