@@ -122,22 +122,35 @@ export default function UjianMandiriDetail() {
   const [confirmType, setConfirmType] = useState(null); // 'tryout' | 'latihan'
   const [confirmData, setConfirmData] = useState(null); // item to start (pkg or lat)
   const [expandedSubtests, setExpandedSubtests] = useState({});
+  const [activeTab, setActiveTab] = useState('tryout'); // 'tryout' | 'latihan'
 
   // Helper: check if user has a plan that satisfies the required plan name
   const hasPlanAccess = (requiredPlan) => {
     if (!requiredPlan || requiredPlan === 'gratis') return true;
-    // Check against all active subscriptions
-    for (const plan of activePlans) {
-      const pName = plan.name || plan.plan_name;
-      const pRank = PLAN_RANK[pName] ?? 0;
-      const reqRank = PLAN_RANK[requiredPlan] ?? 0;
-      if (pRank >= reqRank) return true;
-    }
-    // Fall back to user.current_plan
+
+    // Check if the user has Sultan (Sultan always has access to everything)
+    const hasSultan = activePlans.some(p => {
+      const name = p.name || p.plan_name;
+      return name === 'sultan' || name === 'um_to_all';
+    });
+    if (hasSultan) return true;
+
+    // Check if the user has a specific Ujian Mandiri plan (target_type === 'um')
+    const hasUmPlan = activePlans.some(p => {
+      const name = p.name || p.plan_name;
+      return name !== 'gratis' && p.target_type === 'um';
+    });
+    if (hasUmPlan) return true;
+
+    // Fall back to user.current_plan (e.g. if set in user profile directly)
     const userPlan = user?.current_plan || 'gratis';
-    const userRank = PLAN_RANK[userPlan] ?? 0;
-    const reqRank = PLAN_RANK[requiredPlan] ?? 0;
-    return userRank >= reqRank;
+    if (userPlan === 'sultan' || userPlan.startsWith('um_')) {
+      const userRank = PLAN_RANK[userPlan] ?? 0;
+      const reqRank = PLAN_RANK[requiredPlan] ?? 0;
+      if (userRank >= reqRank) return true;
+    }
+
+    return false;
   };
 
   const fetchStatus = async () => {
@@ -219,8 +232,13 @@ export default function UjianMandiriDetail() {
         }
         setUjian(ujianRes.data.data);
         const pkgList = (tryoutRes.data.data || []).filter(p => p.is_active !== false);
+        const sortedPkgs = [...pkgList].sort((a, b) => {
+          const rankA = PLAN_RANK[a.required_plan || 'gratis'] ?? 0;
+          const rankB = PLAN_RANK[b.required_plan || 'gratis'] ?? 0;
+          return rankA - rankB;
+        });
         const latList = (latihanRes.data.data || []).filter(l => l.is_active !== false);
-        setTryoutPackages(pkgList);
+        setTryoutPackages(sortedPkgs);
         setLatihanSoal(latList);
         setActivePlans(activePlansRes.data?.data || []);
 
@@ -262,13 +280,67 @@ export default function UjianMandiriDetail() {
   }, [location.state, tryoutPackages, location.pathname, navigate]);
 
   const hasUmAccessForFreeCheck = () => {
+    // 1. Sultan always has unlimited access
+    const hasSultan = activePlans.some(p => {
+      const name = p.name || p.plan_name;
+      return name === 'sultan' || name === 'um_to_all';
+    });
+
+    // 2. Any active plan that has target_type === 'um' with unlimited access
     const hasUmUnlimited = activePlans.some(p =>
       (p.name || p.plan_name) !== 'gratis' && p.target_type === 'um' && (p.plan_type === 'subscription' || p.plan_type === 'access')
     );
+
+    // 3. Quota plans for Ujian Mandiri
     const hasUmQuota = activePlans.some(p =>
       p.target_type === 'um' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0
     );
-    return hasUmUnlimited || hasUmQuota;
+
+    // 4. Fallback for user.current_plan directly on user object
+    const userPlan = user?.current_plan || 'gratis';
+    const hasUserAccess = userPlan === 'sultan' || userPlan.startsWith('um_');
+
+    return hasSultan || hasUmUnlimited || hasUmQuota || hasUserAccess;
+  };
+
+  const getConfirmRules = () => {
+    const defaultRules = [
+      "Sesi pengerjaan akan dimulai langsung setelah Anda menekan tombol mulai.",
+      "Koneksi internet yang stabil sangat disarankan selama pengerjaan.",
+      "Jawaban Anda akan tersimpan otomatis setiap kali berpindah soal."
+    ];
+
+    if (confirmData) {
+      const hasCompletedBefore = confirmData.user_history?.length > 0;
+      if (hasCompletedBefore) {
+        const hasUmUnlimited = activePlans.some(p =>
+          (p.name || p.plan_name) !== 'gratis' && p.target_type === 'um' && (p.plan_type === 'subscription' || p.plan_type === 'access')
+        );
+        const hasUmQuota = activePlans.some(p =>
+          p.target_type === 'um' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0
+        );
+
+        if (confirmType === 'tryout') {
+          if (hasUmUnlimited) {
+            return [
+              "Sebagai pengguna Premium/Sultan, Anda dapat mengulang tryout ini kapan saja tanpa batas.",
+              ...defaultRules.slice(1)
+            ];
+          } else if (hasUmQuota) {
+            return [
+              "Perhatian: Memulai kembali tryout ini akan mengurangi 1 kuota ujian mandiri Anda.",
+              ...defaultRules.slice(1)
+            ];
+          }
+        } else if (confirmType === 'latihan') {
+          return [
+            "Anda dapat mengulang latihan soal ini untuk meningkatkan pemahaman Anda.",
+            ...defaultRules.slice(1)
+          ];
+        }
+      }
+    }
+    return defaultRules;
   };
 
   const handleLogout = async () => {
@@ -339,8 +411,8 @@ export default function UjianMandiriDetail() {
     const subtestColor = SUBTEST_COLORS[catKey] || { bg: '#EEF2FF', icon: '#4338CA' };
     const subtestIcon = SUBTEST_ICONS[catKey] || lat.icon || 'neurology';
 
-    // Green accent gradient for all exercises
-    const accentGradient = 'from-emerald-500 to-teal-400';
+    // Cohesive blue brand accent gradient
+    const accentGradient = 'from-blue-600 to-blue-400';
 
     return (
       <div
@@ -360,12 +432,11 @@ export default function UjianMandiriDetail() {
           {/* Header: Icon + Title */}
           <div className="flex items-start gap-2">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-500"
-              style={{ backgroundColor: subtestColor.bg }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm bg-blue-50/50 transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-500"
             >
               <span
-                className="material-symbols-outlined text-[16px]"
-                style={{ color: subtestColor.icon, fontVariationSettings: "'FILL' 0, 'wght' 300" }}
+                className="material-symbols-outlined text-[16px] text-[#0050cb]"
+                style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}
               >
                 {subtestIcon}
               </span>
@@ -373,8 +444,7 @@ export default function UjianMandiriDetail() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span
-                  className="text-[8px] font-extrabold uppercase tracking-[0.12em] leading-none"
-                  style={{ color: subtestColor.icon }}
+                  className="text-[8px] font-extrabold uppercase tracking-[0.12em] leading-none text-[#0050cb]"
                 >
                   {lat.category || 'Latihan'}
                 </span>
@@ -407,10 +477,10 @@ export default function UjianMandiriDetail() {
                 <span className="material-symbols-outlined text-[12px] text-slate-400">quiz</span>
                 {Number(lat.soal_count) || 0}
               </span>
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg border border-slate-100">
-                <span className="text-emerald-600">+{lat.points_correct ?? 1}</span>
+              <span className="inline-flex items-center gap-1 text-[9px] font-semibold bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg border border-slate-100">
+                <span className="text-slate-600 font-bold">+{lat.points_correct ?? 4}</span>
                 <span className="text-slate-300">/</span>
-                <span className="text-rose-500">{lat.points_incorrect ?? 0}</span>
+                <span className="text-slate-600 font-bold">{lat.points_incorrect ?? 0}</span>
               </span>
             </div>
             <div className={`text-[13px] font-extrabold leading-none ${lastScore != null ? 'text-[#0050cb]' : 'text-slate-300'}`}>
@@ -427,7 +497,7 @@ export default function UjianMandiriDetail() {
               className={`py-1.5 rounded-lg font-bold text-[10px] flex items-center justify-center gap-1 transition-all duration-200 ${
                 inactive || locked
                   ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'
-                  : 'bg-gradient-to-r from-[#0050cb] to-[#3b82f6] text-white hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.97]'
+                  : 'bg-[#0050cb] hover:bg-[#003da6] text-white shadow-sm hover:shadow active:scale-95 cursor-pointer'
               }`}
             >
               <span className="material-symbols-outlined text-[12px]">{locked ? 'lock' : 'play_arrow'}</span>
@@ -449,6 +519,155 @@ export default function UjianMandiriDetail() {
           </div>
         </div>
       </div>
+    );
+  };
+
+  const renderTryoutCard = (pkg) => {
+    const reqPlan = pkg.required_plan || 'gratis';
+    const badge = PLAN_BADGE[reqPlan] || PLAN_BADGE.gratis;
+    const lastAttempt = pkg.user_history?.[0];
+    const lastScore = lastAttempt?.score;
+    const lastCounts = getAttemptCounts(lastAttempt);
+    const isFreeCompleted = !hasUmAccessForFreeCheck() && packageCompletions[pkg.id];
+    const inactive = pkg.is_active === false;
+    const locked = !hasPlanAccess(reqPlan);
+
+    const textAccentColor = (pkg.icon_color === '#FFE000' || pkg.icon_color === '#ffe000') ? '#b28900' : (pkg.icon_color || '#0050cb');
+
+    return (
+      <article
+        key={pkg.id}
+        className={`bg-white border border-slate-150 rounded-[2rem] overflow-hidden flex shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 min-w-[280px] md:min-w-0 flex-1 shrink-0 min-h-[175px] ${
+          inactive ? 'opacity-60 grayscale-[30%]' : ''
+        }`}
+      >
+        {/* Left Stripe */}
+        <div 
+          className="w-[30%] relative flex items-center justify-center overflow-hidden shrink-0" 
+          style={{ backgroundColor: pkg.icon_color || '#FFE000' }}
+        >
+          {ujian.logo ? (
+            <img src={ujian.logo} alt={`${ujian.universitas} Logo`} className="w-12 h-12 object-contain z-10" />
+          ) : (
+            <span className="material-symbols-outlined text-white text-[32px] z-10">school</span>
+          )}
+          {/* Decorative grid pattern */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '8px 8px' }} />
+        </div>
+
+        {/* Right Content */}
+        <div className="w-[70%] p-4 flex flex-col justify-between relative">
+          {/* Top line with Category Badge */}
+          <div className="flex justify-between items-start gap-2">
+            <span 
+              className="px-2 py-0.5 text-[8px] sm:text-[9px] font-black rounded-full uppercase" 
+              style={{ 
+                backgroundColor: `${pkg.icon_color || '#FFE000'}30`, 
+                color: textAccentColor 
+              }}
+            >
+              {badge.label}
+            </span>
+            {/* Lock / status badge */}
+            {!inactive && locked && (
+              <span className="text-[8px] text-slate-400 font-bold flex items-center gap-0.5 bg-slate-50 border border-slate-150 px-1.5 py-0.5 rounded-md">
+                <span className="material-symbols-outlined text-[10px]">lock</span>
+                {reqPlan === 'sultan' ? 'Sultan' : 'Premium'}
+              </span>
+            )}
+            {inactive && (
+              <span className="text-[8px] text-slate-400 font-bold bg-slate-50 border border-slate-150 px-1.5 py-0.5 rounded-md">
+                Nonaktif
+              </span>
+            )}
+          </div>
+
+          {/* Center Title & Description */}
+          <div className="my-1.5">
+            <h4 className="font-black text-sm text-[#191b24] line-clamp-1 leading-snug">{pkg.title}</h4>
+            <p className="text-[10px] text-gray-500 font-semibold line-clamp-1 mt-0.5">{pkg.description}</p>
+          </div>
+
+          {/* Stats Row */}
+          <div className="flex items-center gap-2.5 text-[10px] text-gray-500 font-bold mb-1">
+            <div className="flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[12px] text-slate-400">schedule</span>
+              <span>{pkg.duration || 0}m</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[12px] text-slate-400">quiz</span>
+              <span>{pkg.soal_count || 0} soal</span>
+            </div>
+            <div className="inline-flex items-center gap-1 text-[9px] font-semibold bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg border border-slate-100">
+              <span className="text-slate-600 font-bold">+{pkg.points_correct ?? 4}</span>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-600 font-bold">{pkg.points_incorrect ?? -1}</span>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-500 font-bold">{pkg.points_unanswered ?? 0}</span>
+            </div>
+          </div>
+
+          {/* Score Container */}
+          {lastAttempt && lastScore != null ? (
+            <div className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-150/80 px-2 py-1 rounded-xl my-1">
+              <div className="flex items-baseline gap-1">
+                <span className="text-[8px] uppercase tracking-wider text-slate-400 font-extrabold">Skor:</span>
+                <span className="text-[13px] font-black text-[#0050cb]">{lastScore}</span>
+              </div>
+              <div className="inline-flex items-center gap-1 text-[9px] font-bold font-mono">
+                <span className="text-emerald-600 flex items-center gap-0.5">
+                  <span className="w-1 h-1 rounded-full bg-emerald-500 inline-block" />
+                  {lastCounts?.benar || 0}
+                </span>
+                <span className="text-rose-500 flex items-center gap-0.5">
+                  <span className="w-1 h-1 rounded-full bg-rose-400 inline-block" />
+                  {lastCounts?.salah || 0}
+                </span>
+                <span className="text-slate-400 flex items-center gap-0.5">
+                  <span className="w-1 h-1 rounded-full bg-slate-300 inline-block" />
+                  {lastCounts?.kosong || 0}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="h-6 flex items-center text-[9px] text-slate-300 italic my-1">
+              Belum dikerjakan
+            </div>
+          )}
+
+          {/* Divider */}
+          <hr className="border-gray-100 my-1" />
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleStartTryout(pkg)}
+              disabled={inactive || locked || checkingRegistration !== false}
+              className={`flex-1 py-1.5 rounded-xl font-extrabold text-[10px] flex items-center justify-center gap-1 transition-all ${
+                inactive || locked || checkingRegistration !== false
+                  ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'
+                  : 'bg-[#0050cb] hover:bg-[#003da6] text-white shadow-sm hover:shadow active:scale-95 cursor-pointer'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                {checkingRegistration === pkg.id ? 'progress_activity' : locked ? 'lock' : 'play_arrow'}
+              </span>
+              {checkingRegistration === pkg.id ? 'Memeriksa...' : (lastScore ? 'Mulai Lagi' : 'Mulai')}
+            </button>
+            {lastAttempt && (
+              <button
+                type="button"
+                onClick={() => navigate(`/ujian-mandiri/${ujian.id}/tryout/${pkg.id}/hasil/${lastAttempt.id}`)}
+                className="px-2.5 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-extrabold text-[10px] flex items-center justify-center gap-1 active:scale-[0.97] cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[12px]">bar_chart</span>
+                Hasil
+              </button>
+            )}
+          </div>
+        </div>
+      </article>
     );
   };
 
@@ -479,7 +698,7 @@ export default function UjianMandiriDetail() {
 
           // Plan-themed icon and gradient
           let iconName = 'folder_special';
-          let iconGradient = 'from-violet-500 via-indigo-500 to-blue-400';
+          let iconGradient = 'from-blue-600 to-[#0050cb]';
           const accentColor = 'from-blue-500 to-[#0050cb]'; // Blue gradient only
 
           if (sectionPlan === 'premium' || sectionPlan === 'premium_um') {
@@ -595,7 +814,7 @@ export default function UjianMandiriDetail() {
           </span>
           <span className="material-symbols-outlined text-[16px] text-[#727687]">chevron_right</span>
           <span className="text-[12px] font-bold text-[#0050cb] uppercase tracking-wider">
-            Simulasi Tryout
+            {activeTab === 'tryout' ? 'Simulasi Tryout' : 'Latihan Soal'}
           </span>
         </nav>
 
@@ -620,244 +839,145 @@ export default function UjianMandiriDetail() {
           </div>
         </section>
 
+        {/* Navigation Tabs */}
+        <div className="flex gap-2 p-1.5 bg-[#f0f1f7] rounded-2xl mb-10 max-w-md mx-auto sm:mx-0 shadow-sm border border-slate-100/50">
+          <button
+            onClick={() => setActiveTab('tryout')}
+            className={`flex-1 py-3 px-4 rounded-xl text-[13px] font-extrabold transition-all flex items-center justify-center gap-2 border-none outline-none cursor-pointer ${
+              activeTab === 'tryout'
+                ? 'bg-white text-[#0050cb] shadow-sm'
+                : 'text-[#727687] hover:text-[#424656] bg-transparent'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">emoji_events</span>
+            Tryout Tersedia
+          </button>
+          <button
+            onClick={() => setActiveTab('latihan')}
+            className={`flex-1 py-3 px-4 rounded-xl text-[13px] font-extrabold transition-all flex items-center justify-center gap-2 border-none outline-none cursor-pointer ${
+              activeTab === 'latihan'
+                ? 'bg-white text-[#0050cb] shadow-sm'
+                : 'text-[#727687] hover:text-[#424656] bg-transparent'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">menu_book</span>
+            Latihan Soal
+          </button>
+        </div>
+
         {/* Paket Tryout Tersedia */}
-        <section className="mb-16">
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-white text-[18px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>assignment</span>
+        {activeTab === 'tryout' && (
+          <section className="mb-16">
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-[#0050cb] flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-[18px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>emoji_events</span>
+                  </div>
+                  <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight tracking-tight">Tryout Tersedia</h2>
                 </div>
-                <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight tracking-tight">Tryout Tersedia</h2>
+                <p className="text-[13px] text-slate-500 font-medium ml-[42px]">Simulasi ujian lengkap dengan timer dan penilaian.</p>
               </div>
-              <p className="text-[13px] text-slate-500 font-medium ml-[42px]">Simulasi ujian lengkap dengan timer dan penilaian.</p>
             </div>
-          </div>
-          <div className="space-y-4">
             {tryoutPackages.length > 0 ? (
-              tryoutPackages.map((pkg) => {
-                const reqPlan = pkg.required_plan || 'gratis';
-                const badge = PLAN_BADGE[reqPlan] || PLAN_BADGE.gratis;
-                const lastAttempt = pkg.user_history?.[0];
-                const lastScore = lastAttempt?.score;
-                const lastCounts = getAttemptCounts(lastAttempt);
-                const isFreeCompleted = !hasUmAccessForFreeCheck() && packageCompletions[pkg.id];
-                const inactive = pkg.is_active === false;
-                const locked = !hasPlanAccess(reqPlan);
-
-                // Plan-based gradient for icon container
-                const iconGradient = reqPlan === 'sultan'
-                  ? 'from-amber-500 via-orange-500 to-yellow-400'
-                  : reqPlan === 'premium' || reqPlan === 'premium_um'
-                  ? 'from-indigo-600 via-blue-500 to-cyan-400'
-                  : 'from-violet-500 via-indigo-500 to-blue-400';
-
-                // Plan-based accent bar color
-                const accentBarColor = reqPlan === 'sultan'
-                  ? 'bg-gradient-to-b from-amber-400 to-orange-500'
-                  : reqPlan === 'premium' || reqPlan === 'premium_um'
-                  ? 'bg-gradient-to-b from-indigo-500 to-blue-400'
-                  : 'bg-gradient-to-b from-violet-400 to-indigo-500';
-
-                return (
-                  <article
-                    key={pkg.id}
-                    className={`relative bg-white rounded-2xl overflow-hidden transition-all duration-500 group
-                      border border-[#e2e8f0]/80
-                      hover:border-transparent
-                      shadow-[0_1px_3px_rgba(0,0,0,0.04)]
-                      hover:shadow-[0_20px_40px_-12px_rgba(0,51,153,0.12)]
-                      ${inactive ? 'opacity-60 grayscale-[30%]' : ''}`}
-                  >
-                    {/* Left Accent Bar */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${accentBarColor} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-r-full`} />
-
-                    <div className="p-5 lg:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                      <div className="flex items-start gap-4 flex-1 min-w-0">
-                        {/* Premium Icon Container */}
-                        <div
-                          className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-gradient-to-br ${iconGradient} text-white shadow-lg shadow-indigo-500/10 transform group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500`}
-                        >
-                          <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>assignment</span>
-                        </div>
-
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          {/* Title Row */}
-                          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                            <h3 className="text-[16px] lg:text-[18px] font-bold text-[#1e293b] tracking-tight group-hover:text-[#0050cb] transition-colors duration-300">{pkg.title}</h3>
-                            <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${badge.className} shadow-sm shrink-0`}>
-                              {badge.label}
-                            </span>
-                            {inactive && (
-                              <span className="text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">Nonaktif</span>
-                            )}
-                            {!inactive && locked && (
-                              <span className="text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200">
-                                <span className="material-symbols-outlined text-[8px] align-middle mr-0.5">lock</span>
-                                {reqPlan === 'sultan' ? 'Sultan' : 'Premium'}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Description */}
-                          <p className="text-[13px] text-[#64748b] font-medium leading-relaxed line-clamp-2">{pkg.description}</p>
-                          
-                          {/* Elegant Stats Row */}
-                          <div className="flex items-center gap-2.5 mt-1 flex-wrap">
-                            <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
-                              <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>schedule</span>
-                              <span className="font-semibold">{pkg.duration || 0}</span> menit
-                            </div>
-                            <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
-                              <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>quiz</span>
-                              <span className="font-semibold">{Number(pkg.soal_count) || 0}</span> soal
-                            </div>
-                            {(pkg.peserta > 0) && (
-                              <div className="inline-flex items-center gap-1.5 text-[11px] bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-100">
-                                <span className="material-symbols-outlined text-[14px] text-slate-400" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>group</span>
-                                <span className="font-semibold">{(pkg.peserta || 0).toLocaleString()}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Divider for mobile */}
-                      <hr className="md:hidden border-slate-100 w-full" />
-
-                      {/* Right side: Score & Action buttons */}
-                      <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center md:items-stretch lg:items-center gap-3 shrink-0 w-full md:w-auto">
-                        {/* Score Container */}
-                        <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 border border-slate-100/80 rounded-xl p-3.5 flex flex-row sm:flex-col lg:flex-row items-center justify-between sm:justify-center lg:justify-between gap-4 min-w-[160px]">
-                          <div className="text-left sm:text-center lg:text-left">
-                            <span className="text-[8px] uppercase tracking-[0.15em] font-bold text-slate-400 block mb-0.5">Skor Terakhir</span>
-                            <div className={`text-[20px] font-extrabold leading-none ${lastScore != null ? 'text-[#0050cb]' : 'text-slate-300'}`}>
-                              {lastScore ?? '—'}
-                            </div>
-                          </div>
-                          <div className="text-right sm:text-center lg:text-right">
-                            {lastCounts ? (
-                              <div className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm text-[10px] font-semibold font-mono">
-                                <span className="text-emerald-600 flex items-center gap-0.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                                  {lastCounts.benar}
-                                </span>
-                                <span className="text-rose-500 flex items-center gap-0.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
-                                  {lastCounts.salah}
-                                </span>
-                                <span className="text-slate-400 flex items-center gap-0.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block" />
-                                  {lastCounts.kosong}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-slate-300 italic">Belum ada</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-row md:flex-col gap-2 w-full sm:w-auto md:w-44">
-                          <button
-                            type="button"
-                            onClick={() => handleStartTryout(pkg)}
-                            disabled={inactive || locked || checkingRegistration !== false || isFreeCompleted}
-                            className={`flex-1 py-2.5 rounded-xl font-bold text-[12px] flex items-center justify-center gap-1.5 transition-all duration-300 ${
-                              inactive || locked || checkingRegistration !== false || isFreeCompleted
-                                ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'
-                                : 'bg-gradient-to-r from-[#0050cb] to-[#3b82f6] text-white hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.97]'
-                            }`}
-                          >
-                            <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                              {checkingRegistration === pkg.id ? 'progress_activity' : locked || isFreeCompleted ? 'lock' : 'play_arrow'}
-                            </span>
-                            {checkingRegistration === pkg.id ? 'Memeriksa...' : isFreeCompleted ? 'Sudah Dikerjakan' : (lastScore && hasUmAccessForFreeCheck() ? 'Ulangi' : 'Mulai')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => lastAttempt && navigate(`/ujian-mandiri/${ujian.id}/tryout/${pkg.id}/hasil/${lastAttempt.id}`)}
-                            disabled={!lastAttempt}
-                            className={`flex-1 py-2.5 rounded-xl font-bold text-[12px] flex items-center justify-center gap-1.5 border transition-all duration-300 ${
-                              lastAttempt
-                                ? 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.97]'
-                                : 'border-slate-100 text-slate-200 cursor-not-allowed'
-                            }`}
-                          >
-                            <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>bar_chart</span>
-                            Hasil
-                          </button>
-                        </div>
-                      </div>
+              <div className="space-y-10">
+                {/* Ujian Serentak Gratis */}
+                {tryoutPackages.filter(p => !p.required_plan || p.required_plan === 'gratis').length > 0 && (
+                  <div>
+                    <h3 className="text-[14px] font-bold text-[#191b24] mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>lock_open</span>
+                      <span className="tracking-tight">Ujian Serentak Gratis</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {tryoutPackages
+                        .filter(p => !p.required_plan || p.required_plan === 'gratis')
+                        .map(pkg => renderTryoutCard(pkg))}
                     </div>
-                  </article>
-                );
-              })
+                  </div>
+                )}
+
+                {/* Tryout (Premium/Sultan) */}
+                {tryoutPackages.filter(p => p.required_plan && p.required_plan !== 'gratis').length > 0 && (
+                  <div>
+                    <h3 className="text-[14px] font-bold text-[#191b24] mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-indigo-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+                      <span className="tracking-tight">Tryout</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {tryoutPackages
+                        .filter(p => p.required_plan && p.required_plan !== 'gratis')
+                        .map(pkg => renderTryoutCard(pkg))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
-              <div className="text-center py-16 bg-gradient-to-b from-slate-50/40 to-white rounded-2xl border border-dashed border-slate-200">
-                <span className="material-symbols-outlined text-[52px] text-slate-300 mb-3" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>assignment</span>
+              <div className="col-span-full text-center py-16 bg-gradient-to-b from-slate-50/40 to-white rounded-2xl border border-dashed border-slate-200">
+                <span className="material-symbols-outlined text-[52px] text-slate-300 mb-3" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>emoji_events</span>
                 <p className="text-slate-500 font-medium text-[14px]">Belum ada paket tryout tersedia untuk ujian ini.</p>
                 <p className="text-slate-400 text-[12px] mt-1">Tryout akan segera tersedia, stay tuned!</p>
               </div>
             )}
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Latihan Soal Mandiri */}
-        <section className="mb-16">
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-white text-[18px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>menu_book</span>
+        {activeTab === 'latihan' && (
+          <section className="mb-16">
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-[18px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 300" }}>menu_book</span>
+                  </div>
+                  <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight tracking-tight">Latihan Soal Mandiri</h2>
                 </div>
-                <h2 className="text-[24px] lg:text-[32px] font-bold text-[#191b24] leading-tight tracking-tight">Latihan Soal Mandiri</h2>
+                <p className="text-[13px] text-slate-500 font-medium ml-[42px]">Latihan tanpa batas waktu untuk menguasai materi.</p>
               </div>
-              <p className="text-[13px] text-slate-500 font-medium ml-[42px]">Latihan tanpa batas waktu untuk menguasai materi.</p>
             </div>
-          </div>
-          <div className="space-y-10">
-            {latihanSoal.length > 0 ? (
-              <>
-                {gratisLatihan.length > 0 && (
-                  <div>
-                    <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-emerald-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>lock_open</span>
-                      <span className="tracking-tight">Gratis</span>
-                    </h3>
-                    {renderPackageCards(gratisLatihan)}
-                  </div>
-                )}
+            <div className="space-y-10">
+              {latihanSoal.length > 0 ? (
+                <>
+                  {gratisLatihan.length > 0 && (
+                    <div>
+                      <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-emerald-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>lock_open</span>
+                        <span className="tracking-tight">Gratis</span>
+                      </h3>
+                      {renderPackageCards(gratisLatihan)}
+                    </div>
+                  )}
 
-                {premiumLatihan.length > 0 && (
-                  <div>
-                    <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-indigo-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
-                      <span className="tracking-tight">Premium</span>
-                    </h3>
-                    {renderPackageCards(premiumLatihan)}
-                  </div>
-                )}
+                  {premiumLatihan.length > 0 && (
+                    <div>
+                      <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-indigo-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+                        <span className="tracking-tight">Premium</span>
+                      </h3>
+                      {renderPackageCards(premiumLatihan)}
+                    </div>
+                  )}
 
-                {sultanLatihan.length > 0 && (
-                  <div>
-                    <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-amber-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>military_tech</span>
-                      <span className="tracking-tight">Sultan</span>
-                    </h3>
-                    {renderPackageCards(sultanLatihan)}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-16 bg-gradient-to-b from-slate-50/40 to-white rounded-2xl border border-dashed border-slate-200">
-                <span className="material-symbols-outlined text-[52px] text-slate-300 mb-3" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>menu_book</span>
-                <p className="text-slate-500 font-medium text-[14px]">Belum ada latihan soal tersedia untuk ujian ini.</p>
-                <p className="text-slate-400 text-[12px] mt-1">Latihan soal akan segera tersedia.</p>
-              </div>
-            )}
-          </div>
-        </section>
+                  {sultanLatihan.length > 0 && (
+                    <div>
+                      <h3 className="text-[14px] font-bold text-[#191b24] mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-amber-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>military_tech</span>
+                        <span className="tracking-tight">Sultan</span>
+                      </h3>
+                      {renderPackageCards(sultanLatihan)}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-16 bg-gradient-to-b from-slate-50/40 to-white rounded-2xl border border-dashed border-slate-200">
+                  <span className="material-symbols-outlined text-[52px] text-slate-300 mb-3" style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}>menu_book</span>
+                  <p className="text-slate-500 font-medium text-[14px]">Belum ada latihan soal tersedia untuk ujian ini.</p>
+                  <p className="text-slate-400 text-[12px] mt-1">Latihan soal akan segera tersedia.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Back Button */}
         <div className="flex justify-center">
@@ -920,6 +1040,7 @@ export default function UjianMandiriDetail() {
           { label: 'Jumlah Soal', value: `${confirmData?.soal_count || 0} soal`, icon: 'description' },
           { label: 'Durasi', value: confirmType === 'tryout' ? `${confirmData?.duration || 0} menit` : 'Tanpa Batasan', icon: 'schedule' }
         ]}
+        rules={getConfirmRules()}
       />
     </div>
   );

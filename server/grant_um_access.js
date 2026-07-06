@@ -12,7 +12,8 @@ const emails = [
   'imam43826@gmail.com',
   'latisyakhadijah42@gmail.com',
   'huwaiedaaizzatie@gmail.com',
-  'ahmadmuzakiy31@gmail.com'
+  'ahmadmuzakiy31@gmail.com',
+  'ahmadmuzaki12.pro@gmail.com'
 ];
 
 async function main() {

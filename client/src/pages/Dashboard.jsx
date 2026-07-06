@@ -765,7 +765,7 @@ const Dashboard = () => {
         <span className="block h-px bg-gradient-to-r from-transparent via-[#c2c6d8] to-transparent opacity-20 my-12"></span>
 
         {/* Latest Articles Section */}
-        <section className="w-full max-w-5xl mx-auto mb-20 px-4 sm:px-6">
+        <section className="mb-20">
           <header className="flex justify-between items-baseline mb-8 border-b border-gray-200/50 pb-4">
             <div>
               <span className="text-[11px] font-black uppercase tracking-widest text-[#0050cb] bg-[#0050cb]/10 px-3 py-1 rounded-full">Blog Stubia</span>

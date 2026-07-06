@@ -56,27 +56,33 @@ const TryoutSessionUM = () => {
     const initSession = async () => {
       setLoading(true);
       try {
-        let currentSessionId = null;
+        // 1. Always call startTryout to let the backend determine if we are starting new or resuming
+        const startRes = await ujianMandiriService.startTryout(tryoutId);
+        const currentSessionId = startRes.data.data.session_id;
+        const duration = startRes.data.data.duration || 60;
+        const wasResumed = startRes.data.data.resumed === true;
+
         let isResuming = false;
 
-        // 1. Check localStorage for an existing session
+        // Check if we are resuming the same session ID stored in localStorage
         const savedSession = localStorage.getItem(LS_SESSION);
         if (savedSession) {
           try {
             const parsed = JSON.parse(savedSession);
-            currentSessionId = parsed.sessionId;
-            isResuming = true;
-          } catch { /* corrupted, start fresh */ }
+            if (parsed.sessionId === currentSessionId && wasResumed) {
+              isResuming = true;
+            }
+          } catch { /* corrupted */ }
         }
 
-        // 2. If no existing session, start a new one via backend
-        if (!currentSessionId) {
-          const startRes = await ujianMandiriService.startTryout(tryoutId);
-          currentSessionId = startRes.data.data.session_id;
-          const duration = startRes.data.data.duration || 60;
-          const wasResumed = startRes.data.data.resumed === true;
+        // If it's a new session or we are not resuming the same stored session, clear leftover localStorage keys
+        if (!isResuming) {
+          localStorage.removeItem(LS_ANSWERS);
+          localStorage.removeItem(LS_FLAGGED);
+          localStorage.removeItem(LS_TIMER);
+          localStorage.removeItem(LS_NAV);
 
-          // Save session info to localStorage
+          // Save new session info to localStorage
           localStorage.setItem(LS_SESSION, JSON.stringify({
             sessionId: currentSessionId,
             tryoutId,
@@ -84,19 +90,13 @@ const TryoutSessionUM = () => {
             startedAt: new Date().toISOString()
           }));
 
-          // If backend resumed an existing session, treat it as resuming
-          if (wasResumed) {
-            isResuming = true;
-          } else {
-            // Set initial timer only for truly new sessions
-            setTimeLeft(duration * 60);
-            localStorage.setItem(LS_TIMER, String(duration * 60));
-          }
+          setTimeLeft(duration * 60);
+          localStorage.setItem(LS_TIMER, String(duration * 60));
         }
 
         setSessionId(currentSessionId);
 
-        // 3. Single-fetch: Get ALL questions for this session
+        // 2. Single-fetch: Get ALL questions for this session
         const qRes = await ujianMandiriService.getTryoutSessionQuestions(currentSessionId);
         const fetchedQuestions = qRes.data.data || [];
         const pkg = qRes.data.package || {};
@@ -112,7 +112,7 @@ const TryoutSessionUM = () => {
           setUjianName('Ujian Mandiri');
         }
 
-        // 4. Restore saved state from localStorage (if resuming)
+        // 3. Restore saved state from localStorage (if resuming)
         if (isResuming) {
           try {
             const savedAnswers = localStorage.getItem(LS_ANSWERS);
