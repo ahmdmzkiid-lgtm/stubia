@@ -210,20 +210,22 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
 
           {/* Right Side Tools & Profile */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <Link
-              to="/cart"
-              className={`relative p-2 transition-colors flex items-center ${
-                transparent && !scrolled ? 'text-white/85 hover:text-white' : 'text-[#424656] hover:text-[#0050cb]'
-              }`}
-              title="Keranjang Belanja"
-            >
-              <span className="material-symbols-outlined text-[22px] sm:text-2xl">shopping_cart</span>
-              {cartCount > 0 && (
-                <span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full flex items-center justify-center font-bold">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
+            {location.pathname === '/paket-belajar' && (
+              <Link
+                to="/cart"
+                className={`relative p-2 transition-colors flex items-center ${
+                  transparent && !scrolled ? 'text-white/85 hover:text-white' : 'text-[#424656] hover:text-[#0050cb]'
+                }`}
+                title="Keranjang Belanja"
+              >
+                <span className="material-symbols-outlined text-[22px] sm:text-2xl">shopping_cart</span>
+                {cartCount > 0 && (
+                  <span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full flex items-center justify-center font-bold">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             <div className={`hidden sm:flex items-center gap-3 pl-4 border-l ${scrolled || !transparent ? 'border-[#c2c6d8]/30' : 'border-white/20'}`}>
               <div className="flex flex-col items-end justify-center">

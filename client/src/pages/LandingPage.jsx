@@ -6,8 +6,18 @@ import "./LandingPage.css";
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isStaff, loading } = useAuth();
   const [activeFaq, setActiveFaq] = useState(null);
+
+  React.useEffect(() => {
+    if (!loading && isAuthenticated) {
+      if (isStaff) {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [isAuthenticated, isStaff, loading, navigate]);
 
   const handleUpgradeClick = () => {
     if (user) {

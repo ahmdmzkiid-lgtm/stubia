@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { settingsService } from '../../services/api';
+import { settingsService, tryoutService, ujianMandiriService } from '../../services/api';
 import toast from 'react-hot-toast';
+import UniversityLogo from '../../components/UniversityLogo';
+import ImageUpload from '../../components/ImageUpload';
 
 const DEFAULT_SCHEDULE = [
   { day: 'SEN', date: '12', title: 'Tryout Penalaran Umum', time: '09:00 - 11:30', active: true },
@@ -23,11 +25,53 @@ const AdminSettings = () => {
   const [latihanUtbkActive, setLatihanUtbkActive] = useState(true);
   const [adminPin, setAdminPin] = useState('');
 
+  // Banners Carousel
+  const [banners, setBanners] = useState([]);
+  const [editingBanner, setEditingBanner] = useState(null); // index or 'new'
+  const [bannerForm, setBannerForm] = useState({
+    type: 'image',
+    bg_color: '#7a1a10',
+    title: '',
+    brand_name: '',
+    image_url: '',
+    ig_handle: '',
+    tiktok_handle: '',
+    yt_handle: '',
+    web_handle: '',
+    link_url: ''
+  });
+
+  // Ujian Terbuka Serentak
+  const [ujianSerentak, setUjianSerentak] = useState([]);
+  const [editingUjian, setEditingUjian] = useState(null); // index or 'new'
+  const [ujianForm, setUjianForm] = useState({
+    title: '',
+    subtitle: '',
+    category: 'UJIAN MANDIRI',
+    bg_color: '#FFE000',
+    badge_index: '1',
+    university: 'UI',
+    logo_type: 'ui',
+    custom_logo_url: '',
+    link_type: 'um', // 'um', 'utbk', 'custom'
+    ujian_id: '',
+    package_id: '',
+    custom_link_path: ''
+  });
+
+  // UTBK Countdown Target Date
+  const [utbkCountdownDate, setUtbkCountdownDate] = useState('2027-04-18');
+
+  // Database lists
+  const [utbkPackages, setUtbkPackages] = useState([]);
+  const [umUniversities, setUmUniversities] = useState([]);
+  const [umPackagesMap, setUmPackagesMap] = useState({});
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    settingsService.getAdmin().then(r => {
+    settingsService.getAdmin().then(async r => {
       const d = r.data.data;
       setBannerUrl(d.banner_image_url || '');
       setBannerTitle(d.banner_title || '');
@@ -38,6 +82,7 @@ const AdminSettings = () => {
       setTryoutStartTime(d.tryout_start_time || '');
       setLatihanUtbkActive(d.latihan_utbk_active !== 'false');
       setAdminPin(d.admin_pin || '');
+      setUtbkCountdownDate(d.utbk_countdown_date || '2027-04-18');
 
       // Parse schedule from settings
       if (d.schedule_json) {
@@ -48,8 +93,273 @@ const AdminSettings = () => {
           }
         } catch {}
       }
-    }).catch(() => {}).finally(() => setLoading(false));
+
+      // Parse banners carousel
+      if (d.banners_carousel) {
+        try {
+          setBanners(JSON.parse(d.banners_carousel));
+        } catch (e) {
+          console.error("Failed to parse banners_carousel", e);
+        }
+      } else {
+        // Fallback default banner
+        setBanners([
+          {
+            id: 'default-1',
+            type: 'template',
+            bg_color: '#7a1a10',
+            title: 'Taklukkan UTBK, SKD Kedinasan, TKA, dan Ujian Mandiri bersama',
+            brand_name: 'RAFACADEMYC',
+            image_url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=80',
+            ig_handle: 'rafacademyc',
+            tiktok_handle: 'rafacademyc',
+            yt_handle: 'rafacademyc',
+            web_handle: 'rafacademyc.com',
+            link_url: '/tryout/packages'
+          },
+          {
+            id: 'default-2',
+            type: 'template',
+            bg_color: '#0050cb',
+            title: 'Latihan soal terlengkap, tryout simulasi CBT, dan penilaian IRT modern.',
+            brand_name: 'STUBIA CBT',
+            image_url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&q=80',
+            ig_handle: 'rafacademyc',
+            tiktok_handle: 'rafacademyc',
+            yt_handle: 'rafacademyc',
+            web_handle: 'rafacademyc.com',
+            link_url: '/tryout/packages'
+          }
+        ]);
+      }
+
+      // Parse ujian serentak
+      if (d.ujian_serentak) {
+        try {
+          setUjianSerentak(JSON.parse(d.ujian_serentak));
+        } catch (e) {
+          console.error("Failed to parse ujian_serentak", e);
+        }
+      }
+    }).catch(e => console.error("Error loading settings", e)).finally(() => setLoading(false));
+
+    // Fetch database resources
+    tryoutService.listPackages().then(r => {
+      setUtbkPackages(r.data?.data || []);
+    }).catch(e => console.error("Error loading UTBK packages", e));
+
+    ujianMandiriService.list().then(async r => {
+      const unis = r.data?.data || [];
+      setUmUniversities(unis);
+      
+      const packageMap = {};
+      for (const uni of unis) {
+        try {
+          const pkgRes = await ujianMandiriService.getTryoutPackages(uni.id);
+          packageMap[uni.id] = pkgRes.data?.data || [];
+        } catch (err) {
+          console.error(`Failed to load tryouts for uni ${uni.id}`, err);
+        }
+      }
+      setUmPackagesMap(packageMap);
+    }).catch(e => console.error("Error loading Ujian Mandiri universities", e));
   }, []);
+
+  const handleSaveBannersCarousel = async (updatedBanners = banners) => {
+    setSaving(true);
+    try {
+      await settingsService.update({
+        banners_carousel: JSON.stringify(updatedBanners),
+      });
+      setBanners(updatedBanners);
+      toast.success('Pengaturan banner carousel berhasil diperbarui!');
+    } catch (err) {
+      toast.error('Gagal menyimpan banner carousel.');
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveUjianSerentak = async (updatedUjian = ujianSerentak) => {
+    setSaving(true);
+    try {
+      await settingsService.update({
+        ujian_serentak: JSON.stringify(updatedUjian),
+      });
+      setUjianSerentak(updatedUjian);
+      toast.success('Pengaturan Ujian Terbuka Serentak berhasil diperbarui!');
+    } catch (err) {
+      toast.error('Gagal menyimpan Ujian Terbuka Serentak.');
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveCountdownDate = async () => {
+    if (!utbkCountdownDate) {
+      toast.error('Tanggal target UTBK harus diisi!');
+      return;
+    }
+    setSaving(true);
+    try {
+      await settingsService.update({
+        utbk_countdown_date: utbkCountdownDate,
+      });
+      toast.success('Tanggal target UTBK berhasil diperbarui!');
+    } catch (err) {
+      toast.error('Gagal menyimpan tanggal target UTBK.');
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Banner Carousel Actions
+  const handleAddBanner = () => {
+    setEditingBanner('new');
+    setBannerForm({
+      type: 'image',
+      bg_color: '#7a1a10',
+      title: '',
+      brand_name: '',
+      image_url: '',
+      ig_handle: '',
+      tiktok_handle: '',
+      yt_handle: '',
+      web_handle: '',
+      link_url: ''
+    });
+  };
+
+  const handleEditBanner = (index) => {
+    setEditingBanner(index);
+    setBannerForm({ 
+      ...banners[index],
+      type: 'image'
+    });
+  };
+
+  const handleDeleteBanner = (index) => {
+    const updated = banners.filter((_, i) => i !== index);
+    handleSaveBannersCarousel(updated);
+  };
+
+  const handleMoveBanner = (index, direction) => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === banners.length - 1) return;
+    
+    const updated = [...banners];
+    const temp = updated[index];
+    const swapWith = direction === 'up' ? index - 1 : index + 1;
+    updated[index] = updated[swapWith];
+    updated[swapWith] = temp;
+    
+    handleSaveBannersCarousel(updated);
+  };
+
+  const handleSaveBannerForm = () => {
+    if (!bannerForm.image_url) {
+      toast.error('Gambar banner harus diupload!');
+      return;
+    }
+
+    const updated = [...banners];
+    const bannerItem = { 
+      ...bannerForm, 
+      type: 'image',
+      id: bannerForm.id || `banner-${Date.now()}` 
+    };
+
+    if (editingBanner === 'new') {
+      updated.push(bannerItem);
+    } else {
+      updated[editingBanner] = bannerItem;
+    }
+
+    handleSaveBannersCarousel(updated);
+    setEditingBanner(null);
+  };
+
+  // Ujian Serentak Actions
+  const handleAddUjian = () => {
+    setEditingUjian('new');
+    setUjianForm({
+      title: '',
+      subtitle: '',
+      category: 'UJIAN MANDIRI',
+      bg_color: '#FFE000',
+      badge_index: '1',
+      university: 'UI',
+      logo_type: 'ui',
+      custom_logo_url: '',
+      link_type: 'um',
+      ujian_id: '',
+      package_id: '',
+      custom_link_path: ''
+    });
+  };
+
+  const handleEditUjian = (index) => {
+    setEditingUjian(index);
+    setUjianForm({ ...ujianSerentak[index] });
+  };
+
+  const handleDeleteUjian = (index) => {
+    const updated = ujianSerentak.filter((_, i) => i !== index);
+    handleSaveUjianSerentak(updated);
+  };
+
+  const handleMoveUjian = (index, direction) => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === ujianSerentak.length - 1) return;
+    
+    const updated = [...ujianSerentak];
+    const temp = updated[index];
+    const swapWith = direction === 'up' ? index - 1 : index + 1;
+    updated[index] = updated[swapWith];
+    updated[swapWith] = temp;
+    
+    handleSaveUjianSerentak(updated);
+  };
+
+  const handleSaveUjianForm = () => {
+    if (!ujianForm.title || !ujianForm.subtitle) {
+      toast.error('Judul dan Subjudul harus diisi!');
+      return;
+    }
+
+    // Resolve pre-computed link path
+    let linkPath = '';
+    if (ujianForm.link_type === 'um') {
+      if (ujianForm.package_id) {
+        linkPath = `/ujian-mandiri/${ujianForm.ujian_id}/tryout/${ujianForm.package_id}`;
+      } else {
+        linkPath = `/ujian-mandiri/${ujianForm.ujian_id}`;
+      }
+    } else if (ujianForm.link_type === 'utbk') {
+      linkPath = `/tryout/select/${ujianForm.package_id}`;
+    } else {
+      linkPath = ujianForm.custom_link_path || '/dashboard';
+    }
+
+    const updated = [...ujianSerentak];
+    const ujianItem = {
+      ...ujianForm,
+      id: ujianForm.id || `ujian-${Date.now()}`,
+      link_path: linkPath
+    };
+
+    if (editingUjian === 'new') {
+      updated.push(ujianItem);
+    } else {
+      updated[editingUjian] = ujianItem;
+    }
+
+    handleSaveUjianSerentak(updated);
+    setEditingUjian(null);
+  };
 
   const handleSaveBanner = async () => {
     if (!bannerUrl && !bannerTitle && !bannerSubtitle) {
@@ -159,70 +469,462 @@ const AdminSettings = () => {
         <div className="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm mb-2">
           <span>Dashboard</span>
           <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-          <span className="text-primary font-bold">Pengaturan Banner</span>
+          <span className="text-primary font-bold">Pengaturan Dashboard</span>
         </div>
-        <h2 className="font-headline-lg text-headline-lg text-on-surface">Pengaturan Banner Dashboard</h2>
-        <p className="text-on-surface-variant font-body-md mt-1">Ubah gambar dan teks hero banner yang tampil di halaman siswa.</p>
+        <h2 className="font-headline-lg text-headline-lg text-on-surface">Pengaturan Konten Dashboard</h2>
+        <p className="text-on-surface-variant font-body-md mt-1">Kelola slide banner hero, daftar ujian terbuka serentak, dan parameter dashboard lainnya.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Form */}
-        <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 shadow-sm space-y-6">
-          <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">URL Gambar Banner</label>
-            <input
-              value={bannerUrl}
-              onChange={e => setBannerUrl(e.target.value)}
-              placeholder="https://example.com/image.jpg"
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
-            />
-            <p className="text-label-sm text-on-surface-variant mt-1">Gunakan URL <strong>langsung ke file gambar</strong> (bukan halaman website). Contoh Unsplash: <code className="bg-gray-100 px-1 rounded text-[11px]">https://images.unsplash.com/photo-xxxxx?w=1920&q=80</code></p>
-            {bannerUrl && bannerUrl.includes('unsplash.com') && !bannerUrl.includes('images.unsplash.com') && (
-              <p className="text-[12px] text-red-500 font-bold mt-1">⚠️ URL ini adalah halaman Unsplash, bukan URL gambar langsung. Banner tidak akan tampil.</p>
+      {/* ── BANNER CAROUSEL CONFIGURATOR ── */}
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 sm:p-8 shadow-sm mb-12">
+        <div className="mb-6">
+          <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4 mb-2 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[24px] text-primary">view_carousel</span>
+            Pengaturan Banner Carousel
+          </h3>
+        </div>
+
+        {editingBanner === null ? (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              <p className="text-on-surface-variant font-body-md">Kelola slide banner yang bergerak bergantian di hero section dashboard siswa.</p>
+              <button 
+                onClick={handleAddBanner}
+                className="bg-primary text-on-primary py-2.5 px-5 rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-1.5 text-sm shrink-0"
+              >
+                <span className="material-symbols-outlined text-[20px]">add</span> Tambah Slide
+              </button>
+            </div>
+            
+            {banners.length === 0 ? (
+              <div className="p-12 text-center bg-surface-container-low border border-dashed border-outline-variant rounded-xl text-on-surface-variant">
+                <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">view_carousel</span>
+                <p className="text-sm">Belum ada slide banner dikonfigurasi. Klik "Tambah Slide" di atas.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* List of banners */}
+                <div className="lg:col-span-6 space-y-3 max-h-[480px] overflow-y-auto pr-2">
+                  {banners.map((b, idx) => (
+                    <div key={b.id || idx} className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500 font-bold overflow-hidden shrink-0 border border-outline-variant">
+                          {b.type === 'image' ? (
+                            <img src={b.image_url} className="w-full h-full object-cover" alt="slide" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] font-black uppercase" style={{ backgroundColor: b.bg_color || '#7a1a10', color: '#fff' }}>
+                              Slide
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-on-surface truncate">
+                            {b.type === 'image' ? 'Slide Gambar Penuh' : (b.brand_name || 'Slide Template')}
+                          </p>
+                          <p className="text-xs text-on-surface-variant truncate">{b.title || 'Tanpa judul'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => handleMoveBanner(idx, 'up')} disabled={idx === 0} className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-30">
+                          <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
+                        </button>
+                        <button onClick={() => handleMoveBanner(idx, 'down')} disabled={idx === banners.length - 1} className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-30">
+                          <span className="material-symbols-outlined text-[18px]">arrow_downward</span>
+                        </button>
+                        <button onClick={() => handleEditBanner(idx)} className="p-1.5 text-blue-600 rounded hover:bg-blue-50">
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                        <button onClick={() => handleDeleteBanner(idx)} className="p-1.5 text-red-600 rounded hover:bg-red-50">
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Live Preview of first/active banner */}
+                <div className="lg:col-span-6 bg-surface-container-low border border-outline-variant rounded-xl p-5 flex flex-col gap-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Live Preview (Slide Pertama)</p>
+                  {banners[0] ? (
+                    <div className="w-full relative rounded-2xl overflow-hidden aspect-[2.2/1] shadow-lg border border-outline-variant" style={{ backgroundColor: banners[0].type === 'template' ? banners[0].bg_color : undefined }}>
+                      {banners[0].type === 'image' ? (
+                        <img src={banners[0].image_url} className="w-full h-full object-cover" alt="preview" />
+                      ) : (
+                        <div className="w-full h-full p-5 flex items-center justify-between relative overflow-hidden" style={{ backgroundColor: banners[0].bg_color || '#7a1a10' }}>
+                          <div className="max-w-[65%] text-white z-10">
+                            <p className="text-[9px] sm:text-[11px] font-medium opacity-90 line-clamp-2 leading-tight">{banners[0].title}</p>
+                            <h2 className="text-sm sm:text-2xl font-black mt-1.5 uppercase tracking-tight">{banners[0].brand_name}</h2>
+                            <div className="mt-3 grid grid-cols-2 gap-x-2 gap-y-1 text-[7px] sm:text-[9px] opacity-80">
+                              {banners[0].ig_handle && <div className="flex items-center gap-0.5"><span className="text-[9px]">📸</span> {banners[0].ig_handle}</div>}
+                              {banners[0].tiktok_handle && <div className="flex items-center gap-0.5"><span className="text-[9px]">🎵</span> {banners[0].tiktok_handle}</div>}
+                              {banners[0].yt_handle && <div className="flex items-center gap-0.5"><span className="text-[9px]">▶️</span> {banners[0].yt_handle}</div>}
+                              {banners[0].web_handle && <div className="flex items-center gap-0.5"><span className="text-[9px]">🌐</span> {banners[0].web_handle}</div>}
+                            </div>
+                          </div>
+                          {banners[0].image_url && (
+                            <img src={banners[0].image_url} className="w-[32%] h-[90%] object-contain z-10" alt="illustration" />
+                          )}
+                          {/* Decorative pattern overlay */}
+                          <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-white/5 rounded-l-full transform translate-x-12 scale-125 pointer-events-none" />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="aspect-[2.2/1] border border-dashed border-outline-variant rounded-xl flex items-center justify-center text-gray-400 text-sm">
+                      Tidak ada slide untuk dipreview
+                    </div>
+                  )}
+                  <p className="text-[11px] text-on-surface-variant text-center">Preview ini merupakan representasi dari tampilan banner di halaman dashboard siswa.</p>
+                </div>
+              </div>
             )}
           </div>
-          <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Judul Banner</label>
-            <input
-              value={bannerTitle}
-              onChange={e => setBannerTitle(e.target.value)}
-              placeholder="Raih Skor UTBK Terbaikmu"
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
-            />
+        ) : (
+          /* Form to Add/Edit Banner */
+          <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6 space-y-6">
+            <h4 className="font-bold text-base text-on-surface border-b border-outline-variant pb-3 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-primary">edit_square</span>
+              {editingBanner === 'new' ? 'Tambah Slide Banner Baru' : `Edit Slide Banner #${editingBanner + 1}`}
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <ImageUpload
+                  value={bannerForm.image_url}
+                  onChange={url => setBannerForm({ ...bannerForm, image_url: url })}
+                  folder="banners"
+                  label="Gambar Banner Penuh"
+                  placeholder="Upload banner penuh atau masukkan URL"
+                  aspectRatio="aspect-[2.4/1]"
+                />
+              </div>
+              
+              <div className="space-y-4">
+                {/* Banner Guide Box */}
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                    <span className="material-symbols-outlined text-[20px]">info</span>
+                    Panduan Ukuran & Format Gambar
+                  </div>
+                  <ul className="text-xs space-y-2 text-on-surface-variant list-disc pl-4 leading-relaxed">
+                    <li>Rekomendasi Dimensi: <strong>1200 x 500 piksel</strong> (Rasio Aspek <strong>2.4:1</strong>).</li>
+                    <li>Gunakan format gambar landscape/mendatar agar responsif di seluruh perangkat (Desktop & Mobile).</li>
+                    <li>Format File: <strong>PNG, JPG, JPEG, atau WebP</strong>.</li>
+                    <li>Ukuran File Maksimum: <strong>2 MB</strong> (disarankan di bawah 500 KB untuk loading cepat).</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Link Saat Diklik (Opsional)</label>
+                  <input
+                    value={bannerForm.link_url || ''}
+                    onChange={e => setBannerForm({ ...bannerForm, link_url: e.target.value })}
+                    placeholder="/tryout/packages"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                  />
+                  <p className="text-[11px] text-on-surface-variant mt-1">Gunakan path relatif internal (contoh: `/tryout/packages` atau `/ujian-mandiri`).</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 justify-end pt-4 border-t border-outline-variant">
+              <button
+                onClick={() => setEditingBanner(null)}
+                className="py-2 px-5 border border-outline-variant rounded-lg text-sm font-semibold hover:bg-surface-container-lowest transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSaveBannerForm}
+                className="py-2 px-5 bg-primary text-on-primary rounded-lg text-sm font-bold hover:shadow-lg transition-all"
+              >
+                Simpan Slide
+              </button>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* ── UJIAN TERBUKA SERENTAK CONFIGURATOR ── */}
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 sm:p-8 shadow-sm mb-12">
+        <div className="mb-6">
+          <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4 mb-2 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[24px] text-primary">language</span>
+            Pengaturan Ujian Terbuka Serentak
+          </h3>
+        </div>
+        
+        {editingUjian === null ? (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              <p className="text-on-surface-variant font-body-md">Kelola daftar ujian serentak berskala nasional yang tampil di dashboard siswa (mendukung UTBK & Ujian Mandiri).</p>
+              <button 
+                onClick={handleAddUjian}
+                className="bg-primary text-on-primary py-2.5 px-5 rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-1.5 text-sm shrink-0"
+              >
+                <span className="material-symbols-outlined text-[20px]">add</span> Tambah Ujian
+              </button>
+            </div>
+            
+            {ujianSerentak.length === 0 ? (
+              <div className="p-12 text-center bg-surface-container-low border border-dashed border-outline-variant rounded-xl text-on-surface-variant">
+                <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">assignment</span>
+                <p className="text-sm">Belum ada ujian serentak dikonfigurasi. Klik "Tambah Ujian" di atas.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {ujianSerentak.map((u, idx) => (
+                  <div key={u.id || idx} className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      {/* Color Stripe & Logo */}
+                      <div className="w-12 h-16 rounded border border-outline-variant flex items-center justify-center bg-white shrink-0 shadow-sm" style={{ borderLeft: `6px solid ${u.bg_color || '#FFE000'}` }}>
+                        <UniversityLogo name={u.logo_type} customUrl={u.custom_logo_url} className="w-8 h-8" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 bg-gray-200 text-[#191b24] text-[10px] font-black rounded uppercase">
+                            {u.category || 'UJIAN MANDIRI'}
+                          </span>
+                          <span className="w-5 h-5 bg-[#0050cb] text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                            {u.badge_index || '1'}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-sm text-on-surface mt-1 truncate">{u.title}</h4>
+                        <p className="text-xs text-on-surface-variant truncate">{u.subtitle} &bull; <code className="bg-gray-50 px-1 rounded text-[10px] text-primary">{u.link_path}</code></p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-1 self-end md:self-auto shrink-0 border-t md:border-t-0 pt-2 md:pt-0 w-full md:w-auto justify-end">
+                      <button onClick={() => handleMoveUjian(idx, 'up')} disabled={idx === 0} className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-30">
+                        <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
+                      </button>
+                      <button onClick={() => handleMoveUjian(idx, 'down')} disabled={idx === ujianSerentak.length - 1} className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-30">
+                        <span className="material-symbols-outlined text-[18px]">arrow_downward</span>
+                      </button>
+                      <button onClick={() => handleEditUjian(idx)} className="p-1.5 text-blue-600 rounded hover:bg-blue-50">
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                      </button>
+                      <button onClick={() => handleDeleteUjian(idx)} className="p-1.5 text-red-600 rounded hover:bg-red-50">
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Form to Add/Edit Ujian */
+          <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6 space-y-6">
+            <h4 className="font-bold text-base text-on-surface border-b border-outline-variant pb-3 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-primary">assignment_add</span>
+              {editingUjian === 'new' ? 'Tambah Ujian Serentak Baru' : `Edit Ujian Serentak #${editingUjian + 1}`}
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Kategori Ujian</label>
+                  <select
+                    value={ujianForm.category}
+                    onChange={e => setUjianForm({ ...ujianForm, category: e.target.value, link_type: e.target.value === 'UTBK' ? 'utbk' : 'um', ujian_id: '', package_id: '' })}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                  >
+                    <option value="UJIAN MANDIRI">UJIAN MANDIRI</option>
+                    <option value="UTBK">UTBK / SNBT</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Judul Card Ujian</label>
+                  <input
+                    value={ujianForm.title}
+                    onChange={e => setUjianForm({ ...ujianForm, title: e.target.value })}
+                    placeholder="e.g. SIMAK UI Part 1"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Subjudul Card Ujian</label>
+                  <input
+                    value={ujianForm.subtitle}
+                    onChange={e => setUjianForm({ ...ujianForm, subtitle: e.target.value })}
+                    placeholder="e.g. Seleksi Mandiri UI 2026"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Stripe Warna Kiri (Hex)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={ujianForm.bg_color.startsWith('#') && ujianForm.bg_color.length === 7 ? ujianForm.bg_color : '#FFE000'}
+                      onChange={e => setUjianForm({ ...ujianForm, bg_color: e.target.value })}
+                      className="w-12 h-10 border border-outline-variant rounded-lg cursor-pointer bg-transparent shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={ujianForm.bg_color}
+                      onChange={e => setUjianForm({ ...ujianForm, bg_color: e.target.value })}
+                      placeholder="#FFE000"
+                      className="flex-1 bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Nomor Badge Indeks (Kanan Atas)</label>
+                  <input
+                    type="number"
+                    value={ujianForm.badge_index}
+                    onChange={e => setUjianForm({ ...ujianForm, badge_index: e.target.value })}
+                    placeholder="1"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                  />
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <ImageUpload
+                    value={ujianForm.custom_logo_url}
+                    onChange={url => setUjianForm({ ...ujianForm, custom_logo_url: url, logo_type: 'custom' })}
+                    folder="logos"
+                    label="Logo Ujian / Universitas"
+                    placeholder="Upload logo universitas atau instansi"
+                    aspectRatio="aspect-square"
+                  />
+                  <p className="text-[10px] text-[#727687] mt-1">Panduan ukuran: Gunakan logo berlatar transparan (PNG/WebP). Dimensi ideal 200x200 piksel (Rasio 1:1).</p>
+                </div>
+                
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Sumber / Tipe Link Pengerjaan</label>
+                  <select
+                    value={ujianForm.link_type}
+                    onChange={e => setUjianForm({ ...ujianForm, link_type: e.target.value })}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                  >
+                    {ujianForm.category === 'UJIAN MANDIRI' ? (
+                      <>
+                        <option value="um">Database Ujian Mandiri</option>
+                        <option value="custom">Link Kustom</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="utbk">Database UTBK Tryout</option>
+                        <option value="custom">Link Kustom</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                
+                {ujianForm.link_type === 'um' && (
+                  <>
+                    <div>
+                      <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Pilih Universitas</label>
+                      <select
+                        value={ujianForm.ujian_id}
+                        onChange={e => setUjianForm({ ...ujianForm, ujian_id: e.target.value, package_id: '' })}
+                        className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                      >
+                        <option value="">-- Pilih Universitas --</option>
+                        {umUniversities.map(u => (
+                          <option key={u.id} value={u.id}>{u.universitas} ({u.nama_ujian})</option>
+                        ))}
+                      </select>
+                    </div>
+                    {ujianForm.ujian_id && (
+                      <div>
+                        <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Pilih Paket Tryout (Opsional, Default Detail Kampus)</label>
+                        <select
+                          value={ujianForm.package_id}
+                          onChange={e => setUjianForm({ ...ujianForm, package_id: e.target.value })}
+                          className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                        >
+                          <option value="">Detail Kampus Saja</option>
+                          {(umPackagesMap[ujianForm.ujian_id] || []).map(p => (
+                            <option key={p.id} value={p.id}>{p.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {ujianForm.link_type === 'utbk' && (
+                  <div>
+                    <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Pilih Paket UTBK Tryout</label>
+                    <select
+                      value={ujianForm.package_id}
+                      onChange={e => setUjianForm({ ...ujianForm, package_id: e.target.value })}
+                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                    >
+                      <option value="">-- Pilih Paket UTBK --</option>
+                      {utbkPackages.map(p => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                {ujianForm.link_type === 'custom' && (
+                  <div>
+                    <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Path Link Kustom</label>
+                    <input
+                      value={ujianForm.custom_link_path}
+                      onChange={e => setUjianForm({ ...ujianForm, custom_link_path: e.target.value })}
+                      placeholder="/tryout/packages"
+                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex gap-3 justify-end pt-4 border-t border-outline-variant">
+              <button
+                onClick={() => setEditingUjian(null)}
+                className="py-2 px-5 border border-outline-variant rounded-lg text-sm font-semibold hover:bg-surface-container-lowest transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSaveUjianForm}
+                className="py-2 px-5 bg-primary text-on-primary rounded-lg text-sm font-bold hover:shadow-lg transition-all"
+              >
+                Simpan Ujian
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── COUNTDOWN TARGET DATE CONFIGURATOR ── */}
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 sm:p-8 shadow-sm mb-12 max-w-xl">
+        <div className="mb-6">
+          <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4 mb-2 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[24px] text-primary">calendar_today</span>
+            Hitung Mundur UTBK
+          </h3>
+        </div>
+        <p className="text-on-surface-variant font-body-md mb-6">
+          Tentukan tanggal pelaksanaan UTBK untuk menghitung sisa hari ("H - X UTBK") secara dinamis di halaman siswa.
+        </p>
+        <div className="space-y-4">
           <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Subtitle Banner</label>
-            <textarea
-              value={bannerSubtitle}
-              onChange={e => setBannerSubtitle(e.target.value)}
-              rows={3}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none resize-none"
+            <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Tanggal Target UTBK</label>
+            <input
+              type="date"
+              value={utbkCountdownDate}
+              onChange={e => setUtbkCountdownDate(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
           <button
-            onClick={handleSaveBanner}
+            onClick={handleSaveCountdownDate}
             disabled={saving}
-            className="w-full bg-primary text-on-primary py-3 rounded-lg font-label-md text-label-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-primary text-on-primary py-3 rounded-lg font-bold text-sm hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {saving ? <><span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>Menyimpan...</> : <><span className="material-symbols-outlined text-[20px]">save</span>Simpan Banner</>}
+            {saving ? <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span> : <span className="material-symbols-outlined text-[20px]">save</span>}
+            Simpan Tanggal Target
           </button>
-        </div>
-
-        {/* Preview */}
-        <div className="space-y-4">
-          <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Live Preview</p>
-          <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-xl">
-            <img src={bannerUrl || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="800" viewBox="0 0 1920 800"><rect fill="%23191b24" width="1920" height="800"/><text fill="%23ffffff" font-family="sans-serif" font-size="48" x="50%" y="50%" text-anchor="middle" dy=".3em">No Image</text></svg>')}`} alt="Banner Preview" className="w-full h-full object-cover" onError={e => { e.target.onerror = null; e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="800" viewBox="0 0 1920 800"><rect fill="%23191b24" width="1920" height="800"/><text fill="%23ff6b6b" font-family="sans-serif" font-size="48" x="50%" y="50%" text-anchor="middle" dy=".3em">Invalid URL</text></svg>')}`; }} />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#191b24]/90 via-[#191b24]/50 to-transparent" />
-            <div className="absolute inset-0 flex items-center p-10">
-              <div className="max-w-md">
-                <span className="inline-block py-1 px-3 rounded-full bg-[#0050cb]/20 text-[#dae1ff] border border-[#0050cb]/30 text-xs font-bold uppercase tracking-widest mb-4">Stubia UTBK</span>
-                <h2 className="text-3xl font-bold text-white mb-3 leading-tight">{bannerTitle || 'Judul Banner'}</h2>
-                <p className="text-sm text-white/80 leading-relaxed line-clamp-3">{bannerSubtitle || 'Subtitle banner...'}</p>
-              </div>
-            </div>
-          </div>
-          <p className="text-label-sm text-on-surface-variant text-center">Tampilan preview — ini yang akan dilihat siswa di halaman dashboard.</p>
         </div>
       </div>
 

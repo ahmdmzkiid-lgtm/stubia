@@ -66,6 +66,7 @@ const CMSArticles = React.lazy(() => import('./pages/cms/CMSArticles'));
 const CMSCareers = React.lazy(() => import('./pages/cms/CMSCareers'));
 const CMSFellowship = React.lazy(() => import('./pages/cms/CMSFellowship'));
 const CMSActivityLogs = React.lazy(() => import('./pages/cms/CMSActivityLogs'));
+const NotFound = React.lazy(() => import('./pages/NotFound'));
 import ScrollToTop from './components/ScrollToTop';
 
 
@@ -169,7 +170,7 @@ function App() {
               </Route>
             </Route>
             
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<NotFound />} />
             </Routes>
           </React.Suspense>
         <Toaster

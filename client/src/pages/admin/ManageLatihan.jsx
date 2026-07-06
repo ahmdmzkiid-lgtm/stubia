@@ -1007,15 +1007,18 @@ const ManageLatihan = () => {
           /* LEVEL 2: Topic List for Selected Subject */
           <div className="space-y-6 animate-fade-in-up">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(topics || []).map((t) => (
+              {(topics || []).map((t, idx) => (
                 <div
                   key={t.id}
                   className="bg-white border border-[#c2c6d8]/30 rounded-[32px] p-6 hover:shadow-xl transition-all group border-l-4 border-l-[#0050cb]"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
+                    <div className="w-12 h-12 rounded-2xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb] relative">
                       <span className="material-symbols-outlined text-[24px]">
                         {t.icon || "notes"}
+                      </span>
+                      <span className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#0050cb] text-white text-[11px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
+                        {idx + 1}
                       </span>
                     </div>
                     {user?.role !== "quality_assurance" && (
