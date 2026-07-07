@@ -483,6 +483,7 @@ export default function ManageUjianMandiri() {
         difficulty: editingQuestion.difficulty,
         image_url: editingQuestion.image_url,
         image_position: editingQuestion.image_position || 'after',
+        stimulus: editingQuestion.stimulus || null,
       });
       setQuestions(questions.map(q => q.id === editingQuestion.id ? editingQuestion : q));
       toast.success('Soal berhasil disimpan');
@@ -1453,7 +1454,7 @@ export default function ManageUjianMandiri() {
                       </button>
                       <div className="bg-blue-50 text-blue-800 p-3 rounded-xl text-[12px] leading-relaxed border border-blue-100">
                         <span className="font-bold block mb-1">Format Excel:</span>
-                        SOAL | OPSI A | OPSI B | OPSI C | OPSI D | OPSI E | KUNCI JAWABAN | PEMBAHASAN
+                        STIMULUS | SOAL | OPSI A | OPSI B | OPSI C | OPSI D | OPSI E | KUNCI JAWABAN | PEMBAHASAN
                       </div>
                     </div>
                   </div>
@@ -1585,6 +1586,11 @@ export default function ManageUjianMandiri() {
                           </div>
                           {isExpanded && (
                             <div className="px-4 pb-4 pt-0 border-t border-[#c2c6d8]/20">
+                              {q.stimulus && (
+                                <div className="mt-3 text-[13px] text-slate-700 bg-slate-50 p-3 rounded-lg leading-relaxed whitespace-pre-wrap">
+                                  <MathText text={q.stimulus} />
+                                </div>
+                              )}
                               {q.image_url && (
                                 <div className="mb-3 pt-3">
                                   <ZoomableImage src={q.image_url} alt="Soal" className="max-w-[300px] max-h-[200px] rounded-lg object-contain border border-[#c2c6d8]/30" />
@@ -1653,6 +1659,16 @@ export default function ManageUjianMandiri() {
             </div>
 
             <div className="space-y-5">
+              <div>
+                <label className="block text-[14px] font-bold text-[#191b24] mb-2">Stimulus / Wacana (opsional)</label>
+                <textarea
+                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/40 focus:border-[#0050cb] focus:outline-none text-[14px] min-h-[80px] resize-y"
+                  value={editingQuestion.stimulus || ''}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, stimulus: e.target.value })}
+                  placeholder="Masukkan stimulus/wacana di sini (opsional). Akan ditampilkan di atas pertanyaan."
+                />
+              </div>
+
               <div>
                 <label className="block text-[14px] font-bold text-[#191b24] mb-2">Pertanyaan</label>
                 <textarea

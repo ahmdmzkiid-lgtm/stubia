@@ -430,6 +430,11 @@ const LatihanSoalUM = () => {
                   <ZoomableImage className="w-full h-auto max-h-72 object-contain rounded-xl border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
                 </div>
               )}
+              {currentQuestion.stimulus && (
+                <div className="mb-4 text-[15px] text-[#191b24] leading-relaxed whitespace-pre-wrap">
+                  <MathText text={currentQuestion.stimulus} />
+                </div>
+              )}
               <MathText className="text-[15px] text-[#191b24] leading-relaxed" text={currentQuestion.content || ''} />
               {currentQuestion.image_url && currentQuestion.image_position !== 'before' && (
                 <div className="mt-4">

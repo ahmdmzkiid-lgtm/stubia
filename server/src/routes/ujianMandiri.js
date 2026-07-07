@@ -210,6 +210,16 @@ router.post(
       };
 
       const ALIASES = {
+        stimulus: [
+          "STIMULUS",
+          "stimulus",
+          "Stimulus",
+          "wacana",
+          "Wacana",
+          "bacaan",
+          "Bacaan",
+          "stimulus/wacana",
+        ],
         soal: [
           "SOAL",
           "soal",
@@ -271,6 +281,7 @@ router.post(
       // Parse all valid rows first (no DB calls yet)
       const parsedRows = [];
       for (const row of rows) {
+        const stimulus = resolve(row, ALIASES.stimulus);
         const soal = resolve(row, ALIASES.soal);
         const opsiA = resolve(row, ALIASES.opsiA);
         const opsiB = resolve(row, ALIASES.opsiB);
@@ -291,7 +302,7 @@ router.post(
         if (opsiD) options.push({ label: "D", content: opsiD });
         if (opsiE) options.push({ label: "E", content: opsiE });
 
-        const hash = generateQuestionHash(soal, options);
+        const hash = generateQuestionHash(soal, options, null, stimulus);
         parsedRows.push({
           soal,
           difficulty: difficulty || "medium",
@@ -300,6 +311,7 @@ router.post(
           pembahasan,
           options,
           hash,
+          stimulus: stimulus || null,
         });
         nextDisplayOrder++;
       }
@@ -311,9 +323,9 @@ router.post(
         const values = [];
         const params = [];
         batch.forEach((r, idx) => {
-          const offset = idx * 6;
+          const offset = idx * 7;
           values.push(
-            `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`,
+            `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`,
           );
           params.push(
             tryout_package_id || null,
@@ -322,11 +334,12 @@ router.post(
             r.difficulty,
             r.displayOrder,
             r.hash,
+            r.stimulus,
           );
         });
 
         const qRes = await client.query(
-          `INSERT INTO um_questions (tryout_package_id, latihan_id, content, difficulty, display_order, content_hash)
+          `INSERT INTO um_questions (tryout_package_id, latihan_id, content, difficulty, display_order, content_hash, stimulus)
          VALUES ${values.join(", ")} RETURNING id, display_order`,
           params,
         );
@@ -433,10 +446,11 @@ router.post(
         image_position,
         difficulty,
         choices,
+        stimulus,
       } = req.body;
 
       // Calculate content hash and check for duplicates
-      const hash = generateQuestionHash(content, choices, image_url);
+      const hash = generateQuestionHash(content, choices, image_url, stimulus);
       const existingRes = await client.query(
         `SELECT q.id, tp.title as package_title, ls.title as latihan_title
        FROM um_questions q
@@ -456,8 +470,8 @@ router.post(
       }
 
       const qResult = await client.query(
-        `INSERT INTO um_questions (tryout_package_id, latihan_id, content, image_url, image_position, difficulty, content_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        `INSERT INTO um_questions (tryout_package_id, latihan_id, content, image_url, image_position, difficulty, content_hash, stimulus)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [
           tryout_package_id || null,
           latihan_id || null,
@@ -466,6 +480,7 @@ router.post(
           image_position || "after",
           difficulty || "medium",
           hash,
+          stimulus || null,
         ],
       );
       const question = qResult.rows[0];
@@ -518,17 +533,20 @@ router.patch(
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const { content, image_url, image_position, difficulty, choices } =
+      const { content, image_url, image_position, difficulty, choices, stimulus } =
         req.body;
 
       await client.query(
         `UPDATE um_questions SET content = COALESCE($1, content), image_url = $2,
-       image_position = COALESCE($3, image_position), difficulty = COALESCE($4, difficulty) WHERE id = $5`,
+       image_position = COALESCE($3, image_position), difficulty = COALESCE($4, difficulty),
+       stimulus = CASE WHEN $5::boolean THEN $6 ELSE stimulus END WHERE id = $7`,
         [
           content,
           image_url !== undefined ? image_url : null,
           image_position,
           difficulty,
+          stimulus !== undefined,
+          stimulus !== undefined ? stimulus : null,
           req.params.id,
         ],
       );
@@ -1304,7 +1322,7 @@ router.get(
 
       // Fetch questions in position order
       const result = await pool.query(
-        `SELECT q.id, q.content, q.image_url, q.difficulty, ua.position, ua.chosen_choice_id, ua.is_flagged
+        `SELECT q.id, q.content, q.image_url, q.difficulty, q.stimulus, ua.position, ua.chosen_choice_id, ua.is_flagged
        FROM um_user_answers ua
        JOIN um_questions q ON ua.question_id = q.id
        WHERE ua.session_id = $1
@@ -1557,7 +1575,7 @@ router.get(
       let questions = [];
       if (session.latihan_id) {
         const questionsRes = await pool.query(
-          `SELECT q.id, q.content, q.image_url, q.difficulty,
+          `SELECT q.id, q.content, q.image_url, q.difficulty, q.stimulus,
                 (
                   SELECT json_agg(json_build_object(
                     'id', ac.id,
@@ -1589,6 +1607,7 @@ router.get(
             content: q.content,
             image_url: q.image_url,
             difficulty: q.difficulty,
+            stimulus: q.stimulus,
             choices,
             isCorrect,
             chosenChoiceId,
@@ -1663,7 +1682,7 @@ router.get("/tryout/result/:sessionId", verifyToken, async (req, res, next) => {
 
     // Fetch questions, choices, correctness, and user answers
     const questionsRes = await pool.query(
-      `SELECT q.id, q.content, q.image_url, q.difficulty,
+      `SELECT q.id, q.content, q.image_url, q.difficulty, q.stimulus,
               ua.chosen_choice_id, ua.is_flagged, ua.time_spent_sec, ua.position,
               (
                 SELECT json_agg(json_build_object(
@@ -1696,6 +1715,7 @@ router.get("/tryout/result/:sessionId", verifyToken, async (req, res, next) => {
         content: q.content,
         imageUrl: q.image_url,
         difficulty: q.difficulty,
+        stimulus: q.stimulus,
         chosenChoiceId: q.chosen_choice_id,
         userAnswer: chosenChoice ? chosenChoice.label : null,
         correctAnswer: correctChoice ? correctChoice.label : null,

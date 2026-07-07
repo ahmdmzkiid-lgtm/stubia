@@ -60,7 +60,7 @@ function generateQuestionHash(content, choices, imageUrl, stimulus) {
 async function updateQuestionHash(client, questionId, isUM = false) {
   const table = isUM ? 'um_questions' : 'questions';
   const choicesTable = isUM ? 'um_answer_choices' : 'answer_choices';
-  const stimulusField = isUM ? 'NULL as stimulus' : 'q.stimulus';
+  const stimulusField = 'q.stimulus';
 
   const qRes = await client.query(`
     SELECT q.content, q.image_url, ${stimulusField},

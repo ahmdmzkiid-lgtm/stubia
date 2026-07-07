@@ -330,6 +330,11 @@ const LatihanSoalUMResult = () => {
                       <ZoomableImage src={qr.image_url} alt="Soal" className="max-w-full max-h-64 object-contain rounded-xl border border-[#e0e2f0]" />
                     </div>
                   )}
+                  {qr.stimulus && (
+                    <div className="mb-3 text-[14px] text-gray-600 bg-gray-50 p-3 rounded-lg leading-relaxed whitespace-pre-wrap">
+                      <MathText text={qr.stimulus} />
+                    </div>
+                  )}
                   <MathText className="text-[14px] md:text-[15px] font-semibold mb-4 leading-relaxed" text={qr.content || ''} />
                   {qr.image_url && qr.image_position !== 'before' && (
                     <div className="mb-4">
