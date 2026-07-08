@@ -41,9 +41,9 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  // Potong langsung request OPTIONS (Preflight) agar mengembalikan status 200 OK
+  // Potong langsung request OPTIONS (Preflight) agar mengembalikan status 204 No Content
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    return res.status(204).end();
   }
   next();
 });
