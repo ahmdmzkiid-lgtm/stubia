@@ -999,43 +999,49 @@ const AdminSettings = () => {
 
       <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Tryout Form */}
-        <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 shadow-sm space-y-6">
-          <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4 mb-6">Pengaturan Pusat Tryout</h3>
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 shadow-sm space-y-6 flex flex-col justify-between">
           <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">URL Gambar Tryout</label>
-            <input
-              value={tryoutBannerUrl}
-              onChange={e => setTryoutBannerUrl(e.target.value)}
-              placeholder="https://images.unsplash.com/... (opsional)"
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
-            />
+            <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4 mb-6">Pengaturan Pusat Tryout</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">URL Gambar Tryout</label>
+                <input
+                  value={tryoutBannerUrl}
+                  onChange={e => setTryoutBannerUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/... (opsional)"
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Judul Utama Tryout</label>
+                <textarea
+                  value={tryoutTitle}
+                  onChange={e => setTryoutTitle(e.target.value)}
+                  placeholder="Tryout Nasional Akbar&#10;UTBK-SNBT 2026"
+                  rows={2}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none resize-none"
+                />
+              </div>
+              <div>
+                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Waktu Mulai (Countdown / Teks Bebas)</label>
+                <input
+                  value={tryoutStartTime}
+                  onChange={e => setTryoutStartTime(e.target.value)}
+                  placeholder="04 : 12 : 55 : 20"
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Judul Utama Tryout</label>
-            <textarea
-              value={tryoutTitle}
-              onChange={e => setTryoutTitle(e.target.value)}
-              placeholder="Tryout Nasional Akbar&#10;UTBK-SNBT 2026"
-              rows={2}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none resize-none"
-            />
+          <div className="pt-4 border-t border-outline-variant/50">
+            <button
+              onClick={handleSaveTryout}
+              disabled={saving}
+              className="w-full bg-primary text-on-primary py-3 rounded-lg font-label-md text-label-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? <><span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>Menyimpan...</> : <><span className="material-symbols-outlined text-[20px]">save</span>Simpan Perubahan Tryout</>}
+            </button>
           </div>
-          <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Waktu Mulai (Countdown / Teks Bebas)</label>
-            <input
-              value={tryoutStartTime}
-              onChange={e => setTryoutStartTime(e.target.value)}
-              placeholder="04 : 12 : 55 : 20"
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-4 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
-            />
-          </div>
-          <button
-            onClick={handleSaveTryout}
-            disabled={saving}
-            className="w-full bg-primary text-on-primary py-3 rounded-lg font-label-md text-label-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {saving ? <><span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>Menyimpan...</> : <><span className="material-symbols-outlined text-[20px]">save</span>Simpan Perubahan Tryout</>}
-          </button>
         </div>
 
         {/* Latihan UTBK Form */}

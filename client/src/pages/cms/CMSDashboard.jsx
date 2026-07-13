@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { articleService, careerService } from '../../services/api';
+import { articleService, careerService, settingsService } from '../../services/api';
 import toast from 'react-hot-toast';
 
 export default function CMSDashboard() {
@@ -11,6 +11,8 @@ export default function CMSDashboard() {
     activeCareers: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [skdFeatureUpdate, setSkdFeatureUpdate] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -49,8 +51,33 @@ export default function CMSDashboard() {
       }
     };
 
+    const fetchSettings = async () => {
+      try {
+        const res = await settingsService.get();
+        setSkdFeatureUpdate(res.data?.data?.skd_feature_update === 'true');
+      } catch (err) {
+        console.warn('Failed to fetch settings:', err);
+      }
+    };
+
     fetchStats();
+    fetchSettings();
   }, []);
+
+  const handleToggleFeatureUpdate = async (newValue) => {
+    setToggling(true);
+    try {
+      await settingsService.update({
+        skd_feature_update: String(newValue),
+      });
+      setSkdFeatureUpdate(newValue);
+      toast.success(`Feature Update SKD CPNS berhasil ${newValue ? 'diaktifkan' : 'dinonaktifkan'}!`);
+    } catch (err) {
+      toast.error('Gagal mengubah pengaturan Feature Update.');
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const cards = [
     {
@@ -130,6 +157,39 @@ export default function CMSDashboard() {
             </Link>
           </div>
         ))}
+      </div>
+
+      {/* System Settings & Feature Update Toggle */}
+      <div className="bg-white rounded-3xl border border-[#c2c6d8]/40 p-6 flex flex-col sm:flex-row items-center justify-between gap-6 hover:shadow-md transition-all duration-300">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[24px]">construction</span>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-[#191b24] mb-1">Feature Update SKD CPNS</h3>
+            <p className="text-[#424656] text-sm leading-relaxed max-w-xl">
+              Gunakan sakelar ini untuk mengaktifkan mode pemeliharaan modul SKD CPNS. Jika diaktifkan, seluruh rute siswa SKD akan ditutup dengan layar loading update premium.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 bg-[#faf8ff] px-6 py-4 rounded-2xl border border-[#c2c6d8]/30 shrink-0 w-full sm:w-auto justify-between">
+          <div className="text-right">
+            <div className="text-[10px] text-[#727687] font-bold uppercase tracking-wider">Status Mode Update</div>
+            <div className="text-[13px] font-extrabold text-[#191b24]">
+              {skdFeatureUpdate ? 'AKTIF (Terblokir)' : 'NON-AKTIF (Terbuka)'}
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={skdFeatureUpdate}
+              onChange={e => handleToggleFeatureUpdate(e.target.checked)}
+              disabled={toggling}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-[#0050cb]/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0050cb]"></div>
+          </label>
+        </div>
       </div>
 
       {/* Info/Guide Section */}

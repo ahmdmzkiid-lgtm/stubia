@@ -3,7 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './context/AuthContext';
-import { AdminRoute, PublicRoute, StudentRoute, StudentRouteWrapped } from './components/layout/ProtectedRoute';
+import { AdminRoute, PublicRoute, StudentRoute, StudentRouteWrapped, SKDRoute, AdminSKDRoute } from './components/layout/ProtectedRoute';
 
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const Login = React.lazy(() => import('./pages/Login'));
@@ -41,6 +41,8 @@ const Rasionalisasi = React.lazy(() => import('./pages/Rasionalisasi'));
 const UjianMandiri = React.lazy(() => import('./pages/UjianMandiri'));
 const UjianMandiriDetail = React.lazy(() => import('./pages/UjianMandiriDetail'));
 const ManageUjianMandiri = React.lazy(() => import('./pages/admin/ManageUjianMandiri'));
+const ManageLatihanSKD = React.lazy(() => import('./pages/admin/ManageLatihanSKD'));
+const ManageTryoutSKD = React.lazy(() => import('./pages/admin/ManageTryoutSKD'));
 const ManageTryoutRegistrations = React.lazy(() => import('./pages/admin/ManageTryoutRegistrations'));
 const ManageSocialVerifications = React.lazy(() => import('./pages/admin/ManageSocialVerifications'));
 const LatihanSoalUM = React.lazy(() => import('./pages/LatihanSoalUM'));
@@ -67,6 +69,12 @@ const CMSCareers = React.lazy(() => import('./pages/cms/CMSCareers'));
 const CMSFellowship = React.lazy(() => import('./pages/cms/CMSFellowship'));
 const CMSActivityLogs = React.lazy(() => import('./pages/cms/CMSActivityLogs'));
 const NotFound = React.lazy(() => import('./pages/NotFound'));
+const SKDHome = React.lazy(() => import('./pages/skd/SKDHome'));
+const SKDTryoutSession = React.lazy(() => import('./pages/skd/SKDTryoutSession'));
+const SKDTryoutResult = React.lazy(() => import('./pages/skd/SKDTryoutResult'));
+const SKDLatihan = React.lazy(() => import('./pages/skd/SKDLatihan'));
+const SKDLatihanSession = React.lazy(() => import('./pages/skd/SKDLatihanSession'));
+const SKDLatihanResult = React.lazy(() => import('./pages/skd/SKDLatihanResult'));
 import ScrollToTop from './components/ScrollToTop';
 
 
@@ -137,6 +145,15 @@ function App() {
               <Route path="/paket-belajar" element={<PaketBelajar />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/profile" element={<Profile />} />
+              {/* SKD CPNS Routes */}
+              <Route element={<SKDRoute />}>
+                <Route path="/skd" element={<SKDHome />} />
+                <Route path="/skd/tryout/:sessionId" element={<SKDTryoutSession />} />
+                <Route path="/skd/tryout/hasil/:sessionId" element={<SKDTryoutResult />} />
+                <Route path="/skd/latihan/:subjectId" element={<SKDLatihan />} />
+                <Route path="/skd/latihan/:subjectId/session" element={<SKDLatihanSession />} />
+                <Route path="/skd/latihan/:subjectId/hasil/:sessionId" element={<SKDLatihanResult />} />
+              </Route>
             </Route>
 
             {/* Student routes that need PageWrapper (no own navbar) */}
@@ -155,6 +172,10 @@ function App() {
                 <Route path="tryout" element={<ManageTryout />} />
                 <Route path="battle" element={<ManageBattleSoal />} />
                 <Route path="ujian-mandiri" element={<ManageUjianMandiri />} />
+                <Route element={<AdminSKDRoute />}>
+                  <Route path="skd-latihan" element={<ManageLatihanSKD />} />
+                  <Route path="skd-tryout" element={<ManageTryoutSKD />} />
+                </Route>
                 <Route path="tryout-registrations" element={<ManageTryoutRegistrations />} />
                 <Route path="social-verifications" element={<ManageSocialVerifications />} />
                 <Route path="activity" element={<AdminActivity />} />

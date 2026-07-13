@@ -71,8 +71,9 @@ function baseTemplate({
           <!-- ── FOOTER ── -->
           <tr>
             <td style="padding-top:32px;text-align:center;">
-              <p style="margin:0 0 8px;font-size:12px;color:#9ca3af;line-height:1.6;">
-                Email ini dikirim secara otomatis oleh sistem Stubia.<br/>Mohon tidak membalas langsung ke email ini.
+              <p style="margin:0 0 12px;font-size:12px;color:#6b7280;line-height:1.6;">
+                <span style="display:inline-block;background-color:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:2px 8px;border-radius:4px;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Email Otomatis - Jangan Dibalas</span><br/>
+                Email ini dikirim secara otomatis oleh sistem Stubia.<br/>Mohon tidak membalas langsung ke email ini karena alamat email ini tidak dipantau.
               </p>
               <p style="margin:0;font-size:12px;color:#c1c7d0;">
                 &copy; ${new Date().getFullYear()} Stubia.id &nbsp;&middot;&nbsp;

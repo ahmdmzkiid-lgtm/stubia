@@ -79,6 +79,8 @@ export default function PaketBelajar() {
       return plans.filter(p => p.target_type === 'utbk' && p.plan_type === 'quota');
     } else if (activeTab === 'um') {
       return plans.filter(p => p.target_type === 'um');
+    } else if (activeTab === 'cpns') {
+      return plans.filter(p => p.target_type === 'cpns');
     }
     return [];
   };
@@ -126,9 +128,9 @@ export default function PaketBelajar() {
             className="py-3 px-6 font-semibold text-xs sm:text-sm text-[#0050cb] border-b-2 border-[#0050cb] transition-all flex items-center gap-1.5 sm:gap-2 focus:outline-none"
           >
             <span className="material-symbols-outlined text-base sm:text-lg">
-              {activeTab === 'utbk_sub' ? 'calendar_month' : activeTab === 'utbk_quota' ? 'local_activity' : 'account_balance'}
+              {activeTab === 'utbk_sub' ? 'calendar_month' : activeTab === 'utbk_quota' ? 'local_activity' : activeTab === 'um' ? 'account_balance' : 'verified_user'}
             </span>
-            {activeTab === 'utbk_sub' ? 'UTBK Langganan' : activeTab === 'utbk_quota' ? 'UTBK Eceran (Kuota)' : 'Ujian Mandiri (UM)'}
+            {activeTab === 'utbk_sub' ? 'UTBK Langganan' : activeTab === 'utbk_quota' ? 'UTBK Eceran (Kuota)' : activeTab === 'um' ? 'Ujian Mandiri (UM)' : 'SKD CPNS'}
             <span 
               className="material-symbols-outlined text-base sm:text-[16px] transition-transform duration-200" 
               style={{ transform: utbkDropdownOpen ? 'rotate(180deg)' : 'none' }}
@@ -174,6 +176,18 @@ export default function PaketBelajar() {
               >
                 <span className="material-symbols-outlined text-base">account_balance</span>
                 Ujian Mandiri (UM)
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('cpns');
+                  setUtbkDropdownOpen(false);
+                }}
+                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
+                  activeTab === 'cpns' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">verified_user</span>
+                SKD CPNS
               </button>
             </div>
           )}

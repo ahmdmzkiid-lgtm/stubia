@@ -313,4 +313,52 @@ export const fellowshipService = {
   deleteBuddy: (id) => api.delete(`/fellowship/buddies/${id}`),
 };
 
+export const skdService = {
+  // Public/Student
+  getSubjects: () => api.get('/skd/subjects'),
+  getTopics: (subjectId) => api.get(`/skd/subjects/${subjectId}/topics`),
+  getPackages: () => api.get('/skd/packages'),
+
+  // Tryout flow
+  startTryout: (packageId) => api.post('/skd/tryout/start', { package_id: packageId }),
+  getSessionQuestions: (sessionId) => api.get(`/skd/tryout/session/${sessionId}/questions`),
+  saveAnswer: (data) => api.post('/skd/tryout/answer', data),
+  submitBulk: (payload) => api.post('/skd/tryout/submit-bulk', payload),
+  getTryoutResult: (sessionId) => api.get(`/skd/tryout/result/${sessionId}`),
+
+  // Registration (social verification)
+  getRegistrationStatus: (packageId) => api.get(`/skd/registration-status/${packageId}`),
+  register: (data) => api.post('/skd/register', data),
+  getCompleteStatus: (packageId) => api.get(`/skd/complete-status/${packageId}`),
+
+  // Latihan soal
+  startLatihan: (data) => api.post('/skd/latihan/start', data),
+  submitLatihan: (data) => api.post('/skd/latihan/submit', data),
+  getLatihanResult: (sessionId) => api.get(`/skd/latihan/result/${sessionId}`),
+
+  // Leaderboard
+  getLeaderboard: (packageId, limit) => api.get(`/skd/leaderboard/${packageId}`, { params: { limit } }),
+
+  // Admin
+  adminGetSubjects: () => api.get('/skd/admin/subjects'),
+  adminUpdateSubject: (id, data) => api.patch(`/skd/admin/subjects/${id}`, data),
+  adminGetTopics: (subjectId) => api.get(`/skd/admin/subjects/${subjectId}/topics`),
+  adminCreateTopic: (subjectId, data) => api.post(`/skd/admin/subjects/${subjectId}/topics`, data),
+  adminUpdateTopic: (id, data) => api.patch(`/skd/admin/topics/${id}`, data),
+  adminDeleteTopic: (id) => api.delete(`/skd/admin/topics/${id}`),
+  adminGetQuestions: (params) => api.get('/skd/admin/questions', { params }),
+  adminCreateQuestion: (data) => api.post('/skd/admin/questions', data),
+  adminUpdateQuestion: (id, data) => api.patch(`/skd/admin/questions/${id}`, data),
+  adminDeleteQuestion: (id) => api.delete(`/skd/admin/questions/${id}`),
+  adminDeleteBulkQuestions: (data) => api.delete('/skd/admin/questions/bulk', { data }),
+  adminImportExcel: (formData) => api.post('/skd/admin/questions/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  adminGetPackages: () => api.get('/skd/admin/packages'),
+  adminCreatePackage: (data) => api.post('/skd/admin/packages', data),
+  adminUpdatePackage: (id, data) => api.patch(`/skd/admin/packages/${id}`, data),
+  adminDeletePackage: (id) => api.delete(`/skd/admin/packages/${id}`),
+  adminGetPackageStats: (id) => api.get(`/skd/admin/packages/${id}/stats`),
+  adminGetRegistrations: (params) => api.get('/skd/admin/registrations', { params }),
+  adminUpdateRegistration: (id, data) => api.patch(`/skd/admin/registrations/${id}`, data),
+};
+
 export default api;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { subjectService, soalService } from '../../services/api';
+import { subjectService, soalService, skdService } from '../../services/api';
 import toast from 'react-hot-toast';
 
 // ─── Toggle Switch Component ─────────────────────────────────────────────────
@@ -24,6 +24,12 @@ const InputSoal = () => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [difficulty, setDifficulty] = useState('medium');
+  const [examCategory, setExamCategory] = useState('utbk'); // 'utbk' or 'skd'
+  const [skdSubjects, setSkdSubjects] = useState([]);
+  const [skdTopics, setSkdTopics] = useState([]);
+  const [skdPackages, setSkdPackages] = useState([]);
+  const [skdPackageId, setSkdPackageId] = useState('');
+  const [skdTopicId, setSkdTopicId] = useState('');
   const [formData, setFormData] = useState({
     subject_id: '',
     content: '',
@@ -31,17 +37,34 @@ const InputSoal = () => {
     question_type: 'multiple_choice',
     correct_answer_text: '',
     choices: [
-      { label: 'A', content: '', is_correct: true },
-      { label: 'B', content: '', is_correct: false },
-      { label: 'C', content: '', is_correct: false },
-      { label: 'D', content: '', is_correct: false },
-      { label: 'E', content: '', is_correct: false },
+      { label: 'A', content: '', is_correct: true, tkp_point: 0 },
+      { label: 'B', content: '', is_correct: false, tkp_point: 0 },
+      { label: 'C', content: '', is_correct: false, tkp_point: 0 },
+      { label: 'D', content: '', is_correct: false, tkp_point: 0 },
+      { label: 'E', content: '', is_correct: false, tkp_point: 0 },
     ]
   });
 
   useEffect(() => {
     subjectService.list().then(res => setSubjects(res.data.data)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (examCategory === 'skd' && skdSubjects.length === 0) {
+      skdService.adminGetSubjects().then(res => setSkdSubjects(res.data?.data || [])).catch(() => {});
+      skdService.adminGetPackages().then(res => setSkdPackages(res.data?.data || [])).catch(() => {});
+    }
+  }, [examCategory]);
+
+  useEffect(() => {
+    if (examCategory === 'skd' && formData.subject_id) {
+      setSkdTopics([]);
+      setSkdTopicId('');
+      skdService.adminGetTopics(formData.subject_id)
+        .then(res => setSkdTopics(res.data?.data || []))
+        .catch(() => setSkdTopics([]));
+    }
+  }, [formData.subject_id, examCategory]);
 
   const handleChoiceChange = (index, value) => {
     const updated = [...formData.choices];
@@ -80,36 +103,72 @@ const InputSoal = () => {
     if (!formData.subject_id) { toast.error('Pilih mata pelajaran terlebih dahulu'); return; }
     if (!formData.content.trim()) { toast.error('Teks pertanyaan tidak boleh kosong'); return; }
 
-    if (formData.question_type === 'short_answer') {
-      if (!formData.correct_answer_text.trim()) { toast.error('Jawaban benar tidak boleh kosong'); return; }
-    } else {
+    if (examCategory === 'skd') {
+      if (!skdTopicId) { toast.error('Pilih topik SKD CPNS terlebih dahulu'); return; }
       if (formData.choices.some(c => !c.content.trim())) { toast.error('Semua pilihan harus diisi'); return; }
+      
+      const isTkp = skdSubjects.find(s => s.id === formData.subject_id)?.is_tkp;
+      if (!isTkp) {
+        const correctCount = formData.choices.filter(c => c.is_correct).length;
+        if (correctCount !== 1) {
+          toast.error('Harap pilih tepat satu jawaban benar');
+          return;
+        }
+      }
+    } else {
+      if (formData.question_type === 'short_answer') {
+        if (!formData.correct_answer_text.trim()) { toast.error('Jawaban benar tidak boleh kosong'); return; }
+      } else {
+        if (formData.choices.some(c => !c.content.trim())) { toast.error('Semua pilihan harus diisi'); return; }
+      }
     }
 
     setLoading(true);
     try {
-      const res = await soalService.create({
-        subject_id: formData.subject_id,
-        difficulty,
-        content: formData.content,
-        question_type: formData.question_type,
-        correct_answer_text: formData.question_type === 'short_answer' ? formData.correct_answer_text : null,
-        choices: formData.question_type === 'short_answer' ? [] : formData.choices.map(c => ({
-          ...c,
-          explanation: c.is_correct ? formData.explanation : null
-        }))
-      });
-      if (res.data?.duplicateWarning) {
-        toast(res.data.duplicateWarning, { icon: '⚠️', duration: 8000 });
+      if (examCategory === 'skd') {
+        const isTkp = skdSubjects.find(s => s.id === formData.subject_id)?.is_tkp;
+        await skdService.adminCreateQuestion({
+          subject_id: formData.subject_id,
+          topic_id: skdTopicId,
+          tryout_package_id: skdPackageId || null,
+          content: formData.content,
+          stimulus: null,
+          image_url: null,
+          image_position: 'after',
+          difficulty,
+          choices: formData.choices.map(c => ({
+            label: c.label,
+            content: c.content,
+            is_correct: isTkp ? false : !!c.is_correct,
+            tkp_point: isTkp ? (c.tkp_point || 0) : 0,
+            explanation: (!isTkp && c.is_correct) ? formData.explanation : null
+          }))
+        });
+        toast.success('Soal SKD CPNS berhasil dipublikasikan!');
       } else {
-        toast.success('Soal berhasil dipublikasikan!');
+        const res = await soalService.create({
+          subject_id: formData.subject_id,
+          difficulty,
+          content: formData.content,
+          question_type: formData.question_type,
+          correct_answer_text: formData.question_type === 'short_answer' ? formData.correct_answer_text : null,
+          choices: formData.question_type === 'short_answer' ? [] : formData.choices.map(c => ({
+            ...c,
+            explanation: c.is_correct ? formData.explanation : null
+          }))
+        });
+        if (res.data?.duplicateWarning) {
+          toast(res.data.duplicateWarning, { icon: '⚠️', duration: 8000 });
+        } else {
+          toast.success('Soal berhasil dipublikasikan!');
+        }
       }
       setFormData(prev => ({
         ...prev,
         content: '',
         explanation: '',
         correct_answer_text: '',
-        choices: prev.choices.map(c => ({ ...c, content: '' }))
+        choices: prev.choices.map(c => ({ ...c, content: '', tkp_point: 0 }))
       }));
     } catch {
       // Error handled by interceptor
@@ -212,70 +271,97 @@ const InputSoal = () => {
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-headline-md text-headline-md text-on-surface">Answer Options</h3>
-                  <button
-                    type="button"
-                    onClick={addOption}
-                    disabled={formData.choices.length >= 5}
-                    className="flex items-center gap-2 text-primary font-label-md text-label-md hover:bg-[#dae1ff]/30 px-3 py-2 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <span className="material-symbols-outlined">add_circle</span>
-                    <span>Add Option</span>
-                  </button>
+                  {examCategory !== 'skd' && (
+                    <button
+                      type="button"
+                      onClick={addOption}
+                      disabled={formData.choices.length >= 5}
+                      className="flex items-center gap-2 text-primary font-label-md text-label-md hover:bg-[#dae1ff]/30 px-3 py-2 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <span className="material-symbols-outlined">add_circle</span>
+                      <span>Add Option</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="space-y-4">
-                  {formData.choices.map((choice, index) => (
-                    <div
-                      key={index}
-                      className={`group flex items-start gap-4 p-4 rounded-xl border-2 transition-all ${
-                        choice.is_correct
-                          ? 'border-primary bg-[#dae1ff]/20'
-                          : 'border-outline-variant hover:border-outline bg-surface-container-low'
-                      }`}
-                    >
-                      {/* Letter Badge */}
-                      <div className="mt-1 flex-shrink-0">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                          choice.is_correct
-                            ? 'bg-primary text-on-primary'
-                            : 'bg-surface-variant text-on-surface-variant'
-                        }`}>
-                          {choice.label}
+                  {formData.choices.map((choice, index) => {
+                    const isTkp = examCategory === 'skd' && skdSubjects.find(s => s.id === formData.subject_id)?.is_tkp;
+                    const isHighlight = !isTkp && choice.is_correct;
+                    return (
+                      <div
+                        key={index}
+                        className={`group flex items-start gap-4 p-4 rounded-xl border-2 transition-all ${
+                          isHighlight
+                            ? 'border-primary bg-[#dae1ff]/20'
+                            : 'border-outline-variant hover:border-outline bg-surface-container-low'
+                        }`}
+                      >
+                        {/* Letter Badge */}
+                        <div className="mt-1 flex-shrink-0">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                            isHighlight
+                              ? 'bg-primary text-on-primary'
+                              : 'bg-surface-variant text-on-surface-variant'
+                          }`}>
+                            {choice.label}
+                          </div>
+                        </div>
+
+                        {/* Text Input */}
+                        <div className="flex-grow">
+                          <textarea
+                            rows={2}
+                            className="w-full bg-transparent border-none p-0 focus:ring-0 outline-none font-body-md text-body-md text-on-surface placeholder:text-outline-variant resize-none"
+                            placeholder={`Masukkan teks pilihan ${choice.label}...`}
+                            value={choice.content}
+                            onChange={e => handleChoiceChange(index, e.target.value)}
+                          />
+                        </div>
+
+                        {/* Toggle + Delete */}
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          {examCategory === 'skd' && isTkp ? (
+                            <div className="flex items-center gap-1.5 bg-white border border-[#c2c6d8]/30 rounded-lg px-2.5 py-1.5 shadow-sm">
+                              <span className="text-[11px] font-bold text-green-700">Poin:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="5"
+                                className="w-12 bg-slate-50 border border-[#c2c6d8]/40 rounded text-xs text-center font-bold text-[#191b24]"
+                                value={choice.tkp_point || 0}
+                                onChange={(e) => {
+                                  const val = Math.min(5, Math.max(1, parseInt(e.target.value) || 1));
+                                  const updated = [...formData.choices];
+                                  updated[index].tkp_point = val;
+                                  setFormData({ ...formData, choices: updated });
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <span className={`font-label-sm text-label-sm ${choice.is_correct ? 'text-primary' : 'text-on-surface-variant'}`}>
+                                {formData.question_type === 'complex_mc_tf' ? (choice.is_correct ? 'Benar' : 'Salah') : 'Correct'}
+                              </span>
+                              <Toggle checked={choice.is_correct} onChange={() => handleCorrectChange(index)} />
+                            </label>
+                          )}
+                          {examCategory !== 'skd' && (
+                            <button
+                              type="button"
+                              onClick={() => removeOption(index)}
+                              className={`p-1 text-outline hover:text-error transition-colors ${
+                                formData.choices.length <= 2 ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100'
+                              }`}
+                              disabled={formData.choices.length <= 2}
+                            >
+                              <span className="material-symbols-outlined">delete</span>
+                            </button>
+                          )}
                         </div>
                       </div>
-
-                      {/* Text Input */}
-                      <div className="flex-grow">
-                        <textarea
-                          rows={2}
-                          className="w-full bg-transparent border-none p-0 focus:ring-0 outline-none font-body-md text-body-md text-on-surface placeholder:text-outline-variant resize-none"
-                          placeholder={`Masukkan teks pilihan ${choice.label}...`}
-                          value={choice.content}
-                          onChange={e => handleChoiceChange(index, e.target.value)}
-                        />
-                      </div>
-
-                      {/* Toggle + Delete */}
-                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <span className={`font-label-sm text-label-sm ${choice.is_correct ? 'text-primary' : 'text-on-surface-variant'}`}>
-                            {formData.question_type === 'complex_mc_tf' ? (choice.is_correct ? 'Benar' : 'Salah') : 'Correct'}
-                          </span>
-                          <Toggle checked={choice.is_correct} onChange={() => handleCorrectChange(index)} />
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => removeOption(index)}
-                          className={`p-1 text-outline hover:text-error transition-colors ${
-                            formData.choices.length <= 2 ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100'
-                          }`}
-                          disabled={formData.choices.length <= 2}
-                        >
-                          <span className="material-symbols-outlined">delete</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -304,6 +390,51 @@ const InputSoal = () => {
             <h3 className="font-label-md text-label-md text-on-surface mb-6 uppercase tracking-wider">Properties</h3>
             <div className="space-y-6">
 
+              {/* Kategori Ujian */}
+              <div>
+                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Kategori Ujian</label>
+                <div className="flex gap-2 p-1 bg-surface-container-low rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExamCategory('utbk');
+                      setFormData(prev => ({ ...prev, subject_id: '', choices: prev.choices.map(c => ({ ...c, tkp_point: 0 })) }));
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      examCategory === 'utbk'
+                        ? 'bg-surface text-on-surface shadow-sm border border-outline-variant/10'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    UTBK
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExamCategory('skd');
+                      setFormData(prev => {
+                        let newChoices = [...prev.choices];
+                        const labels = ['A', 'B', 'C', 'D', 'E'];
+                        while (newChoices.length < 5) {
+                          newChoices.push({ label: labels[newChoices.length], content: '', is_correct: false, tkp_point: 0 });
+                        }
+                        if (newChoices.length > 5) {
+                          newChoices = newChoices.slice(0, 5);
+                        }
+                        return { ...prev, subject_id: '', question_type: 'multiple_choice', choices: newChoices };
+                      });
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      examCategory === 'skd'
+                        ? 'bg-surface text-on-surface shadow-sm border border-outline-variant/10'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    SKD CPNS
+                  </button>
+                </div>
+              </div>
+
               {/* Mata Pelajaran */}
               <div>
                 <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Mata Pelajaran</label>
@@ -314,60 +445,111 @@ const InputSoal = () => {
                   onChange={e => setFormData({ ...formData, subject_id: e.target.value })}
                 >
                   <option value="">Pilih Mata Pelajaran...</option>
-                  {subjects.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
+                  {examCategory === 'skd' ? (
+                    skdSubjects.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.full_name})</option>
+                    ))
+                  ) : (
+                    subjects.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))
+                  )}
                 </select>
               </div>
 
-              {/* Question Type */}
-              <div>
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Question Type</label>
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, question_type: 'multiple_choice' })}
-                    className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
-                      formData.question_type === 'multiple_choice'
-                        ? 'border-primary bg-[#dae1ff]/10 text-primary font-label-md text-label-md'
-                        : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md'
-                    }`}
+              {/* Dynamic SKD CPNS Topic Selector */}
+              {examCategory === 'skd' && (
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Topik SKD CPNS *</label>
+                  <select
+                    required
+                    className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg py-2.5 px-3 text-label-md font-label-md text-on-surface focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                    value={skdTopicId}
+                    onChange={e => setSkdTopicId(e.target.value)}
                   >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {formData.question_type === 'multiple_choice' ? 'radio_button_checked' : 'radio_button_unchecked'}
-                    </span>
-                    Multiple Choice (Pilihan Ganda)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, question_type: 'short_answer' })}
-                    className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
-                      formData.question_type === 'short_answer'
-                        ? 'border-primary bg-[#dae1ff]/10 text-primary font-label-md text-label-md'
-                        : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {formData.question_type === 'short_answer' ? 'radio_button_checked' : 'radio_button_unchecked'}
-                    </span>
-                    Short Answer (Isian Singkat)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, question_type: 'complex_mc_tf' })}
-                    className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
-                      formData.question_type === 'complex_mc_tf'
-                        ? 'border-primary bg-[#dae1ff]/10 text-primary font-label-md text-label-md'
-                        : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {formData.question_type === 'complex_mc_tf' ? 'radio_button_checked' : 'radio_button_unchecked'}
-                    </span>
-                    Pernyataan Benar/Salah (PG Kompleks)
-                  </button>
+                    <option value="">Pilih Topik...</option>
+                    {skdTopics.map(t => (
+                      <option key={t.id} value={t.id}>{t.title}</option>
+                    ))}
+                  </select>
                 </div>
-              </div>
+              )}
+
+              {/* Dynamic SKD CPNS Package Selector */}
+              {examCategory === 'skd' && (
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Paket Tryout CPNS (Opsional)</label>
+                  <select
+                    className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg py-2.5 px-3 text-label-md font-label-md text-on-surface focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                    value={skdPackageId}
+                    onChange={e => setSkdPackageId(e.target.value)}
+                  >
+                    <option value="">Umum (Hanya Latihan Soal)</option>
+                    {skdPackages.map(pkg => (
+                      <option key={pkg.id} value={pkg.id}>{pkg.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Question Type (Show only for UTBK) */}
+              {examCategory === 'utbk' ? (
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Question Type</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, question_type: 'multiple_choice' })}
+                      className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
+                        formData.question_type === 'multiple_choice'
+                          ? 'border-primary bg-[#dae1ff]/10 text-primary font-label-md text-label-md'
+                          : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {formData.question_type === 'multiple_choice' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                      </span>
+                      Multiple Choice (Pilihan Ganda)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, question_type: 'short_answer' })}
+                      className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
+                        formData.question_type === 'short_answer'
+                          ? 'border-primary bg-[#dae1ff]/10 text-primary font-label-md text-label-md'
+                          : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {formData.question_type === 'short_answer' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                      </span>
+                      Short Answer (Isian Singkat)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, question_type: 'complex_mc_tf' })}
+                      className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
+                        formData.question_type === 'complex_mc_tf'
+                          ? 'border-primary bg-[#dae1ff]/10 text-primary font-label-md text-label-md'
+                          : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-label-md text-label-md'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {formData.question_type === 'complex_mc_tf' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                      </span>
+                      Pernyataan Benar/Salah (PG Kompleks)
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2">Question Type</label>
+                  <div className="p-3 bg-surface-container border border-outline-variant rounded-lg text-primary font-label-md text-label-md flex items-center gap-2">
+                    <span className="material-symbols-outlined">radio_button_checked</span>
+                    Multiple Choice (Pilihan Ganda 5 Opsi)
+                  </div>
+                </div>
+              )}
 
               {/* Difficulty Level */}
               <div>

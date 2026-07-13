@@ -80,6 +80,7 @@ const careersRoutes = require('./routes/careers');
 const sitemapRoutes = require('./routes/sitemap');
 const certificatesRoutes = require('./routes/certificates');
 const fellowshipRoutes = require('./routes/fellowship');
+const skdCpnsRoutes = require('./routes/skdCpns');
 
 // Mount routes
 app.use('/sitemap.xml', sitemapRoutes);
@@ -105,6 +106,7 @@ app.use('/api/articles', articlesRoutes);
 app.use('/api/careers', careersRoutes);
 app.use('/api/certificates', certificatesRoutes);
 app.use('/api/fellowship', fellowshipRoutes);
+app.use('/api/skd', skdCpnsRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

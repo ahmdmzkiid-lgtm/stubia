@@ -75,8 +75,11 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
 
   const isUtbkActive = utbkLinks.some(l => l.active);
 
+  const isSKDActive = activePath.startsWith('/skd');
+
   const mainLinksAfter = [
     { to: '/ujian-mandiri', label: 'Ujian Mandiri', active: isUmActive },
+    { to: '/skd', label: 'SKD CPNS', active: isSKDActive },
     { to: '/paket-belajar', label: 'Paket Belajar', active: activePath === '/paket-belajar' },
   ];
 

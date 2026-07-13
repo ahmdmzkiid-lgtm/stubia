@@ -81,6 +81,8 @@ const AdminDashboard = () => {
     { path: '/admin/tryout', icon: 'quiz', label: 'Manage Tryout' },
     { path: '/admin/battle', icon: 'swords', label: 'Manage Battle 1vs1' },
     { path: '/admin/ujian-mandiri', icon: 'school', label: 'Manage Ujian Mandiri' },
+    { path: '/admin/skd-latihan', icon: 'assignment', label: 'Manage Latihan SKD' },
+    { path: '/admin/skd-tryout', icon: 'quiz', label: 'Manage Tryout SKD' },
     { path: '/admin/tryout-registrations', icon: 'verified', label: 'Verifikasi Tryout' },
     { path: '/admin/social-verifications', icon: 'favorite', label: 'Verifikasi Latihan' },
     { path: '/admin/users', icon: 'group', label: 'Users' },
@@ -100,6 +102,8 @@ const AdminDashboard = () => {
         '/admin/tryout',
         '/admin/battle',
         '/admin/ujian-mandiri',
+        '/admin/skd-latihan',
+        '/admin/skd-tryout',
       ].includes(link.path);
     }
     if (user.role === 'quality_assurance') {
@@ -107,7 +111,9 @@ const AdminDashboard = () => {
         '/admin/duplicates',
         '/admin/latihan',
         '/admin/tryout',
-        '/admin/ujian-mandiri'
+        '/admin/ujian-mandiri',
+        '/admin/skd-latihan',
+        '/admin/skd-tryout',
       ].includes(link.path);
     }
     return false;

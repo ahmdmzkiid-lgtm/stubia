@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { adminService, subjectService, tryoutService } from '../../services/api';
+import { adminService, subjectService, tryoutService, skdService } from '../../services/api';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import MathText from '../../components/MathText';
@@ -20,6 +20,10 @@ const ImportCSV = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [examCategory, setExamCategory] = useState('utbk'); // 'utbk' or 'skd'
+  const [skdSubjects, setSkdSubjects] = useState([]);
+  const [skdPackages, setSkdPackages] = useState([]);
+  const [skdTopics, setSkdTopics] = useState([]);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -28,17 +32,31 @@ const ImportCSV = () => {
   }, []);
 
   useEffect(() => {
+    if (examCategory === 'skd' && skdSubjects.length === 0) {
+      skdService.adminGetSubjects().then(res => setSkdSubjects(res.data?.data || [])).catch(() => {});
+      skdService.adminGetPackages().then(res => setSkdPackages(res.data?.data || [])).catch(() => {});
+    }
+  }, [examCategory]);
+
+  useEffect(() => {
     if (subjectId) {
       setTopics([]);
       setTopicId('');
-      subjectService.listTopics(subjectId)
-        .then(res => setTopics(res.data?.data || []))
-        .catch(() => setTopics([]));
+      if (examCategory === 'skd') {
+        skdService.adminGetTopics(subjectId)
+          .then(res => setSkdTopics(res.data?.data || []))
+          .catch(() => setSkdTopics([]));
+      } else {
+        subjectService.listTopics(subjectId)
+          .then(res => setTopics(res.data?.data || []))
+          .catch(() => setTopics([]));
+      }
     } else {
       setTopics([]);
       setTopicId('');
+      setSkdTopics([]);
     }
-  }, [subjectId]);
+  }, [subjectId, examCategory]);
 
   const parseExcelFile = (selectedFile) => {
     const reader = new FileReader();
@@ -98,19 +116,35 @@ const ImportCSV = () => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('subject_id', subjectId);
-    formData.append('difficulty', difficulty);
-    formData.append('destination', destination);
-    if (destination === 'tryout' && tryoutPackageId) {
-      formData.append('tryout_package_id', tryoutPackageId);
-    }
-    if (destination === 'latihan' && topicId) {
-      formData.append('topic_id', topicId);
-    }
-
+    
     try {
-      const res = await adminService.importExcel(formData);
-      setResult(res.data.data);
-      toast.success(res.data.message);
+      if (examCategory === 'skd') {
+        if (destination === 'tryout' && tryoutPackageId) {
+          formData.append('package_id', tryoutPackageId);
+        }
+        if (destination === 'latihan' && topicId) {
+          formData.append('topic_id', topicId);
+        }
+        const res = await skdService.adminImportExcel(formData);
+        setResult({
+          importedCount: res.data.imported,
+          rejectedCount: 0,
+          errors: []
+        });
+        toast.success(res.data.message || 'Import berhasil!');
+      } else {
+        formData.append('difficulty', difficulty);
+        formData.append('destination', destination);
+        if (destination === 'tryout' && tryoutPackageId) {
+          formData.append('tryout_package_id', tryoutPackageId);
+        }
+        if (destination === 'latihan' && topicId) {
+          formData.append('topic_id', topicId);
+        }
+        const res = await adminService.importExcel(formData);
+        setResult(res.data.data);
+        toast.success(res.data.message);
+      }
     } catch {
       // handled by interceptor
     } finally {
@@ -174,8 +208,12 @@ const ImportCSV = () => {
     const pembahasan = getCol(row, 'pembahasan', 'explanation', 'penjelasan');
     if (!soal) return 'error';
     if (!opsiA || !opsiB) return 'error';
-    if (!['A','B','C','D','E'].includes(kunci.toUpperCase())) return 'error';
-    if (!pembahasan) return 'error';
+    
+    const isTkp = examCategory === 'skd' && skdSubjects.find(s => s.id === subjectId)?.is_tkp;
+    if (!isTkp) {
+      if (!['A','B','C','D','E'].includes(kunci.toUpperCase())) return 'error';
+    }
+    if (examCategory !== 'skd' && !pembahasan) return 'error';
     return 'ok';
   };
 
@@ -287,23 +325,64 @@ const ImportCSV = () => {
           {/* Config Card */}
           <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-8 shadow-sm">
             <h3 className="font-headline-md text-headline-md text-on-surface mb-2">Konfigurasi Import</h3>
-            <p className="font-body-md text-body-md text-on-surface-variant mb-6">Tentukan mata pelajaran dan tingkat kesulitan untuk semua soal dalam file ini.</p>
+            <p className="font-body-md text-body-md text-on-surface-variant mb-6">Tentukan kategori ujian, subtes, topik/paket, dan tingkat kesulitan untuk semua soal dalam file ini.</p>
 
             <div className="space-y-5">
-              {/* Category */}
+              {/* Kategori Ujian */}
               <div>
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Kategori *</label>
-                <select
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-3 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
-                  value={category}
-                  onChange={e => { setCategory(e.target.value); setSubjectId(''); }}
-                >
-                  <option value="">Semua Kategori</option>
-                  {[...new Set(subjects.map(s => s.category))].map(cat => (
-                    <option key={cat} value={cat}>{cat === 'TPS' ? 'TPS (Tes Potensi Skolastik)' : cat === 'TKA_SAINTEK' ? 'TKA Saintek' : cat === 'TKA_SOSHUM' ? 'TKA Soshum' : cat}</option>
-                  ))}
-                </select>
+                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Kategori Ujian</label>
+                <div className="flex gap-2 p-1 bg-surface-container-low rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExamCategory('utbk');
+                      setSubjectId('');
+                      setTopicId('');
+                      setTryoutPackageId('');
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      examCategory === 'utbk'
+                        ? 'bg-surface text-on-surface shadow-sm border border-outline-variant/10'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    UTBK
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExamCategory('skd');
+                      setSubjectId('');
+                      setTopicId('');
+                      setTryoutPackageId('');
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      examCategory === 'skd'
+                        ? 'bg-surface text-on-surface shadow-sm border border-outline-variant/10'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    SKD CPNS
+                  </button>
+                </div>
               </div>
+
+              {/* UTBK Category Selector (only for UTBK) */}
+              {examCategory === 'utbk' && (
+                <div>
+                  <label className="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Kategori UTBK *</label>
+                  <select
+                    className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-3 font-label-md text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                    value={category}
+                    onChange={e => { setCategory(e.target.value); setSubjectId(''); }}
+                  >
+                    <option value="">Semua Kategori</option>
+                    {[...new Set(subjects.map(s => s.category))].map(cat => (
+                      <option key={cat} value={cat}>{cat === 'TPS' ? 'TPS (Tes Potensi Skolastik)' : cat === 'TKA_SAINTEK' ? 'TKA Saintek' : cat === 'TKA_SOSHUM' ? 'TKA Soshum' : cat}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Subject */}
               <div>
@@ -315,9 +394,15 @@ const ImportCSV = () => {
                   onChange={e => setSubjectId(e.target.value)}
                 >
                   <option value="">Pilih Subtes...</option>
-                  {subjects.filter(s => !category || s.category === category).map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
+                  {examCategory === 'skd' ? (
+                    skdSubjects.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.full_name})</option>
+                    ))
+                  ) : (
+                    subjects.filter(s => !category || s.category === category).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -357,7 +442,7 @@ const ImportCSV = () => {
                     <button
                       key={dest.key}
                       type="button"
-                      onClick={() => { setDestination(dest.key); if (dest.key === 'latihan') setTryoutPackageId(''); }}
+                      onClick={() => { setDestination(dest.key); setTryoutPackageId(''); setTopicId(''); }}
                       className={`flex-1 py-2 text-label-sm font-label-sm rounded-md transition-all flex items-center justify-center gap-1.5 ${
                         destination === dest.key
                           ? 'bg-surface text-on-surface shadow-sm border border-outline-variant/20'
@@ -382,11 +467,20 @@ const ImportCSV = () => {
                     onChange={e => setTryoutPackageId(e.target.value)}
                   >
                     <option value="">Pilih Paket Tryout...</option>
-                    {tryoutPackages.map(pkg => (
-                      <option key={pkg.id} value={pkg.id}>{pkg.title}</option>
-                    ))}
+                    {examCategory === 'skd' ? (
+                      skdPackages.map(pkg => (
+                        <option key={pkg.id} value={pkg.id}>{pkg.title}</option>
+                      ))
+                    ) : (
+                      tryoutPackages.map(pkg => (
+                        <option key={pkg.id} value={pkg.id}>{pkg.title}</option>
+                      ))
+                    )}
                   </select>
-                  {tryoutPackages.length === 0 && (
+                  {examCategory === 'skd' && skdPackages.length === 0 && (
+                    <p className="text-label-sm text-on-surface-variant mt-1 italic">Belum ada paket tryout CPNS. Buat dulu di menu Kelola SKD CPNS.</p>
+                  )}
+                  {examCategory === 'utbk' && tryoutPackages.length === 0 && (
                     <p className="text-label-sm text-on-surface-variant mt-1 italic">Belum ada paket tryout. Buat dulu di menu Kelola Tryout.</p>
                   )}
                 </div>
@@ -403,11 +497,20 @@ const ImportCSV = () => {
                     onChange={e => setTopicId(e.target.value)}
                   >
                     <option value="">Pilih Topik...</option>
-                    {topics.map(t => (
-                      <option key={t.id} value={t.id}>{t.title}</option>
-                    ))}
+                    {examCategory === 'skd' ? (
+                      skdTopics.map(t => (
+                        <option key={t.id} value={t.id}>{t.title}</option>
+                      ))
+                    ) : (
+                      topics.map(t => (
+                        <option key={t.id} value={t.id}>{t.title}</option>
+                      ))
+                    )}
                   </select>
-                  {subjectId && topics.length === 0 && (
+                  {subjectId && examCategory === 'skd' && skdTopics.length === 0 && (
+                    <p className="text-label-sm text-on-surface-variant mt-1 italic">Belum ada topik untuk subtes SKD ini. Buat dulu di menu Kelola SKD CPNS.</p>
+                  )}
+                  {subjectId && examCategory === 'utbk' && topics.length === 0 && (
                     <p className="text-label-sm text-on-surface-variant mt-1 italic">Belum ada topik untuk subtes ini. Buat dulu di menu Kelola Latihan.</p>
                   )}
                 </div>
@@ -490,6 +593,7 @@ const ImportCSV = () => {
                       const opsiCount = ['opsi a','opsi b','opsi c','opsi d','opsi e'].filter(k => getCol(row, k) !== '').length;
                       const pembahasan = getCol(row, 'pembahasan', 'explanation', 'penjelasan');
                       const status = getStatus(row);
+                      const isTkp = examCategory === 'skd' && skdSubjects.find(s => s.id === subjectId)?.is_tkp;
                       return (
                         <tr key={i} className="hover:bg-surface-container-low transition-colors">
                           <td className="px-6 py-4">
@@ -515,7 +619,9 @@ const ImportCSV = () => {
                             )}
                           </td>
                           <td className="px-6 py-4">
-                            {kunci && ['A','B','C','D','E'].includes(kunci) ? (
+                            {isTkp ? (
+                              <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">TKP Poin</span>
+                            ) : kunci && ['A','B','C','D','E'].includes(kunci) ? (
                               <span className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-sm">{kunci}</span>
                             ) : (
                               <span className="text-error font-label-sm text-label-sm">{kunci || '?'}</span>
