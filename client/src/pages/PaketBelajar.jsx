@@ -13,6 +13,7 @@ export default function PaketBelajar() {
   const [currentSub, setCurrentSub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('utbk_sub'); // 'utbk_sub', 'utbk_quota', 'um'
+  const [utbkDropdownOpen, setUtbkDropdownOpen] = useState(false);
   const [cart, setCart] = useState([]);
   const navigate = useNavigate();
 
@@ -115,41 +116,67 @@ export default function PaketBelajar() {
       `}</style>
 
       {/* Tabs */}
-      <div className="max-w-5xl mx-auto px-4 mb-8">
-        <div className="flex overflow-x-auto md:justify-center border-b border-[#c2c6d8]/30 no-scrollbar whitespace-nowrap">
+      <div className="max-w-5xl mx-auto px-4 mb-8 flex justify-center">
+        <div 
+          className="relative border-b border-[#c2c6d8]/30 pb-1"
+          onMouseEnter={() => setUtbkDropdownOpen(true)}
+          onMouseLeave={() => setUtbkDropdownOpen(false)}
+        >
           <button
-            onClick={() => setActiveTab('utbk_sub')}
-            className={`flex-shrink-0 py-3 px-4 sm:px-6 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 ${
-              activeTab === 'utbk_sub'
-                ? 'border-[#0050cb] text-[#0050cb]'
-                : 'border-transparent text-[#424656] hover:text-[#0050cb]'
-            }`}
+            className="py-3 px-6 font-semibold text-xs sm:text-sm text-[#0050cb] border-b-2 border-[#0050cb] transition-all flex items-center gap-1.5 sm:gap-2 focus:outline-none"
           >
-            <span className="material-symbols-outlined text-base sm:text-lg">calendar_month</span>
-            UTBK Langganan
+            <span className="material-symbols-outlined text-base sm:text-lg">
+              {activeTab === 'utbk_sub' ? 'calendar_month' : activeTab === 'utbk_quota' ? 'local_activity' : 'account_balance'}
+            </span>
+            {activeTab === 'utbk_sub' ? 'UTBK Langganan' : activeTab === 'utbk_quota' ? 'UTBK Eceran (Kuota)' : 'Ujian Mandiri (UM)'}
+            <span 
+              className="material-symbols-outlined text-base sm:text-[16px] transition-transform duration-200" 
+              style={{ transform: utbkDropdownOpen ? 'rotate(180deg)' : 'none' }}
+            >
+              keyboard_arrow_down
+            </span>
           </button>
-          <button
-            onClick={() => setActiveTab('utbk_quota')}
-            className={`flex-shrink-0 py-3 px-4 sm:px-6 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 ${
-              activeTab === 'utbk_quota'
-                ? 'border-[#0050cb] text-[#0050cb]'
-                : 'border-transparent text-[#424656] hover:text-[#0050cb]'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base sm:text-lg">local_activity</span>
-            UTBK Eceran (Kuota)
-          </button>
-          <button
-            onClick={() => setActiveTab('um')}
-            className={`flex-shrink-0 py-3 px-4 sm:px-6 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 ${
-              activeTab === 'um'
-                ? 'border-[#0050cb] text-[#0050cb]'
-                : 'border-transparent text-[#424656] hover:text-[#0050cb]'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base sm:text-lg">account_balance</span>
-            Ujian Mandiri (UM)
-          </button>
+
+          {utbkDropdownOpen && (
+            <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-60 bg-white border border-[#c2c6d8]/30 rounded-2xl shadow-xl py-2 z-50 animate-fade-in">
+              <button
+                onClick={() => {
+                  setActiveTab('utbk_sub');
+                  setUtbkDropdownOpen(false);
+                }}
+                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
+                  activeTab === 'utbk_sub' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">calendar_month</span>
+                UTBK Langganan
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('utbk_quota');
+                  setUtbkDropdownOpen(false);
+                }}
+                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
+                  activeTab === 'utbk_quota' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">local_activity</span>
+                UTBK Eceran (Kuota)
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('um');
+                  setUtbkDropdownOpen(false);
+                }}
+                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
+                  activeTab === 'um' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">account_balance</span>
+                Ujian Mandiri (UM)
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

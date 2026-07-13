@@ -28,9 +28,16 @@ export const AuthProvider = ({ children }) => {
           const res = await authService.me();
           setUser(res.data.data);
         } catch (error) {
-          console.error("Token invalid, removing...");
-          setToken(null);
-          localStorage.removeItem('token');
+          // Hanya hapus token jika server menolak (401 = token invalid/expired)
+          // Jangan logout user karena network error / server timeout
+          const status = error?.response?.status;
+          if (status === 401) {
+            console.error("Token ditolak server (401), removing...");
+            setToken(null);
+            localStorage.removeItem('token');
+          } else {
+            console.error("Gagal fetch user (non-401), token dipertahankan:", status || 'network error');
+          }
         }
       }
       setLoading(false);

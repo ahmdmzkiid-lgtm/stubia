@@ -514,22 +514,18 @@ const LandingPage = () => {
             <h2 className="text-center">Cerita Sukses</h2>
             <div className="testimonials-grid">
               <TestimonialCard
-                text="Stubia benar-benar mengubah cara belajar saya. Soal-soalnya mirip banget sama UTBK asli, dan pembahasannya lengkap. Alhamdulillah lolos FKUI!"
-                avatar="https://ui-avatars.com/api/?name=Muhammad+Rayyan+Daffa&background=0050cb&color=fff"
-                name="Muhammad Rayyan Daffa"
-                role="Mahasiswa FK UI"
+                text="aku waktu itu agak kesusahan karena ga tau jenis soal yg muncul kayak gimana, aku cari terus di berbagai platform. awalnya aku ga nemu Stubia kalo aku gak nanya user x, aku baru tau platform belajar ini di h-2 sebelum aku ujian sema upnvj, aku nyesel kenapa gak dari awal nanya sama org itu, aku langsung latsol dan pas ujian soal nya mirip banget! harganya juga affordable. ada pembahasan nya, latsol banyak banget bikin ketagihan, TO nya juga banyak, dan tampilannya fresh aku suka ga bikin pusing, apalagi belneg tuh bacaan nya banyak, pokoknya sangat recommended, NYESEL BARU TAU, oya dan aku LOLOS SEMA UPNVJ AAA SENENG BANGET, makasih banget stubia karena udah membantu anak mandiri yg kehilangan arah ini, RECOMMENDED GUYSS! MUST TRY!"
+                avatar="/rennetestimoni.webp"
+                name="Renne"
+                role="D3 Akuntansi UPN VETERAN JAKARTA"
+                logo="/PTN/upnvj.jpg"
               />
               <TestimonialCard
-                text="Tryout simulasinya realistis banget. Timer, scoring IRT, dan analisis performanya bikin saya tahu kelemahan di mana. Sangat recommended!"
-                avatar="https://ui-avatars.com/api/?name=Anwar+Rizal+Fadhillah&background=006688&color=fff"
-                name="Anwar Rizal Fadhillah"
-                role="Mahasiswa Teknik ITB"
-              />
-              <TestimonialCard
-                text="Platform terbaik untuk persiapan UTBK. Fitur Tanya Stu dan riwayat bikin review soal jadi gampang. Worth it banget! Terima kasih Stubia sudah bantu aku sampai lolos ke jurusan impian!"
-                avatar="https://ui-avatars.com/api/?name=Alya+Nurul+Khairunnisa&background=a33200&color=fff"
-                name="Alya Nurul Khairunnisa"
-                role="Mahasiswa FEB UGM"
+                text="ternyata soalnya lumayan banyak yang mirip, materi materinya juga, top dehh…."
+                avatar="/firhantestimoni.webp"
+                name="Firhan"
+                role="S1 Informatika UPN VETERAN JAKARTA"
+                logo="/PTN/upnvj.jpg"
               />
             </div>
           </div>
@@ -640,16 +636,19 @@ const LandingPage = () => {
   );
 };
 
-const TestimonialCard = ({ text, avatar, name, role }) => (
+const TestimonialCard = ({ text, avatar, name, role, logo }) => (
   <div className="testimonial-card">
     <span className="material-symbols-outlined quote-icon">format_quote</span>
     <p className="testimonial-text">{text}</p>
     <div className="testimonial-author">
-      <img src={avatar} alt={name} width="40" height="40" loading="lazy" />
-      <div>
+      <img src={avatar} alt={name} className="testimonial-avatar" width="40" height="40" loading="lazy" />
+      <div className="author-info">
         <p className="author-name">{name}</p>
         <p className="author-role">{role}</p>
       </div>
+      {logo && (
+        <img src={logo} alt="Logo PTN" className="author-logo" width="32" height="32" loading="lazy" />
+      )}
     </div>
   </div>
 );

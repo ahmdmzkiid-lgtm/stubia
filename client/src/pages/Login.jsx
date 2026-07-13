@@ -28,8 +28,13 @@ const Login = () => {
       const dest = isStaff ? '/admin' : (redirectTo || '/dashboard');
       navigate(dest);
     } catch (err) {
-      const msg = err.response?.data?.error || 'Email atau password salah. Silakan coba lagi.';
-      setError(msg);
+      const hint = err.response?.data?.hint;
+      const serverMsg = err.response?.data?.error;
+      if (hint === 'google_account') {
+        setError(serverMsg || 'Akun ini terdaftar via Google. Gunakan tombol "Masuk dengan Google".');
+      } else {
+        setError(serverMsg || 'Email atau password salah. Silakan coba lagi.');
+      }
     } finally {
       setLoading(false);
     }

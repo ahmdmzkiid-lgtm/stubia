@@ -14,17 +14,24 @@ const Register = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
+    if (error) setError(''); // Clear error saat user mengetik
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Password tidak cocok');
+      setError('Password dan konfirmasi password tidak cocok.');
+      return;
+    }
+    if (formData.password.length < 6) {
+      setError('Password minimal 6 karakter.');
       return;
     }
 
@@ -39,8 +46,9 @@ const Register = () => {
       const userRole = res?.data?.user?.role;
       const isStaff = ['admin', 'question_writer', 'quality_assurance', 'article_writer'].includes(userRole);
       navigate(isStaff ? '/admin' : '/dashboard');
-    } catch (error) {
-      // Error handled by interceptor
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Gagal membuat akun. Silakan coba lagi.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -48,14 +56,16 @@ const Register = () => {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
+      setError('');
       setLoading(true);
       const res = await loginWithGoogle(credentialResponse.credential);
       toast.success('Berhasil daftar dengan Google!');
       const userRole = res?.data?.user?.role;
       const isStaff = ['admin', 'question_writer', 'quality_assurance', 'article_writer'].includes(userRole);
       navigate(isStaff ? '/admin' : '/dashboard');
-    } catch (error) {
-      // Error handled by interceptor
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Gagal masuk dengan Google. Silakan coba lagi.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -63,7 +73,7 @@ const Register = () => {
 
   const handleGoogleError = () => {
     console.error('Google Login Failed');
-    toast.error('Gagal daftar dengan Google');
+    setError('Gagal daftar dengan Google. Silakan coba lagi.');
   };
 
   return (
@@ -95,6 +105,14 @@ const Register = () => {
             <h2>Buat Akun</h2>
             <p>Mulai persiapan UTBK-mu sekarang.</p>
           </div>
+
+          {/* Inline error banner */}
+          {error && (
+            <div className="login-error-banner" role="alert">
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>error</span>
+              <span>{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="register-form">
             <div className="form-group">

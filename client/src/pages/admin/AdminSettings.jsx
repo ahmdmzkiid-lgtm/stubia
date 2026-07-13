@@ -108,7 +108,7 @@ const AdminSettings = () => {
             id: 'default-1',
             type: 'template',
             bg_color: '#7a1a10',
-            title: 'Taklukkan UTBK, SKD Kedinasan, TKA, dan Ujian Mandiri bersama',
+            title: 'Taklukkan UTBK dan Ujian Mandiri bersama',
             brand_name: 'RAFACADEMYC',
             image_url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=80',
             ig_handle: 'rafacademyc',

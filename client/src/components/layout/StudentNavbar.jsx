@@ -5,6 +5,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [utbkDropdownOpen, setUtbkDropdownOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,10 +64,18 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   const isUmActive = activePath.startsWith('/ujian-mandiri');
 
   // Desktop Main Nav Links
-  const mainLinks = [
+  const mainLinksBefore = [
     { to: '/dashboard', label: 'Dashboard', active: activePath === '/dashboard' },
+  ];
+
+  const utbkLinks = [
     { to: '/latihan', label: 'Latihan', active: activePath === '/latihan' },
     { to: '/tryout/packages', label: 'Tryout', active: isTryoutActive },
+  ];
+
+  const isUtbkActive = utbkLinks.some(l => l.active);
+
+  const mainLinksAfter = [
     { to: '/ujian-mandiri', label: 'Ujian Mandiri', active: isUmActive },
     { to: '/paket-belajar', label: 'Paket Belajar', active: activePath === '/paket-belajar' },
   ];
@@ -142,7 +151,60 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
             </Link>
             
             <nav className="hidden lg:flex items-center gap-1">
-              {mainLinks.map(l => (
+              {mainLinksBefore.map(l => (
+                <Link 
+                  key={l.to} 
+                  to={l.to} 
+                  className={`px-4 py-2 text-[14px] font-medium transition-colors ${
+                    l.active 
+                      ? `${textActive} font-bold ${!transparent || scrolled ? 'border-b-2 border-[#0050cb] pb-1' : ''}` 
+                      : `${textPrimary} hover:text-[#0050cb]`
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              ))}
+
+              {/* Dropdown Menu for UTBK */}
+              <div 
+                className="relative" 
+                onMouseEnter={() => setUtbkDropdownOpen(true)} 
+                onMouseLeave={() => setUtbkDropdownOpen(false)}
+              >
+                <button 
+                  className={`px-4 py-2 text-[14px] font-medium transition-colors flex items-center gap-1 ${
+                    isUtbkActive 
+                      ? `${textActive} font-bold ${!transparent || scrolled ? 'border-b-2 border-[#0050cb] pb-1' : ''}` 
+                      : `${textPrimary} hover:text-[#0050cb]`
+                  }`}
+                >
+                  UTBK
+                  <span 
+                    className="material-symbols-outlined text-[16px] transition-transform duration-200" 
+                    style={{ transform: utbkDropdownOpen ? 'rotate(180deg)' : 'none' }}
+                  >
+                    keyboard_arrow_down
+                  </span>
+                </button>
+                
+                {utbkDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-[#c2c6d8]/30 rounded-2xl shadow-xl py-2 z-50 animate-fade-in">
+                    {utbkLinks.map(l => (
+                      <Link
+                        key={l.to}
+                        to={l.to}
+                        className={`block px-5 py-3 text-[14px] font-medium hover:bg-[#f2f3ff] transition-colors ${
+                          l.active ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
+                        }`}
+                      >
+                        {l.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {mainLinksAfter.map(l => (
                 <Link 
                   key={l.to} 
                   to={l.to} 
@@ -296,7 +358,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
             onClick={e => e.stopPropagation()}
           >
             <nav className="flex flex-col gap-1 p-4">
-              {[...mainLinks, ...dropdownLinks].map(l => (
+              {[...mainLinksBefore, ...utbkLinks, ...mainLinksAfter, ...dropdownLinks].map(l => (
                 <Link 
                   key={l.to} 
                   to={l.to} 

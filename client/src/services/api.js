@@ -28,8 +28,13 @@ api.interceptors.response.use(
   (error) => {
     const message = error.response?.data?.error || 'Something went wrong';
     const url = error.config?.url || '';
+
+    // Endpoint auth yang handle error di form sendiri — jangan double-toast
+    const isAuthEndpoint = /\/auth\/(login|register|google)/.test(url);
+    // Endpoint auth/me juga jangan di-toast (dihandle oleh AuthContext)
     const isAuthMe = url.includes('auth/me') || url.includes('/auth/me');
-    
+    const suppressToast = isAuthEndpoint || isAuthMe;
+
     console.error("AXIOS INTERCEPTOR ERROR:", {
       url,
       status: error.response?.status,
@@ -40,7 +45,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       // window.location.href = '/login'; // Optional: auto redirect
     }
-    if (!isAuthMe) {
+    if (!suppressToast) {
       toast.error(message);
     }
     return Promise.reject(error);

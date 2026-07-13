@@ -50,7 +50,7 @@ router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required.' });
+      return res.status(400).json({ success: false, error: 'Email dan password harus diisi.' });
     }
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -59,9 +59,33 @@ router.post('/login', async (req, res, next) => {
     }
 
     const user = result.rows[0];
+
+    // Deteksi akun yang dibuat via Google (tidak punya password asli)
+    if (user.google_id && !user.password_hash) {
+      return res.status(401).json({
+        success: false,
+        error: 'Akun ini terdaftar melalui Google Sign-In. Silakan gunakan tombol "Masuk dengan Google".',
+        hint: 'google_account'
+      });
+    }
+
+    if (!user.password_hash) {
+      return res.status(401).json({ success: false, error: 'Email atau password salah.' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     
     if (!isMatch) {
+      // Cek apakah akun ini sebenarnya akun Google (password_hash dari randomBytes)
+      // Tidak ada cara 100% pasti, tapi jika ada google_id di DB kita bisa deteksi
+      const googleCheck = await pool.query('SELECT google_id FROM users WHERE id = $1 AND google_id IS NOT NULL', [user.id]);
+      if (googleCheck.rows.length > 0) {
+        return res.status(401).json({
+          success: false,
+          error: 'Akun ini terdaftar melalui Google Sign-In. Silakan gunakan tombol "Masuk dengan Google".',
+          hint: 'google_account'
+        });
+      }
       return res.status(401).json({ success: false, error: 'Email atau password salah.' });
     }
 
@@ -92,24 +116,27 @@ router.post('/google', async (req, res, next) => {
     });
     
     const payload = ticket.getPayload();
-    const { email, name } = payload;
+    const { email, name, sub: googleId } = payload;
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     let user;
     
     if (result.rows.length === 0) {
-      const randomPassword = require('crypto').randomBytes(16).toString('hex');
-      const passwordHash = await bcrypt.hash(randomPassword, 12);
-      
+      // User baru: buat akun, tandai sebagai akun Google
       const insertResult = await pool.query(
-        'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, role',
-        [name, email, passwordHash]
+        'INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING id, name, email, role',
+        [name, email, googleId]
       );
       user = insertResult.rows[0];
       const { sendWelcomeEmail } = require('../services/emailService');
       sendWelcomeEmail(user.email, user.name).catch(err => console.error('Google welcome email error:', err));
     } else {
       user = result.rows[0];
+      // Update google_id jika belum ada (user lama yang daftar Google pertama kali)
+      if (!user.google_id) {
+        await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
+        user.google_id = googleId;
+      }
     }
 
     const token = jwt.sign(
@@ -122,7 +149,7 @@ router.post('/google', async (req, res, next) => {
     res.json({ success: true, data: { user, token }, message: 'Logged in with Google successfully.' });
   } catch (error) {
     console.error('Google login error:', error);
-    res.status(401).json({ success: false, error: 'Invalid Google token.' });
+    res.status(401).json({ success: false, error: 'Token Google tidak valid. Silakan coba lagi.' });
   }
 });
 
