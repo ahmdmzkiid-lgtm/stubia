@@ -18,20 +18,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom') || id.includes('react-router')) {
-              return 'vendor-core';
-            }
-            if (id.includes('katex') || id.includes('react-katex')) {
-              return 'vendor-math';
-            }
-            if (id.includes('xlsx') || id.includes('papaparse')) {
-              return 'vendor-excel';
-            }
-            return 'vendor-others';
-          }
-        },
+        // Let Vite handle chunking automatically
       },
     },
   },
