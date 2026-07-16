@@ -923,6 +923,16 @@ const ManageTryout = () => {
                                         onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
                                         placeholder="Tulis soal di sini. Gunakan sintaks LaTeX seperti $...$ atau $$...$$ untuk rumus matematika."
                                       />
+                                      <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-[#727687] bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                        <span className="font-semibold text-[#191b24]">Format Teks:</span>
+                                        <span><strong>**tebal**</strong> / <strong>&lt;b&gt;tebal&lt;/b&gt;</strong></span>
+                                        <span className="text-slate-300">|</span>
+                                        <span><em>*miring*</em> / <em>&lt;i&gt;miring&lt;/i&gt;</em></span>
+                                        <span className="text-slate-300">|</span>
+                                        <span><span className="underline">&lt;u&gt;garis bawah&lt;/u&gt;</span></span>
+                                        <span className="text-slate-300">|</span>
+                                        <span><code className="bg-slate-200/60 px-1 rounded">$...$</code> (inline) / <code className="bg-slate-200/60 px-1 rounded">$$...$$</code> (block) untuk rumus</span>
+                                      </div>
                                     </div>
 
                                     {/* Difficulty and Type */}
@@ -1180,8 +1190,7 @@ const ManageTryout = () => {
                                                     placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Isi pernyataan ${choice.label}` : `Isi pilihan jawaban ${choice.label}`}
                                                     className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[13px] font-semibold"
                                                   />
-                                                  <input
-                                                    type="text"
+                                                  <textarea
                                                     value={choice.explanation || ''}
                                                     onChange={(e) => {
                                                       const updated = [...editingQuestion.choices];
@@ -1189,7 +1198,7 @@ const ManageTryout = () => {
                                                       setEditingQuestion({ ...editingQuestion, choices: updated });
                                                     }}
                                                     placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Pembahasan untuk pernyataan ${choice.label} (opsional)` : `Pembahasan untuk opsi ${choice.label} (opsional)`}
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[12px] text-slate-500 font-medium"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[12px] text-slate-500 font-medium min-h-[60px] resize-y"
                                                   />
                                                 </div>
 
@@ -1366,7 +1375,7 @@ const ManageTryout = () => {
 
                                     {/* STIMULUS */}
                                     {selectedQuestion.stimulus && (
-                                      <div className="text-[18px] text-slate-800 font-semibold leading-relaxed whitespace-pre-wrap">
+                                      <div className="text-[18px] text-slate-800 font-normal leading-relaxed whitespace-pre-wrap">
                                         <MathText text={selectedQuestion.stimulus} />
                                       </div>
                                     )}
@@ -1382,7 +1391,7 @@ const ManageTryout = () => {
                                       </div>
                                     )}
 
-                                    <div className="text-[18px] text-slate-800 font-semibold leading-[1.8] whitespace-pre-wrap">
+                                    <div className="text-[18px] text-slate-800 font-normal leading-[1.8] whitespace-pre-wrap">
                                       <MathText text={selectedQuestion.content || ''} />
                                     </div>
 
@@ -1430,7 +1439,7 @@ const ManageTryout = () => {
                                                 }`}>
                                                   {choice.label}
                                                 </span>
-                                                <div className="flex-1 text-[16px] font-semibold leading-[1.7] pt-0.5 text-slate-900">
+                                                <div className="flex-1 text-[16px] font-normal leading-[1.7] pt-0.5 text-slate-900">
                                                   <MathText text={choice.content} />
                                                 </div>
                                               </div>
@@ -1470,7 +1479,7 @@ const ManageTryout = () => {
                                                 }`}>
                                                   {choice.label}
                                                 </span>
-                                                <div className="flex-1 text-[16px] font-semibold leading-[1.7] pt-0.5 text-slate-900">
+                                                <div className="flex-1 text-[16px] font-normal leading-[1.7] pt-0.5 text-slate-900">
                                                   <MathText text={choice.content} />
                                                 </div>
                                                 {isCorrect && (
@@ -1753,7 +1762,7 @@ const ManageTryout = () => {
                         </div>
                         <div>
                           <p className="text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-wider">Students</p>
-                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">12,450</p>
+                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">{Number(pkg.student_count || 0).toLocaleString('id-ID')}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1794,17 +1803,46 @@ const ManageTryout = () => {
                     </div>
 
                     <div className="mt-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6">
-                      <div className="flex-1 space-y-1.5 sm:space-y-2">
-                        <div className="flex justify-between text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-widest">
-                          <span>Difficulty Breakdown</span>
-                          <span className="text-[#0050cb]">Balanced</span>
-                        </div>
-                        <div className="w-full h-2 sm:h-2.5 bg-[#f2f3ff] rounded-full overflow-hidden flex shadow-inner">
-                          <div className="h-full bg-[#00c1fd]" style={{ width: '25%' }}></div>
-                          <div className="h-full bg-[#0050cb]" style={{ width: '50%' }}></div>
-                          <div className="h-full bg-[#cc4204]" style={{ width: '25%' }}></div>
-                        </div>
-                      </div>
+                      {(() => {
+                        const totalQ = (pkg.easy_count || 0) + (pkg.medium_count || 0) + (pkg.hard_count || 0);
+                        let label = 'Belum Ada Soal';
+                        let labelColor = 'text-slate-500';
+                        if (totalQ > 0) {
+                          const maxVal = Math.max(pkg.easy_count || 0, pkg.medium_count || 0, pkg.hard_count || 0);
+                          if (maxVal === (pkg.easy_count || 0) && (pkg.easy_count || 0) > (pkg.medium_count || 0) + (pkg.hard_count || 0)) {
+                            label = 'Didominasi Mudah';
+                            labelColor = 'text-green-600';
+                          } else if (maxVal === (pkg.hard_count || 0) && (pkg.hard_count || 0) > (pkg.easy_count || 0) + (pkg.medium_count || 0)) {
+                            label = 'Didominasi Sulit';
+                            labelColor = 'text-red-600';
+                          } else if (maxVal === (pkg.medium_count || 0) && (pkg.medium_count || 0) > (pkg.easy_count || 0) + (pkg.hard_count || 0)) {
+                            label = 'Didominasi Sedang';
+                            labelColor = 'text-amber-600';
+                          } else {
+                            label = 'Seimbang';
+                            labelColor = 'text-[#0050cb]';
+                          }
+                        }
+                        return (
+                          <div className="flex-1 space-y-1.5 sm:space-y-2">
+                            <div className="flex justify-between text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-widest">
+                              <span>Difficulty Breakdown</span>
+                              <span className={labelColor}>{label}</span>
+                            </div>
+                            <div className="w-full h-2 sm:h-2.5 bg-[#f2f3ff] rounded-full overflow-hidden flex shadow-inner">
+                              {totalQ > 0 ? (
+                                <>
+                                  {(pkg.easy_count || 0) > 0 && <div className="h-full bg-[#00c1fd]" style={{ width: `${(pkg.easy_count / totalQ) * 100}%` }} title={`Mudah: ${pkg.easy_count} (${Math.round((pkg.easy_count / totalQ) * 100)}%)`}></div>}
+                                  {(pkg.medium_count || 0) > 0 && <div className="h-full bg-[#0050cb]" style={{ width: `${(pkg.medium_count / totalQ) * 100}%` }} title={`Sedang: ${pkg.medium_count} (${Math.round((pkg.medium_count / totalQ) * 100)}%)`}></div>}
+                                  {(pkg.hard_count || 0) > 0 && <div className="h-full bg-[#cc4204]" style={{ width: `${(pkg.hard_count / totalQ) * 100}%` }} title={`Sulit: ${pkg.hard_count} (${Math.round((pkg.hard_count / totalQ) * 100)}%)`}></div>}
+                                </>
+                              ) : (
+                                <div className="h-full bg-slate-200" style={{ width: '100%' }} title="Belum ada soal"></div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <button
                         onClick={() => handleSelectPackage(pkg)}
                         className="px-6 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-[#191b24] text-white text-[13px] sm:text-[14px] font-bold hover:bg-[#424656] transition-all flex items-center justify-center gap-2"

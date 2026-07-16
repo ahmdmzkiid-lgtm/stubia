@@ -1675,7 +1675,18 @@ export default function ManageUjianMandiri() {
                   className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/40 focus:border-[#0050cb] focus:outline-none text-[14px] min-h-[100px] resize-y"
                   value={editingQuestion.content}
                   onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
+                  placeholder="Ketik soal/pertanyaan di sini..."
                 />
+                <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-[#727687] bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="font-semibold text-[#191b24]">Format Teks:</span>
+                  <span><strong>**tebal**</strong> / <strong>&lt;b&gt;tebal&lt;/b&gt;</strong></span>
+                  <span className="text-slate-300">|</span>
+                  <span><em>*miring*</em> / <em>&lt;i&gt;miring&lt;/i&gt;</em></span>
+                  <span className="text-slate-300">|</span>
+                  <span><span className="underline">&lt;u&gt;garis bawah&lt;/u&gt;</span></span>
+                  <span className="text-slate-300">|</span>
+                  <span><code className="bg-slate-200/60 px-1 rounded">$...$</code> (inline) / <code className="bg-slate-200/60 px-1 rounded">$$...$$</code> (block) untuk rumus</span>
+                </div>
               </div>
 
               <ImageUpload

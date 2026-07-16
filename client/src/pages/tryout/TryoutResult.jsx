@@ -621,8 +621,17 @@ const TryoutResult = () => {
                         </div>
                       </div>
                       <div>
-                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Avg. Speed</span>
-                        <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#191b24] leading-tight">{subject.avgSpeed || 0}s</span>
+                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Durasi</span>
+                        <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#191b24] leading-tight">
+                          {(() => {
+                            const totalSec = subject.totalTimeSpent !== undefined && subject.totalTimeSpent !== null
+                              ? subject.totalTimeSpent
+                              : (subject.avgSpeed || 0) * (subject.total || 0);
+                            const m = Math.floor(totalSec / 60);
+                            const s = totalSec % 60;
+                            return m > 0 ? `${m}m ${s}s` : `${s}s`;
+                          })()}
+                        </span>
                       </div>
                       <div>
                         <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Skor</span>

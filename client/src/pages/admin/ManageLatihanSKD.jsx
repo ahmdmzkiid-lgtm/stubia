@@ -746,7 +746,7 @@ const ManageLatihanSKD = () => {
 
                       <div className="px-6 pb-3">
                         <MathText
-                          className="text-[15px] text-[#191b24] font-semibold leading-relaxed whitespace-pre-line"
+                          className="text-[15px] text-[#191b24] font-normal leading-relaxed whitespace-pre-line"
                           text={q.content || ""}
                         />
                       </div>
@@ -1304,6 +1304,16 @@ const ManageLatihanSKD = () => {
                   }
                   placeholder="Ketik pertanyaan di sini..."
                 />
+                <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-[#727687] bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="font-semibold text-[#191b24]">Format Teks:</span>
+                  <span><strong>**tebal**</strong> / <strong>&lt;b&gt;tebal&lt;/b&gt;</strong></span>
+                  <span className="text-slate-300">|</span>
+                  <span><em>*miring*</em> / <em>&lt;i&gt;miring&lt;/i&gt;</em></span>
+                  <span className="text-slate-300">|</span>
+                  <span><span className="underline">&lt;u&gt;garis bawah&lt;/u&gt;</span></span>
+                  <span className="text-slate-300">|</span>
+                  <span><code className="bg-slate-200/60 px-1 rounded">$...$</code> (inline) / <code className="bg-slate-200/60 px-1 rounded">$$...$$</code> (block) untuk rumus</span>
+                </div>
               </div>
 
               <ImageUpload
@@ -1435,9 +1445,8 @@ const ManageLatihanSKD = () => {
                           </label>
                         )}
                         {!isTkp && c.is_correct && (
-                          <input
-                            type="text"
-                            className="bg-white border border-[#c2c6d8]/40 rounded-xl px-2 py-1.5 text-[10px] w-36"
+                          <textarea
+                            className="bg-white border border-[#c2c6d8]/40 rounded-xl px-2 py-1.5 text-[10px] w-full mt-2 min-h-[50px] resize-y block"
                             value={c.explanation || ''}
                             onChange={(e) => {
                               const updated = [...editingQuestion.choices];

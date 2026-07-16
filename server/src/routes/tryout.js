@@ -20,9 +20,33 @@ const {
 // List all packages
 router.get("/packages", verifyToken, async (req, res, next) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM tryout_packages ORDER BY created_at DESC",
-    );
+    const result = await pool.query(`
+      SELECT 
+        tp.*,
+        COALESCE(s.student_count, 0)::int AS student_count,
+        COALESCE(q.easy_count, 0)::int AS easy_count,
+        COALESCE(q.medium_count, 0)::int AS medium_count,
+        COALESCE(q.hard_count, 0)::int AS hard_count,
+        COALESCE(q.total_questions, 0)::int AS total_questions
+      FROM tryout_packages tp
+      LEFT JOIN (
+        SELECT package_id, COUNT(DISTINCT user_id) AS student_count
+        FROM tryout_sessions
+        GROUP BY package_id
+      ) s ON s.package_id = tp.id
+      LEFT JOIN (
+        SELECT 
+          tryout_package_id,
+          COUNT(*) AS total_questions,
+          COUNT(CASE WHEN difficulty = 'easy' THEN 1 END) AS easy_count,
+          COUNT(CASE WHEN difficulty = 'medium' THEN 1 END) AS medium_count,
+          COUNT(CASE WHEN difficulty = 'hard' THEN 1 END) AS hard_count
+        FROM questions
+        WHERE tryout_package_id IS NOT NULL
+        GROUP BY tryout_package_id
+      ) q ON q.tryout_package_id = tp.id
+      ORDER BY tp.created_at DESC
+    `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
     next(error);
@@ -1417,6 +1441,7 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
         correct: data.correct,
         total: data.total,
         avgSpeed,
+        totalTimeSpent,
         status: irtSubject?.status || statusInfo.status,
         statusColor: irtSubject?.statusColor || statusInfo.statusColor,
         mastery: percentage,
@@ -1845,6 +1870,7 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
         correct: data.correct,
         total: data.total,
         avgSpeed,
+        totalTimeSpent,
         status: irtSubject?.status || statusInfo.status,
         statusColor: irtSubject?.statusColor || statusInfo.statusColor,
         mastery: percentage,

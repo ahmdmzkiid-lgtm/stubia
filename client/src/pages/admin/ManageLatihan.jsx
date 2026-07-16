@@ -1729,6 +1729,16 @@ const ManageLatihan = () => {
                   }
                   placeholder="Tulis soal di sini. Gunakan sintaks LaTeX seperti $...$ atau $$...$$ untuk rumus matematika."
                 />
+                <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-[#727687] bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="font-semibold text-[#191b24]">Format Teks:</span>
+                  <span><strong>**tebal**</strong> / <strong>&lt;b&gt;tebal&lt;/b&gt;</strong></span>
+                  <span className="text-slate-300">|</span>
+                  <span><em>*miring*</em> / <em>&lt;i&gt;miring&lt;/i&gt;</em></span>
+                  <span className="text-slate-300">|</span>
+                  <span><span className="underline">&lt;u&gt;garis bawah&lt;/u&gt;</span></span>
+                  <span className="text-slate-300">|</span>
+                  <span><code className="bg-slate-200/60 px-1 rounded">$...$</code> (inline) / <code className="bg-slate-200/60 px-1 rounded">$$...$$</code> (block) untuk rumus</span>
+                </div>
               </div>
 
               {/* Difficulty and Question Type */}
@@ -2003,8 +2013,7 @@ const ManageLatihan = () => {
                               placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Isi pernyataan ${choice.label}` : `Isi pilihan jawaban ${choice.label}`}
                               className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[13px] font-semibold"
                             />
-                            <input
-                              type="text"
+                            <textarea
                               value={choice.explanation || ''}
                               onChange={(e) => {
                                 const updated = [...editingQuestion.choices];
@@ -2012,7 +2021,7 @@ const ManageLatihan = () => {
                                 setEditingQuestion({ ...editingQuestion, choices: updated });
                               }}
                               placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Pembahasan untuk pernyataan ${choice.label} (opsional)` : `Pembahasan untuk opsi ${choice.label} (opsional)`}
-                              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[12px] text-slate-500 font-medium"
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[12px] text-slate-500 font-medium min-h-[60px] resize-y"
                             />
                           </div>
 

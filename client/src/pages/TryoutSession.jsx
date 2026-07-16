@@ -495,7 +495,6 @@ const TryoutSession = () => {
             <span className="w-9 h-9 rounded-xl bg-[#0050cb] text-white flex items-center justify-center font-bold text-[14px] shadow-sm shadow-[#0050cb]/20">
               {currentQuestionIndex + 1}
             </span>
-            <span className="text-[12px] font-medium text-[#727687] bg-[#ecedfa] px-2.5 py-0.5 rounded-md">{currentQuestion?.difficulty || 'medium'}</span>
           </div>
           {/* TOP IMAGE */}
           {currentQuestion?.image_url && ['top', 'before', 'atas'].includes(currentQuestion.image_position) && (

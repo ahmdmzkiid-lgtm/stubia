@@ -378,13 +378,6 @@ const BattleGame = () => {
                   <span className="w-9 h-9 rounded-xl bg-[#0050cb] text-white flex items-center justify-center font-bold text-[14px]">
                     {currentQuestionIndex + 1}
                   </span>
-                  <span className={`text-[12px] font-bold uppercase px-2.5 py-1 rounded-md ${
-                    currentQuestion.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                    currentQuestion.difficulty === 'hard' ? 'bg-red-100 text-red-700' :
-                    'bg-[#f2f3ff] text-[#0050cb]'
-                  }`}>
-                    {currentQuestion.difficulty === 'easy' ? 'Mudah' : currentQuestion.difficulty === 'hard' ? 'Sulit' : 'Sedang'}
-                  </span>
                 </div>
                 {currentQuestion.image_url && currentQuestion.image_position === 'before' && (
                   <ZoomableImage className="w-full max-h-60 object-contain rounded-xl mb-4 border border-[#e0e2f0]" src={currentQuestion.image_url} alt="Soal" />
