@@ -65,13 +65,13 @@ const verifyAdmin = async (req, res, next) => {
         return next();
       }
       if (baseUrl === "/api/admin") {
-        if (["/stats", "/questions/duplicates", "/activity-logs"].includes(path)) {
+        if (["/stats", "/questions/duplicates", "/activity-logs", "/question-review"].includes(path)) {
           return next();
         }
       }
     }
 
-    // Quality Assurance permissions (read-only/GET only)
+    // Quality Assurance permissions
     if (role === "quality_assurance") {
       if (method === "GET") {
         const allowedBaseUrls = [
@@ -85,9 +85,13 @@ const verifyAdmin = async (req, res, next) => {
           return next();
         }
         if (baseUrl === "/api/admin") {
-          if (["/stats", "/questions/duplicates", "/activity-logs"].includes(path)) {
+          if (["/stats", "/questions/duplicates", "/activity-logs", "/question-review"].includes(path)) {
             return next();
           }
+        }
+      } else if (method === "PATCH") {
+        if (baseUrl === "/api/soal" && path.endsWith("/workflow")) {
+          return next();
         }
       }
     }

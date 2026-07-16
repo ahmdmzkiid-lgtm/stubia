@@ -63,6 +63,7 @@ const UserManagement = () => {
   const [editUser, setEditUser] = useState(null);
   const [editRole, setEditRole] = useState('student');
   const [updatingRole, setUpdatingRole] = useState(false);
+  const [confirmRoleChange, setConfirmRoleChange] = useState(null);
 
   const fetchUsers = useCallback(async (page = 1) => {
     setLoading(true);
@@ -392,7 +393,11 @@ const UserManagement = () => {
                       {/* Toggle Role */}
                       {u.id !== currentUser?.id && (
                         <button
-                          onClick={() => handleRoleChange(u.id, u.role === 'admin' ? 'student' : 'admin')}
+                          onClick={() => {
+                            const newRole = u.role === 'admin' ? 'student' : 'admin';
+                            const roleName = newRole === 'admin' ? 'Admin' : 'Student';
+                            setConfirmRoleChange({ userId: u.id, userName: u.name, newRole, roleName });
+                          }}
                           className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-colors"
                           title={u.role === 'admin' ? 'Set as Student' : 'Set as Admin'}
                         >
@@ -651,6 +656,41 @@ const UserManagement = () => {
                 disabled={updatingRole}
               >
                 {updatingRole ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Role Change Confirmation Modal */}
+      {confirmRoleChange && (
+        <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setConfirmRoleChange(null)}>
+          <div className="bg-white rounded-[24px] shadow-2xl max-w-sm w-full p-6 text-center animate-[fadeInScale_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-[28px] text-amber-500">warning</span>
+            </div>
+            
+            <h3 className="text-lg font-bold text-[#191b24] mb-2">Konfirmasi Ubah Role</h3>
+            <p className="text-[13px] text-[#727687] leading-relaxed mb-6">
+              Apakah Anda yakin ingin mengubah role pengguna <strong>{confirmRoleChange.userName}</strong> menjadi <strong>{confirmRoleChange.roleName}</strong>?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmRoleChange(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-[#424656] hover:bg-slate-50 font-bold text-[13px] transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={async () => {
+                  const { userId, newRole } = confirmRoleChange;
+                  setConfirmRoleChange(null);
+                  await handleRoleChange(userId, newRole);
+                }}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[13px] transition-all shadow-lg shadow-amber-500/10"
+              >
+                Ya, Ubah
               </button>
             </div>
           </div>

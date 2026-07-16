@@ -29,6 +29,7 @@ const ManageTryout = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const fileInputRef = useRef(null);
+  const autoLoadedRef = useRef(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -63,6 +64,62 @@ const ManageTryout = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (packages.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const pkgId = params.get('package_id');
+      if (pkgId) {
+        const found = packages.find(p => p.id === pkgId);
+        if (found) setSelectedPackage(found);
+      }
+    }
+  }, [packages]);
+
+  useEffect(() => {
+    const autoLoadQuestion = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const qId = params.get('question_id');
+      const pkgId = params.get('package_id');
+      
+      if (qId && pkgId && selectedPackage && subjects.length > 0 && !autoLoadedRef.current) {
+        autoLoadedRef.current = true;
+        try {
+          const res = await soalService.list({ id: qId });
+          const question = res.data?.data?.[0];
+          if (question) {
+            const subject = subjects.find(s => s.id === question.subject_id);
+            if (subject) {
+              const subtest = ensureArray(selectedPackage.subject_config).find(
+                sub => sub.name === subject.name || sub.name === subject.title
+              );
+              
+              if (subtest) {
+                setManagingSubtest(subtest);
+                setShowManageQuestionsModal(true);
+                setQuestionsLoading(true);
+                
+                const listRes = await soalService.list({
+                  subject_id: question.subject_id,
+                  tryout_package_id: selectedPackage.id
+                });
+                const qList = listRes.data?.data || [];
+                setSubtestQuestions(qList);
+                setQuestionsLoading(false);
+                
+                const fullQuestion = qList.find(q => q.id === qId) || question;
+                handleStartEditQuestion(fullQuestion);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Auto load question failed:", err);
+        }
+      }
+    };
+    
+    autoLoadQuestion();
+  }, [selectedPackage, subjects]);
 
   const fetchData = async () => {
     try {
@@ -358,34 +415,93 @@ const ManageTryout = () => {
     }
   };
 
-  const handleEditQuestion = (question) => {
-    setEditingQuestion(question);
-    setShowEditQuestionModal(true);
+  const handleAddNewQuestionClick = () => {
+    setActiveQuestionId(null);
+    setEditingQuestion({
+      content: '',
+      difficulty: 'medium',
+      question_type: 'multiple_choice',
+      choices: [
+        { _tempId: 'new_A', label: 'A', content: '', is_correct: true, explanation: '' },
+        { _tempId: 'new_B', label: 'B', content: '', is_correct: false, explanation: '' },
+        { _tempId: 'new_C', label: 'C', content: '', is_correct: false, explanation: '' },
+        { _tempId: 'new_D', label: 'D', content: '', is_correct: false, explanation: '' },
+        { _tempId: 'new_E', label: 'E', content: '', is_correct: false, explanation: '' }
+      ],
+      correct_answer_text: '',
+      stimulus: '',
+      image_url: '',
+      image_position: 'bottom'
+    });
+  };
+
+  const handleStartEditQuestion = (question) => {
+    const isShortAnswer = question.question_type === 'short_answer';
+    setEditingQuestion({
+      ...question,
+      correct_answer_text: isShortAnswer ? question.choices?.[0]?.content || '' : ''
+    });
   };
 
   const handleSaveQuestion = async () => {
     if (!editingQuestion) return;
     try {
-      await soalService.update(editingQuestion.id, {
-        content: editingQuestion.content,
-        difficulty: editingQuestion.difficulty,
-        image_url: editingQuestion.image_url || null,
-        image_position: editingQuestion.image_position || 'bottom',
-        stimulus: editingQuestion.stimulus || null
-      });
-      toast.success('Soal berhasil disimpan');
-      const savedId = editingQuestion.id;
+      let savedId;
+      if (editingQuestion.id) {
+        // Edit Mode
+        await soalService.update(editingQuestion.id, {
+          content: editingQuestion.content,
+          difficulty: editingQuestion.difficulty,
+          image_url: editingQuestion.image_url || null,
+          image_position: editingQuestion.image_position || 'bottom',
+          stimulus: editingQuestion.stimulus || null,
+          question_type: editingQuestion.question_type || 'multiple_choice',
+          choices: editingQuestion.choices,
+          correct_answer_text: editingQuestion.correct_answer_text
+        });
+        toast.success('Soal berhasil disimpan');
+        savedId = editingQuestion.id;
+      } else {
+        // Create Mode
+        const matchedSubject = subjects.find(s => s.name === managingSubtest.name || s.title === managingSubtest.name);
+        if (!matchedSubject) {
+          toast.error('Subject tidak ditemukan');
+          return;
+        }
+        const res = await soalService.create({
+          subject_id: matchedSubject.id,
+          content: editingQuestion.content,
+          difficulty: editingQuestion.difficulty,
+          image_url: editingQuestion.image_url || null,
+          image_position: editingQuestion.image_position || 'bottom',
+          stimulus: editingQuestion.stimulus || null,
+          question_type: editingQuestion.question_type || 'multiple_choice',
+          choices: editingQuestion.choices,
+          correct_answer_text: editingQuestion.correct_answer_text,
+          tryout_package_id: selectedPackage?.id
+        });
+        toast.success('Soal baru berhasil ditambahkan');
+        savedId = res.data?.data?.id;
+      }
+
       setEditingQuestion(null);
       // Reload questions
-      const res = await soalService.list({ 
+      const resList = await soalService.list({ 
         subject_name: managingSubtest.name,
         tryout_package_id: selectedPackage?.id
       });
-      const questions = res.data?.data || [];
+      const questions = resList.data?.data || [];
       const qArray = Array.isArray(questions) ? questions : [];
       setSubtestQuestions(qArray);
-      setActiveQuestionId(savedId);
-    } catch {
+      
+      // Select the saved question
+      if (savedId) {
+        setActiveQuestionId(savedId);
+      } else if (qArray.length > 0) {
+        setActiveQuestionId(qArray[qArray.length - 1].id);
+      }
+    } catch (error) {
+      console.error(error);
       toast.error('Gagal menyimpan soal');
     }
   };
@@ -503,7 +619,10 @@ const ManageTryout = () => {
         <div className="pt-8 mb-4">
           <nav className="flex items-center gap-2 text-[12px] font-semibold text-[#727687] uppercase tracking-wider">
             <button 
-              onClick={() => setSelectedPackage(null)}
+              onClick={() => {
+                setSelectedPackage(null);
+                setManagingSubtest(null);
+              }}
               className="hover:text-[#0050cb] transition-colors"
             >
               Tryout Management
@@ -511,46 +630,1060 @@ const ManageTryout = () => {
             {selectedPackage && (
               <>
                 <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-                <span className="text-[#0050cb]">{selectedPackage.title}</span>
+                <button
+                  onClick={() => setManagingSubtest(null)}
+                  className={`transition-colors text-left ${managingSubtest ? 'hover:text-[#0050cb]' : 'text-[#0050cb]'}`}
+                  disabled={!managingSubtest}
+                >
+                  {selectedPackage.title}
+                </button>
+              </>
+            )}
+            {managingSubtest && (
+              <>
+                <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                <span className="text-[#0050cb]">Kelola Soal: {managingSubtest.name}</span>
               </>
             )}
           </nav>
         </div>
 
         {/* Dynamic Header */}
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-          <div>
-            <h1 className="text-[28px] sm:text-[40px] lg:text-[48px] font-bold text-[#191b24] mb-2 leading-tight">
-              {selectedPackage ? `Manage Subtests: ${selectedPackage.title}` : 'Kelola Tryout'}
-            </h1>
-            <p className="text-[15px] sm:text-[18px] text-[#424656] max-w-2xl leading-relaxed">
-              {selectedPackage 
-                ? `Configure the 7 subtests for ${selectedPackage.title}. Define question quotas and individual time limits.`
-                : 'Manage national simulation packages. Configure subtests, duration, and question distribution for upcoming exams.'}
-            </p>
-          </div>
-          <div className="flex gap-4">
-            {selectedPackage ? (
-              <button 
-                onClick={() => setSelectedPackage(null)}
-                className="px-6 py-3.5 rounded-xl font-bold flex items-center gap-2 bg-white border border-[#c2c6d8]/50 text-[#424656] hover:bg-[#f2f3ff] transition-all"
-              >
-                <span className="material-symbols-outlined">arrow_back</span>
-                Back to Packages
-              </button>
-            ) : (
-              <button 
-                onClick={() => handleOpenModal()}
-                className="bg-[#0050cb] text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-[#0050cb]/20 hover:shadow-xl transition-all active:translate-y-px"
-              >
-                <span className="material-symbols-outlined">add</span>
-                Create New Package
-              </button>
-            )}
-          </div>
-        </header>
+        {!managingSubtest && (
+          <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <div>
+              <h1 className="text-[28px] sm:text-[40px] lg:text-[48px] font-bold text-[#191b24] mb-2 leading-tight">
+                {selectedPackage ? `Manage Subtests: ${selectedPackage.title}` : 'Kelola Tryout'}
+              </h1>
+              <p className="text-[15px] sm:text-[18px] text-[#424656] max-w-2xl leading-relaxed">
+                {selectedPackage 
+                  ? `Configure the 7 subtests for ${selectedPackage.title}. Define question quotas and individual time limits.`
+                  : 'Manage national simulation packages. Configure subtests, duration, and question distribution for upcoming exams.'}
+              </p>
+            </div>
+            <div className="flex gap-4">
+              {selectedPackage ? (
+                <button 
+                  onClick={() => setSelectedPackage(null)}
+                  className="px-6 py-3.5 rounded-xl font-bold flex items-center gap-2 bg-white border border-[#c2c6d8]/50 text-[#424656] hover:bg-[#f2f3ff] transition-all"
+                >
+                  <span className="material-symbols-outlined">arrow_back</span>
+                  Back to Packages
+                </button>
+              ) : (
+                <button 
+                  onClick={() => handleOpenModal()}
+                  className="bg-[#0050cb] text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-[#0050cb]/20 hover:shadow-xl transition-all active:translate-y-px"
+                >
+                  <span className="material-symbols-outlined">add</span>
+                  Create New Package
+                </button>
+              )}
+            </div>
+          </header>
+        )}
 
-        {!selectedPackage ? (
+        {managingSubtest ? (
+          /* VIEW 3: Manage Questions (inline page) */
+          <div className="w-full mb-20 animate-fade-in-up">
+            
+            {/* Header */}
+            <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-[#e2e8f0] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white shrink-0">
+              <div>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#dae1ff] text-[#0050cb] text-[10px] font-bold uppercase tracking-wider">
+                    {selectedPackage?.title}
+                  </span>
+                  <span className="text-[12px] text-[#727687] font-semibold">•</span>
+                  <span className="text-[12px] text-[#727687] font-bold uppercase">
+                    Subtes {ensureArray(selectedPackage?.subject_config).findIndex(sub => sub.name === managingSubtest.name) + 1}
+                  </span>
+                </div>
+                <h2 className="text-[20px] sm:text-[24px] font-extrabold text-[#191b24] tracking-tight">
+                  Kelola Soal: {managingSubtest.name}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowManageQuestionsModal(false);
+                  setManagingSubtest(null);
+                  setSubtestQuestions([]);
+                  setShowImportTab(false);
+                  setImportPreview([]);
+                  setImportFile(null);
+                }}
+                className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 border border-slate-200 hover:bg-slate-50 transition-all text-[#424656] font-bold rounded-xl text-[13px]"
+                title="Kembali ke Subtes"
+              >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                Kembali ke Subtes
+              </button>
+            </div>
+
+            {/* Navigation (Tabs) */}
+            <div className="flex items-stretch sm:items-center justify-between border-b border-[#e2e8f0] bg-white px-4 sm:px-8 shrink-0">
+              <div className="flex gap-1 sm:gap-2 overflow-x-auto w-full no-scrollbar">
+                <button
+                  onClick={() => {
+                    setShowImportTab(false);
+                    setEditingQuestion(null);
+                    if (!activeQuestionId && subtestQuestions.length > 0) {
+                      setActiveQuestionId(subtestQuestions[0].id);
+                    }
+                  }}
+                  className={`px-3 sm:px-4 py-3 font-bold text-[12px] sm:text-[13px] border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
+                    !showImportTab && (!editingQuestion || editingQuestion.id)
+                      ? 'border-[#0050cb] text-[#0050cb]'
+                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px] sm:text-[18px]">format_list_bulleted</span>
+                  Daftar Soal ({ensureArray(subtestQuestions).length})
+                </button>
+                <button
+                  onClick={() => setShowImportTab(true)}
+                  className={`px-3 sm:px-4 py-3 font-bold text-[12px] sm:text-[13px] border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
+                    showImportTab
+                      ? 'border-[#0050cb] text-[#0050cb]'
+                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px] sm:text-[18px]">upload_file</span>
+                  Import Excel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowImportTab(false);
+                    handleAddNewQuestionClick();
+                  }}
+                  className={`px-3 sm:px-4 py-3 font-bold text-[12px] sm:text-[13px] border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
+                    !showImportTab && editingQuestion && !editingQuestion.id
+                      ? 'border-[#0050cb] text-[#0050cb]'
+                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px] sm:text-[18px]">add_circle</span>
+                  Input Manual
+                </button>
+              </div>
+            </div>
+
+            {/* Body Container */}
+            <div className="bg-[#f8fafc]">
+              
+              {/* Tab 1: Daftar Soal with Split Layout */}
+              {!showImportTab && (
+                <>
+                  {questionsLoading ? (
+                    <div className="flex-1 flex flex-col items-center justify-center py-12">
+                      <span className="material-symbols-outlined animate-spin text-[32px] text-[#0050cb]">progress_activity</span>
+                      <span className="mt-3 text-[14px] text-[#727687] font-semibold">Memuat soal subtes...</span>
+                    </div>
+                  ) : (!ensureArray(subtestQuestions).length && !editingQuestion) ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-white m-6 rounded-3xl border border-dashed border-[#c2c6d8]/40">
+                      <span className="material-symbols-outlined text-[56px] text-[#c2c6d8] mb-4">description</span>
+                      <h3 className="text-[18px] font-bold text-[#191b24] mb-1">Belum Ada Soal</h3>
+                      <p className="text-[14px] text-[#727687] max-w-sm mb-6">Subtes ini belum memiliki soal. Silakan tambah soal dengan mengimport file Excel templates atau tambah secara manual.</p>
+                      <div className="flex gap-3 justify-center">
+                        <button
+                          onClick={() => setShowImportTab(true)}
+                          className="px-6 py-2.5 border border-[#0050cb] text-[#0050cb] hover:bg-[#f2f3ff] font-bold rounded-xl transition-all flex items-center gap-2 text-[13px]"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                          Import dari Excel
+                        </button>
+                        <button
+                          onClick={handleAddNewQuestionClick}
+                          className="px-6 py-2.5 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all flex items-center gap-2 text-[13px] shadow-md shadow-[#0050cb]/10"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                          Input Manual
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Double Panel layout */
+                    <div className="flex flex-col lg:flex-row w-full">
+                      
+                      {/* Left Panel: Number Navigation */}
+                      <div className="w-full lg:w-[260px] border-r border-[#e2e8f0] bg-slate-50 lg:sticky lg:top-8 h-fit shrink-0">
+                        {/* Header */}
+                        <div className="p-4 bg-white border-b border-[#e2e8f0] shrink-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-[13px] font-bold text-[#191b24]">Navigasi Soal</h4>
+                            <span className="text-[11px] font-bold text-[#727687] bg-slate-100 px-2 py-0.5 rounded-full">
+                              {ensureArray(subtestQuestions).length} Soal
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Number Grid */}
+                        <div className="p-4">
+                          <div className="grid grid-cols-5 gap-2">
+                            {ensureArray(subtestQuestions).map((q, idx) => {
+                              const isSelected = q.id === activeQuestionId;
+                              const diffColor = q.difficulty === 'easy'
+                                ? 'bg-emerald-400'
+                                : q.difficulty === 'medium'
+                                  ? 'bg-amber-400'
+                                  : 'bg-red-400';
+                              return (
+                                <button
+                                  key={q.id}
+                                  onClick={() => {
+                                    setActiveQuestionId(q.id);
+                                    setEditingQuestion(null);
+                                  }}
+                                  className={`relative w-full aspect-square rounded-xl border text-[14px] font-bold transition-all flex items-center justify-center ${
+                                    isSelected
+                                      ? 'bg-[#0050cb] border-[#0050cb] text-white shadow-lg shadow-[#0050cb]/20 scale-105'
+                                      : 'bg-white border-slate-200 text-[#191b24] hover:border-[#0050cb]/40 hover:bg-[#f2f3ff]'
+                                  }`}
+                                  title={`Soal ${idx + 1} — ${q.difficulty === 'easy' ? 'Mudah' : q.difficulty === 'medium' ? 'Sedang' : 'Sulit'}`}
+                                >
+                                  {idx + 1}
+                                  <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${isSelected ? 'bg-white/60' : diffColor}`} />
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {ensureArray(subtestQuestions).length === 0 && (
+                            <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-[#c2c6d8]/30 p-6">
+                              <span className="material-symbols-outlined text-[28px] text-[#c2c6d8] mb-2">quiz</span>
+                              <p className="text-[12px] text-[#727687] font-bold">Belum ada soal</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Legend */}
+                        <div className="px-4 py-2.5 border-t border-[#e2e8f0] bg-white shrink-0">
+                          <div className="flex items-center justify-center gap-4 text-[10px] font-bold text-[#727687]">
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />Mudah</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Sedang</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />Sulit</span>
+                          </div>
+                        </div>
+
+                        {/* Sidebar Footer */}
+                        {ensureArray(subtestQuestions).length > 0 && (
+                          <div className="p-4 border-t border-[#e2e8f0] bg-white shrink-0">
+                            <button
+                              onClick={handleDeleteAllQuestions}
+                              className="w-full py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 border border-red-100 text-[12px] font-bold"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                              Hapus Semua Soal ({ensureArray(subtestQuestions).length})
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Panel: Selected Question Preview/Edit */}
+                      <div className="flex-1 bg-white">
+                        {(() => {
+                          if (editingQuestion) {
+                            const isNew = !editingQuestion.id;
+                            return (
+                              /* INLINE EDITOR/CREATOR */
+                              <div className="p-6 lg:p-8 space-y-6">
+                                <div className="space-y-6 max-w-3xl">
+                                  <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-3">
+                                    <div>
+                                      <h4 className="text-[15px] font-bold text-[#191b24]">
+                                        {isNew ? 'Tambah Soal Baru' : 'Edit Konten Soal'}
+                                      </h4>
+                                      <p className="text-[12px] text-[#727687]">
+                                        {isNew ? 'Masukkan pertanyaan baru, tipe soal, dan kunci jawabannya.' : 'Sesuaikan pertanyaan, pilihan jawaban, wacana, dan pembahasannya.'}
+                                      </p>
+                                    </div>
+                                    <span className="text-[11px] font-extrabold text-[#0050cb] bg-[#dae1ff] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                      {isNew ? 'Create Mode' : 'Edit Mode'}
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-4">
+                                    {/* Stimulus */}
+                                    <div>
+                                      <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Stimulus / Wacana (Opsional)</label>
+                                      <textarea
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/80 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[100px] font-medium leading-relaxed"
+                                        value={editingQuestion.stimulus || ''}
+                                        onChange={(e) => setEditingQuestion({ ...editingQuestion, stimulus: e.target.value })}
+                                        placeholder="Masukkan stimulus/wacana di sini (opsional). Akan ditampilkan di atas pertanyaan."
+                                      />
+                                    </div>
+
+                                    {/* Content */}
+                                    <div>
+                                      <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Isi Pertanyaan</label>
+                                      <textarea
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[160px] font-medium leading-relaxed"
+                                        value={editingQuestion.content}
+                                        onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
+                                        placeholder="Tulis soal di sini. Gunakan sintaks LaTeX seperti $...$ atau $$...$$ untuk rumus matematika."
+                                      />
+                                    </div>
+
+                                    {/* Difficulty and Type */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                        <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Tingkat Kesulitan</label>
+                                        <select
+                                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-[#0050cb] outline-none text-[14px] font-bold text-[#191b24]"
+                                          value={editingQuestion.difficulty}
+                                          onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value })}
+                                        >
+                                          <option value="easy">Easy (Mudah)</option>
+                                          <option value="medium">Medium (Sedang)</option>
+                                          <option value="hard">Hard (Sulit)</option>
+                                        </select>
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Tipe Soal</label>
+                                        <select
+                                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-[#0050cb] outline-none text-[14px] font-bold text-[#191b24]"
+                                          value={editingQuestion.question_type || 'multiple_choice'}
+                                          onChange={(e) => {
+                                            const type = e.target.value;
+                                            const choices = type === 'multiple_choice' ? [
+                                              { label: 'A', content: '', is_correct: true, explanation: '' },
+                                              { label: 'B', content: '', is_correct: false, explanation: '' },
+                                              { label: 'C', content: '', is_correct: false, explanation: '' },
+                                              { label: 'D', content: '', is_correct: false, explanation: '' },
+                                              { label: 'E', content: '', is_correct: false, explanation: '' }
+                                            ] : type === 'complex_mc_tf' ? [
+                                              { _tempId: 'new_A', label: 'A', content: '', is_correct: true, explanation: '' },
+                                              { _tempId: 'new_B', label: 'B', content: '', is_correct: false, explanation: '' },
+                                              { _tempId: 'new_C', label: 'C', content: '', is_correct: false, explanation: '' }
+                                            ] : [];
+                                            setEditingQuestion({
+                                              ...editingQuestion,
+                                              question_type: type,
+                                              choices,
+                                              correct_answer_text: ''
+                                            });
+                                          }}
+                                        >
+                                          <option value="multiple_choice">Pilihan Ganda</option>
+                                          <option value="short_answer">Jawaban Singkat</option>
+                                          <option value="complex_mc_tf">Pernyataan Benar/Salah (PG Kompleks)</option>
+                                        </select>
+                                      </div>
+                                    </div>
+
+                                    {/* Image and Position */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="border border-slate-200/60 rounded-xl p-4 bg-slate-50/50">
+                                        <ImageUpload
+                                          label="Gambar Pendukung Soal (Opsional)"
+                                          value={editingQuestion.image_url || ''}
+                                          onChange={(url) => setEditingQuestion({ ...editingQuestion, image_url: url })}
+                                          folder="tryout/soal"
+                                          aspectRatio="aspect-video"
+                                        />
+                                      </div>
+
+                                      {editingQuestion.image_url && (
+                                        <div>
+                                          <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Posisi Gambar</label>
+                                          <div className="flex gap-4 py-2">
+                                            {[['top', 'Atas'], ['middle', 'Tengah'], ['bottom', 'Bawah']].map(([pos, label]) => (
+                                              <label key={pos} className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
+                                                <input
+                                                  type="radio"
+                                                  name="img_pos"
+                                                  value={pos}
+                                                  checked={editingQuestion.image_position === pos || (pos === 'bottom' && !editingQuestion.image_position)}
+                                                  onChange={() => setEditingQuestion({ ...editingQuestion, image_position: pos })}
+                                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
+                                                />
+                                                {label}
+                                              </label>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Short Answer Editor */}
+                                    {editingQuestion.question_type === 'short_answer' && (
+                                      <div className="space-y-4">
+                                        <div>
+                                          <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Kunci Jawaban Singkat</label>
+                                          <input
+                                            type="text"
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] font-semibold"
+                                            value={editingQuestion.correct_answer_text || ''}
+                                            onChange={(e) => setEditingQuestion({ ...editingQuestion, correct_answer_text: e.target.value })}
+                                            placeholder="Masukkan jawaban singkat yang benar"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Pembahasan</label>
+                                          <textarea
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[100px] font-medium"
+                                            value={editingQuestion.choices?.[0]?.explanation || ''}
+                                            onChange={(e) => {
+                                              const updated = [...(editingQuestion.choices || [])];
+                                              if (!updated[0]) {
+                                                updated[0] = { label: 'A', content: editingQuestion.correct_answer_text || '', is_correct: true, explanation: e.target.value };
+                                              } else {
+                                                updated[0] = { ...updated[0], explanation: e.target.value };
+                                              }
+                                              setEditingQuestion({ ...editingQuestion, choices: updated });
+                                            }}
+                                            placeholder="Masukkan penjelasan pembahasan"
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Multiple Choice / Complex MC TF Editor */}
+                                    {(editingQuestion.question_type === 'multiple_choice' || editingQuestion.question_type === 'complex_mc_tf' || !editingQuestion.question_type) && (
+                                      <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3">
+                                            <label className="block text-[13px] font-bold text-[#191b24]">
+                                              {editingQuestion.question_type === 'complex_mc_tf' ? 'Pernyataan Soal' : 'Pilihan Jawaban'}
+                                            </label>
+                                            {(editingQuestion.choices || []).length < 5 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const labels = ['A', 'B', 'C', 'D', 'E'];
+                                                  const nextLabel = labels[(editingQuestion.choices || []).length];
+                                                  const newChoice = {
+                                                    _tempId: `new_${nextLabel}_${Date.now()}`,
+                                                    label: nextLabel,
+                                                    content: '',
+                                                    is_correct: false,
+                                                    explanation: ''
+                                                  };
+                                                  setEditingQuestion({
+                                                    ...editingQuestion,
+                                                    choices: [...(editingQuestion.choices || []), newChoice]
+                                                  });
+                                                }}
+                                                className="px-2.5 py-1 text-[11px] font-extrabold bg-[#e2f0fd] text-[#0050cb] hover:bg-[#0050cb] hover:text-white rounded-lg transition-all flex items-center gap-1 border border-[#0050cb]/15 shadow-sm"
+                                              >
+                                                <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                                                {editingQuestion.question_type === 'complex_mc_tf' ? 'Tambah Pernyataan' : 'Tambah Opsi'}
+                                              </button>
+                                            )}
+                                          </div>
+                                          <span className="text-[11px] font-bold text-[#727687] bg-slate-100 px-2 py-0.5 rounded">
+                                            Seret opsi untuk mengurutkan (Drag & Drop)
+                                          </span>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                          {(editingQuestion.choices || []).map((choice, idx) => {
+                                            return (
+                                              <div
+                                                key={choice._tempId || choice.id || choice.label}
+                                                draggable="true"
+                                                onDragStart={(e) => {
+                                                  e.dataTransfer.setData('text/plain', idx);
+                                                }}
+                                                onDragOver={(e) => e.preventDefault()}
+                                                onDrop={(e) => {
+                                                  const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                                                  if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                                                  const updated = [...editingQuestion.choices];
+                                                  const [removed] = updated.splice(sourceIdx, 1);
+                                                  updated.splice(idx, 0, removed);
+                                                  const labels = ['A', 'B', 'C', 'D', 'E'];
+                                                  const finalChoices = updated.map((c, i) => ({
+                                                    ...c,
+                                                    label: labels[i] || c.label
+                                                  }));
+                                                  setEditingQuestion({
+                                                    ...editingQuestion,
+                                                    choices: finalChoices
+                                                  });
+                                                }}
+                                                className="flex flex-col md:flex-row items-stretch gap-3 p-4 rounded-2xl border border-slate-200 bg-white hover:border-[#0050cb]/30 transition-all cursor-move group relative"
+                                              >
+                                                {/* Left Action: Drag Icon & Label & Key Selector */}
+                                                <div className="flex items-center gap-3 shrink-0 md:w-44">
+                                                  <span className="material-symbols-outlined text-slate-400 cursor-move group-hover:text-slate-600">
+                                                    drag_indicator
+                                                  </span>
+                                                  <span className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[13px] font-extrabold text-[#191b24]">
+                                                    {choice.label}
+                                                  </span>
+                                                  {editingQuestion.question_type === 'complex_mc_tf' ? (
+                                                    <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          const updated = [...editingQuestion.choices];
+                                                          updated[idx] = { ...choice, is_correct: true };
+                                                          setEditingQuestion({ ...editingQuestion, choices: updated });
+                                                        }}
+                                                        className={`px-2 py-1 rounded text-[10px] font-extrabold transition-all ${
+                                                          choice.is_correct
+                                                            ? 'bg-emerald-600 text-white shadow-sm'
+                                                            : 'text-[#424656] hover:bg-slate-200'
+                                                        }`}
+                                                      >
+                                                        Benar
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          const updated = [...editingQuestion.choices];
+                                                          updated[idx] = { ...choice, is_correct: false };
+                                                          setEditingQuestion({ ...editingQuestion, choices: updated });
+                                                        }}
+                                                        className={`px-2 py-1 rounded text-[10px] font-extrabold transition-all ${
+                                                          !choice.is_correct
+                                                            ? 'bg-red-600 text-white shadow-sm'
+                                                            : 'text-[#424656] hover:bg-slate-200'
+                                                        }`}
+                                                      >
+                                                        Salah
+                                                      </button>
+                                                    </div>
+                                                  ) : (
+                                                    <label className="flex items-center gap-1.5 cursor-pointer text-[12px] font-extrabold text-[#424656]">
+                                                      <input
+                                                        type="radio"
+                                                        name="correct_choice_radio"
+                                                        checked={!!choice.is_correct}
+                                                        onChange={() => {
+                                                          const updated = editingQuestion.choices.map((c, i) => ({
+                                                            ...c,
+                                                            is_correct: i === idx
+                                                          }));
+                                                          setEditingQuestion({ ...editingQuestion, choices: updated });
+                                                        }}
+                                                        className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
+                                                      />
+                                                      Kunci
+                                                    </label>
+                                                  )}
+                                                </div>
+
+                                                {/* Center & Right Inputs */}
+                                                <div className="flex-1 space-y-2">
+                                                  <input
+                                                    type="text"
+                                                    value={choice.content || ''}
+                                                    onChange={(e) => {
+                                                      const updated = [...editingQuestion.choices];
+                                                      updated[idx] = { ...choice, content: e.target.value };
+                                                      setEditingQuestion({ ...editingQuestion, choices: updated });
+                                                    }}
+                                                    placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Isi pernyataan ${choice.label}` : `Isi pilihan jawaban ${choice.label}`}
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[13px] font-semibold"
+                                                  />
+                                                  <input
+                                                    type="text"
+                                                    value={choice.explanation || ''}
+                                                    onChange={(e) => {
+                                                      const updated = [...editingQuestion.choices];
+                                                      updated[idx] = { ...choice, explanation: e.target.value };
+                                                      setEditingQuestion({ ...editingQuestion, choices: updated });
+                                                    }}
+                                                    placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Pembahasan untuk pernyataan ${choice.label} (opsional)` : `Pembahasan untuk opsi ${choice.label} (opsional)`}
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[12px] text-slate-500 font-medium"
+                                                  />
+                                                </div>
+
+                                                {/* Delete Button (Visible if choices > 3) */}
+                                                {(editingQuestion.choices || []).length > 3 && (
+                                                   <div className="flex items-center justify-center shrink-0 self-center">
+                                                     <button
+                                                       type="button"
+                                                       onClick={() => {
+                                                         const updated = editingQuestion.choices.filter((_, i) => i !== idx);
+                                                         const labels = ['A', 'B', 'C', 'D', 'E'];
+                                                         const finalChoices = updated.map((c, i) => ({
+                                                           ...c,
+                                                           label: labels[i] || c.label
+                                                         }));
+                                                         if (editingQuestion.question_type !== 'complex_mc_tf' && !finalChoices.some(c => c.is_correct)) {
+                                                           if (finalChoices[0]) finalChoices[0].is_correct = true;
+                                                         }
+                                                         setEditingQuestion({
+                                                           ...editingQuestion,
+                                                           choices: finalChoices
+                                                         });
+                                                       }}
+                                                       className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                       title={editingQuestion.question_type === 'complex_mc_tf' ? 'Hapus Pernyataan' : 'Hapus Pilihan'}
+                                                     >
+                                                       <span className="material-symbols-outlined text-[20px]">delete</span>
+                                                     </button>
+                                                   </div>
+                                                 )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Action buttons */}
+                                  <div className="flex justify-end gap-3 pt-4 border-t border-[#e2e8f0]">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingQuestion(null);
+                                        // Reset to active question if editing an existing one
+                                        if (activeQuestionId) {
+                                          setActiveQuestionId(activeQuestionId);
+                                        }
+                                      }}
+                                      className="px-6 py-2.5 border border-slate-200 text-[#424656] font-bold rounded-xl hover:bg-slate-50 transition-all text-[13px]"
+                                    >
+                                      Batal
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleSaveQuestion}
+                                      disabled={!editingQuestion.content}
+                                      className="px-8 py-2.5 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all text-[13px] flex items-center gap-1.5 shadow-sm shadow-[#0050cb]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">save</span>
+                                      {isNew ? 'Tambah Soal' : 'Simpan Perubahan'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // If not editing, display preview of selected question
+                          const selectedQuestion = ensureArray(subtestQuestions).find(q => q.id === activeQuestionId);
+                          if (!selectedQuestion) {
+                            return (
+                              <div className="flex-1 flex flex-col items-center justify-center text-center p-16 bg-slate-50/50 min-h-[300px]">
+                                <span className="material-symbols-outlined text-[64px] text-[#c2c6d8] mb-4">description</span>
+                                <h4 className="text-[16px] font-bold text-[#191b24]">Belum Ada Soal Terpilih</h4>
+                                <p className="text-[13px] text-[#727687] max-w-xs mt-1">Pilih salah satu soal di daftar sebelah kiri untuk melihat detail atau klik "+ Tambah Soal Baru".</p>
+                              </div>
+                            );
+                          }
+                          const idx = ensureArray(subtestQuestions).findIndex(q => q.id === selectedQuestion.id);
+
+                          return (
+                            <>
+                              {/* Top Panel Bar */}
+                              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#e2e8f0] bg-[#faf8ff]/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shrink-0">
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                  <h3 className="text-[15px] sm:text-[16px] font-extrabold text-[#191b24]">
+                                    Detail Soal {idx + 1}
+                                  </h3>
+                                  <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                    selectedQuestion.difficulty === 'easy' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                    selectedQuestion.difficulty === 'medium' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                                    'bg-red-50 text-red-700 border border-red-200'
+                                  }`}>
+                                    {selectedQuestion.difficulty === 'easy' ? 'Mudah' : selectedQuestion.difficulty === 'medium' ? 'Sedang' : 'Sulit'}
+                                  </span>
+                                  <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 uppercase tracking-wider">
+                                    {selectedQuestion.question_type === 'short_answer' ? 'Jawaban Singkat' :
+                                     selectedQuestion.question_type === 'complex_mc_tf' ? 'Pernyataan Benar/Salah' : 'Pilihan Ganda'}
+                                  </span>
+                                  <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 ${
+                                    selectedQuestion.workflow_status === 'approved' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                    selectedQuestion.workflow_status === 'under_review' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                    'bg-slate-100 text-slate-600 border border-slate-200'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                                      selectedQuestion.workflow_status === 'approved' ? 'bg-green-500' :
+                                      selectedQuestion.workflow_status === 'under_review' ? 'bg-amber-400' : 'bg-slate-400'
+                                    }`} />
+                                    {selectedQuestion.workflow_status === 'approved' ? 'Approved' : selectedQuestion.workflow_status === 'under_review' ? 'Under Review' : 'Revisi'}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleMoveQuestionUp(idx)}
+                                      disabled={idx === 0}
+                                      className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Naikkan Urutan"
+                                    >
+                                      <span className="material-symbols-outlined text-[18px] sm:text-[20px]">arrow_upward</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleMoveQuestionDown(idx)}
+                                      disabled={idx === ensureArray(subtestQuestions).length - 1}
+                                      className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Turunkan Urutan"
+                                    >
+                                      <span className="material-symbols-outlined text-[18px] sm:text-[20px]">arrow_downward</span>
+                                    </button>
+                                  </div>
+
+                                  <div className="h-5 w-px bg-slate-200 mx-1"></div>
+
+                                  {selectedQuestion.question_type !== 'short_answer' && (
+                                    <button
+                                      onClick={() => handleShuffleChoices(selectedQuestion)}
+                                      className="px-2.5 py-1.5 rounded-lg text-[#0050cb] hover:bg-[#f2f3ff] transition-all flex items-center gap-1 text-[11px] font-bold"
+                                      title="Acak pilihan jawaban"
+                                    >
+                                      <span className="material-symbols-outlined text-[15px]">shuffle</span>
+                                      Acak Opsi
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => handleRemoveQuestion(selectedQuestion.id)}
+                                    className="px-2.5 py-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-all flex items-center gap-1 text-[11px] font-bold ml-auto md:ml-0"
+                                    title="Hapus soal ini"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">delete</span>
+                                    Hapus Soal
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Content Area */}
+                              <div className="p-6 lg:p-8 space-y-6">
+                                {/* Preview block */}
+                                <div className="space-y-6">
+                                  {/* Question Content */}
+                                  <div className="pb-6 space-y-5">
+                                    {/* TOP IMAGE */}
+                                    {selectedQuestion.image_url && ['top', 'before', 'atas'].includes(selectedQuestion.image_position) && (
+                                      <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
+                                        <ZoomableImage
+                                          src={selectedQuestion.image_url}
+                                          alt="Soal"
+                                          className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* STIMULUS */}
+                                    {selectedQuestion.stimulus && (
+                                      <div className="text-[18px] text-slate-800 font-semibold leading-relaxed whitespace-pre-wrap">
+                                        <MathText text={selectedQuestion.stimulus} />
+                                      </div>
+                                    )}
+
+                                    {/* MIDDLE IMAGE */}
+                                    {selectedQuestion.image_url && ['middle', 'ditengah', 'tengah'].includes(selectedQuestion.image_position) && (
+                                      <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
+                                        <ZoomableImage
+                                          src={selectedQuestion.image_url}
+                                          alt="Soal"
+                                          className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
+                                        />
+                                      </div>
+                                    )}
+
+                                    <div className="text-[18px] text-slate-800 font-semibold leading-[1.8] whitespace-pre-wrap">
+                                      <MathText text={selectedQuestion.content || ''} />
+                                    </div>
+
+                                    {/* BOTTOM IMAGE */}
+                                    {selectedQuestion.image_url && (['bottom', 'after', 'bawah'].includes(selectedQuestion.image_position) || !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(selectedQuestion.image_position)) && (
+                                      <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
+                                        <ZoomableImage
+                                          src={selectedQuestion.image_url}
+                                          alt="Soal"
+                                          className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Answer Key Display */}
+                                  {selectedQuestion.question_type === 'short_answer' ? (
+                                    <div className="space-y-3">
+                                      <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider">Kunci Jawaban Singkat</h4>
+                                      <div className="p-5 rounded-xl border border-emerald-300 bg-emerald-50/50 text-emerald-950 shadow-sm font-bold text-[16px] inline-block min-w-[200px]">
+                                        {selectedQuestion.choices?.[0]?.content || 'Belum diisi'}
+                                      </div>
+                                    </div>
+                                  ) : selectedQuestion.question_type === 'complex_mc_tf' ? (
+                                    /* Complex MC True/False Preview */
+                                    <div className="space-y-4">
+                                      <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider">Pernyataan Benar/Salah (Kunci Jawaban)</h4>
+                                      <div className="space-y-3">
+                                        {(selectedQuestion.choices || []).map((choice) => {
+                                          const isTrue = !!choice.is_correct;
+                                          return (
+                                            <div
+                                              key={choice.id}
+                                              className={`p-5 rounded-xl border flex items-center justify-between gap-4 transition-all ${
+                                                isTrue
+                                                  ? 'bg-emerald-50/30 border-emerald-200 text-emerald-950 shadow-sm'
+                                                  : 'bg-red-50/30 border-red-200 text-red-950 shadow-sm'
+                                              }`}
+                                            >
+                                              <div className="flex items-start gap-4">
+                                                <span className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[14px] font-extrabold ${
+                                                  isTrue
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : 'bg-red-600 text-white'
+                                                }`}>
+                                                  {choice.label}
+                                                </span>
+                                                <div className="flex-1 text-[16px] font-semibold leading-[1.7] pt-0.5 text-slate-900">
+                                                  <MathText text={choice.content} />
+                                                </div>
+                                              </div>
+                                              <span className={`text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shrink-0 ${
+                                                isTrue
+                                                  ? 'bg-emerald-100 border border-emerald-200 text-emerald-800'
+                                                  : 'bg-red-100 border border-red-200 text-red-800'
+                                              }`}>
+                                                {isTrue ? 'BENAR' : 'SALAH'}
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    /* Choices cards list */
+                                    selectedQuestion.choices && selectedQuestion.choices.length > 0 && (
+                                      <div className="space-y-4">
+                                        <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider">Opsi Jawaban</h4>
+                                        <div className="space-y-3.5">
+                                          {selectedQuestion.choices.map((choice) => {
+                                            const isCorrect = choice.is_correct;
+                                            return (
+                                              <div
+                                                key={choice.id}
+                                                className={`p-5 rounded-xl border flex items-start gap-4 transition-all ${
+                                                  isCorrect
+                                                    ? 'bg-emerald-50/50 border-emerald-300 text-emerald-950 shadow-sm'
+                                                    : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300'
+                                                }`}
+                                              >
+                                                <span className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[14px] font-extrabold ${
+                                                  isCorrect
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                }`}>
+                                                  {choice.label}
+                                                </span>
+                                                <div className="flex-1 text-[16px] font-semibold leading-[1.7] pt-0.5 text-slate-900">
+                                                  <MathText text={choice.content} />
+                                                </div>
+                                                {isCorrect && (
+                                                  <span className="bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider shrink-0">
+                                                    <span className="material-symbols-outlined text-[14px]">check</span>
+                                                    Kunci Jawaban
+                                                  </span>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
+
+                                  {/* Pembahasan / Explanation */}
+                                  {(() => {
+                                    const correctChoice = selectedQuestion.choices?.find(c => c.is_correct);
+                                    const explanation = correctChoice?.explanation || selectedQuestion.choices?.find(c => c.explanation)?.explanation;
+                                    if (!explanation) return null;
+                                    return (
+                                      <div className="space-y-3">
+                                        <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider flex items-center gap-1.5">
+                                          <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                                          Pembahasan
+                                        </h4>
+                                        <div className="p-6 rounded-xl bg-sky-50/60 border border-sky-200/60">
+                                          <div className="text-[16px] text-slate-800 leading-[1.8] whitespace-pre-wrap">
+                                            <MathText text={explanation} />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Edit Soal button */}
+                                  <div className="flex justify-end pt-4">
+                                    <button
+                                      onClick={() => handleStartEditQuestion(selectedQuestion)}
+                                      className="px-6 py-3 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all flex items-center gap-2 text-[13px] shadow-md shadow-[#0050cb]/15"
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">edit</span>
+                                      Edit Soal Ini
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Tab 2: Import Excel */}
+              {showImportTab && (
+                <div className="overflow-y-auto p-10 flex-1 bg-white custom-scrollbar">
+                  <div className="space-y-6 max-w-4xl mx-auto">
+                    {ensureArray(importPreview).length === 0 ? (
+                      <div
+                        className="border-2 border-dashed border-slate-300 hover:border-[#0050cb] rounded-[24px] p-16 text-center cursor-pointer hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center group"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 group-hover:bg-[#f2f3ff] group-hover:text-[#0050cb] flex items-center justify-center transition-all mb-4">
+                          <span className="material-symbols-outlined text-[36px]">cloud_upload</span>
+                        </div>
+                        <p className="text-[18px] font-extrabold text-[#191b24] mb-1">Unggah Template Soal Excel</p>
+                        <p className="text-[14px] text-[#727687] max-w-md">Format yang didukung: .xlsx, .xls, atau .csv. Pastikan format kolom sesuai dengan template standar.</p>
+                        <div className="mt-4 px-4 py-2 rounded-xl bg-slate-100 text-[11px] font-bold text-[#424656] border border-slate-200 max-w-xl leading-relaxed text-left">
+                          <strong>Kolom yang diperlukan:</strong> question, choice_a, choice_b, choice_c, choice_d, choice_e, correct_answer, explanation
+                        </div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleImportFileChange}
+                          className="hidden"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-emerald-800">
+                            <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                            <span className="text-[14px] font-bold">
+                              Berhasil membaca file. {ensureArray(importPreview).length} baris data siap diimport.
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setImportPreview([]);
+                              setImportFile(null);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="text-[12px] font-bold text-red-600 hover:text-red-800 underline"
+                          >
+                            Reset File
+                          </button>
+                        </div>
+
+                        {/* List preview of top 5 rows */}
+                        <div className="space-y-3">
+                          <h4 className="text-[12px] font-bold text-[#727687] uppercase tracking-wider">Preview 5 Soal Pertama</h4>
+                          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                            {importPreview.slice(0, 5).map((row, idx) => {
+                              const keys = Object.keys(row).map(k => k.replace(/^\uFEFF/, '').trim());
+                              const vals = Object.values(row);
+                              const findCol = (...aliases) => {
+                                for (const alias of aliases) {
+                                  const i = keys.findIndex(k => k.toLowerCase() === alias.toLowerCase());
+                                  if (i !== -1 && vals[i] !== undefined && vals[i] !== '') return String(vals[i]).trim();
+                                }
+                                return '';
+                              };
+                              const soal = findCol('soal', 'content', 'question', 'pertanyaan');
+                              const kunci = findCol('kunci jawaban', 'kunci', 'jawaban', 'answer');
+                              return (
+                                <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-left">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[11px] font-extrabold text-[#0050cb] uppercase tracking-wider">Soal {idx + 1}</span>
+                                    {kunci && (
+                                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                        Kunci: {kunci.toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[13px] text-slate-800 font-bold leading-relaxed whitespace-pre-wrap">{soal || 'Soal tidak terdeteksi'}</p>
+                                  <div className="flex flex-wrap gap-2 mt-2.5">
+                                    {['A','B','C','D','E'].map(label => {
+                                      const val = findCol(`opsi ${label.toLowerCase()}`, `choice_${label.toLowerCase()}`, label.toLowerCase(), label);
+                                      if (!val) return null;
+                                      return (
+                                        <span key={label} className={`text-[11px] px-2.5 py-1 rounded-lg border text-slate-700 ${
+                                          kunci?.toUpperCase() === label
+                                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold'
+                                            : 'bg-white border-slate-200'
+                                        }`}>
+                                          <strong>{label}.</strong> {val.length > 40 ? val.slice(0, 40) + '...' : val}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {importPreview.length > 5 && (
+                            <p className="text-center text-[12px] text-[#727687] font-semibold py-1">
+                              +{importPreview.length - 5} soal lainnya tidak ditampilkan dalam preview
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Import tab Actions */}
+                        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                          <button
+                            onClick={() => {
+                              setImportPreview([]);
+                              setImportFile(null);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="px-6 py-2.5 border border-slate-200 text-[#424656] font-bold rounded-xl hover:bg-slate-50 transition-all text-[13px]"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            onClick={handleImportQuestions}
+                            disabled={importLoading}
+                            className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all disabled:opacity-60 text-[13px] flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">download</span>
+                            {importLoading ? 'Mengimport...' : 'Mulai Import Soal'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-5 border-t border-[#e2e8f0] flex justify-between items-center bg-white shrink-0">
+              <div className="flex items-center gap-4">
+                <span className="text-[12px] font-bold text-[#727687] uppercase tracking-wider">Kuota Soal Subtes:</span>
+                <span className={`text-[13px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 ${
+                  ensureArray(subtestQuestions).length >= managingSubtest.questionCount
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                  {ensureArray(subtestQuestions).length} / {managingSubtest.questionCount} Soal
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowManageQuestionsModal(false);
+                  setManagingSubtest(null);
+                  setSubtestQuestions([]);
+                  setShowImportTab(false);
+                  setImportPreview([]);
+                  setImportFile(null);
+                }}
+                className="px-8 py-2.5 bg-[#191b24] text-white font-bold rounded-xl hover:bg-[#323647] transition-all text-[13px] shadow-sm active:scale-[0.98]"
+              >
+                Selesai
+              </button>
+            </div>
+          </div>
+        ) : !selectedPackage ? (
           /* VIEW 1: Package List */
           <section className="flex flex-col gap-6 mb-20">
             {loading ? (
@@ -564,11 +1697,11 @@ const ManageTryout = () => {
               </div>
             ) : (
               packages.map((pkg, idx) => (
-                <div key={pkg.id || idx} className="bg-white rounded-[40px] shadow-sm border border-[#c2c6d8]/30 hover:shadow-xl transition-all duration-500 group flex flex-col">
-                  <div className="p-8 md:p-10 flex-1 flex flex-col">
-                    <div className="flex justify-between items-start mb-6">
+                <div key={pkg.id || idx} className="bg-white rounded-[24px] sm:rounded-[40px] shadow-sm border border-[#c2c6d8]/30 hover:shadow-xl transition-all duration-500 group flex flex-col">
+                  <div className="p-5 sm:p-8 md:p-10 flex-1 flex flex-col">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6 mb-6">
                       <div>
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                        <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-4">
                           <span className="inline-block px-3 py-1 rounded-lg bg-[#f2f3ff] text-[#0050cb] text-[10px] font-bold uppercase tracking-widest">
                             National Selection
                           </span>
@@ -583,62 +1716,62 @@ const ManageTryout = () => {
                             {pkg.required_plan === 'sultan' ? '⭐ Sultan' : pkg.required_plan === 'premium' ? '💎 Premium' : 'Gratis'}
                           </span>
                         </div>
-                        <h3 className="text-[32px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors">{pkg.title}</h3>
+                        <h3 className="text-[20px] sm:text-[28px] lg:text-[32px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors leading-tight">{pkg.title}</h3>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                         <button 
                           onClick={(e) => handlePreview(e, pkg.id)}
-                          className="px-4 h-12 rounded-2xl bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center gap-1.5 transition-all shadow-sm font-bold text-sm"
+                          className="flex-1 sm:flex-none px-4 h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center gap-1.5 transition-all shadow-sm font-bold text-xs sm:text-sm"
                           title="Live Preview Tryout"
                         >
-                          <span className="material-symbols-outlined text-[20px]">visibility</span>
+                          <span className="material-symbols-outlined text-[18px] sm:text-[20px]">visibility</span>
                           Live Preview
                         </button>
                         {user?.role !== 'quality_assurance' && (
-                          <>
+                          <div className="flex gap-2 w-full sm:w-auto">
                             <button 
                               onClick={() => handleOpenModal(pkg)}
-                              className="w-12 h-12 rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#0050cb] hover:text-white transition-all shadow-sm"
+                              className="flex-1 sm:w-12 h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#0050cb] hover:text-white transition-all shadow-sm"
                             >
-                              <span className="material-symbols-outlined text-[22px]">edit</span>
+                              <span className="material-symbols-outlined text-[20px] sm:text-[22px]">edit</span>
                             </button>
                             <button 
                               onClick={(e) => handleDelete(e, pkg.id)}
-                              className="w-12 h-12 rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#ba1a1a] hover:text-white transition-all shadow-sm"
+                              className="flex-1 sm:w-12 h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-[#f2f3ff] flex items-center justify-center text-[#191b24] hover:bg-[#ba1a1a] hover:text-white transition-all shadow-sm"
                             >
-                              <span className="material-symbols-outlined text-[22px]">delete</span>
+                              <span className="material-symbols-outlined text-[20px] sm:text-[22px]">delete</span>
                             </button>
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8 mb-6 sm:mb-8">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
-                          <span className="material-symbols-outlined text-[20px]">groups</span>
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
+                          <span className="material-symbols-outlined text-[18px] sm:text-[20px]">groups</span>
                         </div>
                         <div>
-                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Students</p>
-                          <p className="text-[15px] font-extrabold text-[#191b24]">12,450</p>
+                          <p className="text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-wider">Students</p>
+                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">12,450</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
-                          <span className="material-symbols-outlined text-[20px]">event</span>
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
+                          <span className="material-symbols-outlined text-[18px] sm:text-[20px]">event</span>
                         </div>
                         <div>
-                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Date</p>
-                          <p className="text-[15px] font-extrabold text-[#191b24]">{formatScheduledDate(pkg.scheduled_at)}</p>
+                          <p className="text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-wider">Date</p>
+                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">{formatScheduledDate(pkg.scheduled_at)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
-                          <span className="material-symbols-outlined text-[20px]">history</span>
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
+                          <span className="material-symbols-outlined text-[18px] sm:text-[20px]">history</span>
                         </div>
                         <div>
-                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Duration</p>
-                          <p className="text-[15px] font-extrabold text-[#191b24]">
+                          <p className="text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-wider">Duration</p>
+                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">
                             {(() => {
                               const config = ensureArray(pkg.subject_config);
                               const totalSecs = config.reduce((sum, sub) => sum + (sub.durationMin || 0) * 60 + (sub.durationSec || 0), 0);
@@ -650,23 +1783,23 @@ const ManageTryout = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
-                          <span className="material-symbols-outlined text-[20px]">layers</span>
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb]">
+                          <span className="material-symbols-outlined text-[18px] sm:text-[20px]">layers</span>
                         </div>
                         <div>
-                          <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">Subtests</p>
-                          <p className="text-[15px] font-extrabold text-[#191b24]">{ensureArray(pkg.subject_config, true).length} Modules</p>
+                          <p className="text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-wider">Subtests</p>
+                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">{ensureArray(pkg.subject_config, true).length} Modules</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-auto flex items-center gap-6">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex justify-between text-[11px] font-bold text-[#727687] uppercase tracking-widest">
+                    <div className="mt-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6">
+                      <div className="flex-1 space-y-1.5 sm:space-y-2">
+                        <div className="flex justify-between text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-widest">
                           <span>Difficulty Breakdown</span>
                           <span className="text-[#0050cb]">Balanced</span>
                         </div>
-                        <div className="w-full h-2.5 bg-[#f2f3ff] rounded-full overflow-hidden flex shadow-inner">
+                        <div className="w-full h-2 sm:h-2.5 bg-[#f2f3ff] rounded-full overflow-hidden flex shadow-inner">
                           <div className="h-full bg-[#00c1fd]" style={{ width: '25%' }}></div>
                           <div className="h-full bg-[#0050cb]" style={{ width: '50%' }}></div>
                           <div className="h-full bg-[#cc4204]" style={{ width: '25%' }}></div>
@@ -674,7 +1807,7 @@ const ManageTryout = () => {
                       </div>
                       <button
                         onClick={() => handleSelectPackage(pkg)}
-                        className="px-6 py-3 rounded-2xl bg-[#191b24] text-white text-[14px] font-bold hover:bg-[#424656] transition-all flex items-center gap-2"
+                        className="px-6 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-[#191b24] text-white text-[13px] sm:text-[14px] font-bold hover:bg-[#424656] transition-all flex items-center justify-center gap-2"
                       >
                         Manage Subtests
                         <span className="material-symbols-outlined text-[18px]">settings</span>
@@ -688,42 +1821,44 @@ const ManageTryout = () => {
         ) : (
           /* VIEW 2: Subtest List for Selected Package */
           <section className="animate-fade-in-up">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {ensureArray(selectedPackage.subject_config, true).map((sub, idx) => (
-                <div key={idx} className="bg-white rounded-[32px] border border-[#c2c6d8]/30 p-8 hover:shadow-xl transition-all group relative overflow-hidden">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#dae1ff] flex items-center justify-center text-[#0050cb]">
-                      <span className="material-symbols-outlined text-[28px]">description</span>
+                <div key={idx} className="bg-white rounded-[24px] sm:rounded-[32px] border border-[#c2c6d8]/30 p-5 sm:p-8 hover:shadow-xl transition-all group relative overflow-hidden flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4 sm:mb-6">
+                      <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#dae1ff] flex items-center justify-center text-[#0050cb]">
+                        <span className="material-symbols-outlined text-[24px] sm:text-[28px]">description</span>
+                      </div>
+                      <button
+                        onClick={() => handleOpenModal(selectedPackage)}
+                        className="p-2 text-[#727687] hover:text-[#0050cb] hover:bg-[#f2f3ff] rounded-full transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[18px] sm:text-[20px]">edit_note</span>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleOpenModal(selectedPackage)}
-                      className="p-2 text-[#727687] hover:text-[#0050cb] hover:bg-[#f2f3ff] rounded-full transition-all"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">edit_note</span>
-                    </button>
-                  </div>
 
-                  <span className="text-[11px] font-bold text-[#0050cb] uppercase tracking-[0.2em] mb-2 block">
-                    Subtest {idx + 1}
-                  </span>
-                  <h3 className="text-[22px] font-bold text-[#191b24] mb-8">{sub.name}</h3>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#0050cb] uppercase tracking-[0.2em] mb-1 sm:mb-2 block">
+                      Subtest {idx + 1}
+                    </span>
+                    <h3 className="text-[18px] sm:text-[22px] font-bold text-[#191b24] mb-4 sm:mb-8 leading-snug">{sub.name}</h3>
 
-                  <div className="space-y-4 mb-10">
-                    <div className="flex justify-between items-center py-3 border-b border-[#f2f3ff]">
-                      <span className="text-[14px] text-[#424656] font-medium">Question Quota</span>
-                      <span className="text-[15px] font-bold text-[#191b24]">{sub.questionCount} Questions</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3 border-b border-[#f2f3ff]">
-                      <span className="text-[14px] text-[#424656] font-medium">Time Limit</span>
-                      <span className="text-[15px] font-bold text-[#191b24]">
-                        {sub.durationMin} Menit {sub.durationSec ? `${sub.durationSec} Detik` : ''}
-                      </span>
+                    <div className="space-y-1 sm:space-y-2 mb-6 sm:mb-8">
+                      <div className="flex justify-between items-center py-2 sm:py-3 border-b border-[#f2f3ff]">
+                        <span className="text-[13px] sm:text-[14px] text-[#424656] font-medium">Question Quota</span>
+                        <span className="text-[13px] sm:text-[15px] font-bold text-[#191b24]">{sub.questionCount} Questions</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 sm:py-3 border-b border-[#f2f3ff]">
+                        <span className="text-[13px] sm:text-[14px] text-[#424656] font-medium">Time Limit</span>
+                        <span className="text-[13px] sm:text-[15px] font-bold text-[#191b24]">
+                          {sub.durationMin} Menit {sub.durationSec ? `${sub.durationSec} Detik` : ''}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleOpenManageQuestions(sub)}
-                    className="w-full py-4 rounded-[20px] font-bold text-[14px] transition-all flex items-center justify-center gap-2 bg-[#f2f3ff] text-[#0050cb] hover:bg-[#0050cb] hover:text-white"
+                    className="w-full py-3 sm:py-4 rounded-xl sm:rounded-[20px] font-bold text-[13px] sm:text-[14px] transition-all flex items-center justify-center gap-2 bg-[#f2f3ff] text-[#0050cb] hover:bg-[#0050cb] hover:text-white"
                   >
                     Manage Questions
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -734,32 +1869,6 @@ const ManageTryout = () => {
           </section>
         )}
 
-        {/* Global Stats Footer (only on main view) */}
-        {!selectedPackage && (
-          <section className="bg-white rounded-[40px] p-12 border border-[#c2c6d8]/30 overflow-hidden relative shadow-2xl mb-20">
-            <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-[#dae1ff]/30 to-transparent pointer-events-none"></div>
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-12 relative z-10">
-              <div className="flex-1 space-y-4 text-center lg:text-left">
-                <h2 className="text-[32px] font-bold text-[#191b24] leading-tight">Comprehensive Analytics</h2>
-                <p className="text-[#424656] text-[18px] max-w-lg mx-auto lg:mx-0">Overview of platform performance and student engagement across all active tryout modules.</p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-12 lg:gap-16">
-                <div className="text-center">
-                  <p className="text-[12px] font-bold text-[#727687] uppercase tracking-[0.2em] mb-2">Participants</p>
-                  <p className="text-[48px] font-bold text-[#0050cb] leading-none">58.3K</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[12px] font-bold text-[#727687] uppercase tracking-[0.2em] mb-2">Average Score</p>
-                  <p className="text-[48px] font-bold text-[#006688] leading-none">642.5</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[12px] font-bold text-[#727687] uppercase tracking-[0.2em] mb-2">Questions</p>
-                  <p className="text-[48px] font-bold text-[#a33200] leading-none">2.4K</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
       </div>
 
       {/* Modal */}
@@ -909,688 +2018,6 @@ const ManageTryout = () => {
         </div>
       )}
 
-      {/* Manage Questions Modal */}
-      {showManageQuestionsModal && managingSubtest && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-[#f8fafc] w-full max-w-[96vw] xl:max-w-7xl h-[90vh] rounded-[32px] shadow-2xl overflow-hidden flex flex-col">
-            
-            {/* Modal Header */}
-            <div className="px-8 py-5 border-b border-[#e2e8f0] flex justify-between items-center bg-white shrink-0">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#dae1ff] text-[#0050cb] text-[10px] font-bold uppercase tracking-wider">
-                    {selectedPackage?.title}
-                  </span>
-                  <span className="text-[12px] text-[#727687] font-semibold">•</span>
-                  <span className="text-[12px] text-[#727687] font-bold uppercase">
-                    Subtes {ensureArray(selectedPackage?.subject_config).findIndex(sub => sub.name === managingSubtest.name) + 1}
-                  </span>
-                </div>
-                <h2 className="text-[22px] sm:text-[24px] font-extrabold text-[#191b24] tracking-tight">
-                  Kelola Soal: {managingSubtest.name}
-                </h2>
-              </div>
-              <button
-                onClick={() => {
-                  setShowManageQuestionsModal(false);
-                  setManagingSubtest(null);
-                  setSubtestQuestions([]);
-                  setShowImportTab(false);
-                  setImportPreview([]);
-                  setImportFile(null);
-                }}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-all text-[#424656]"
-                title="Tutup"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            {/* Modal Navigation (Tabs) */}
-            <div className="flex items-center justify-between border-b border-[#e2e8f0] bg-white px-8 shrink-0">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowImportTab(false)}
-                  className={`px-4 py-3 font-bold text-[13px] border-b-2 transition-all flex items-center gap-2 ${
-                    !showImportTab
-                      ? 'border-[#0050cb] text-[#0050cb]'
-                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
-                  Daftar Soal ({ensureArray(subtestQuestions).length})
-                </button>
-                <button
-                  onClick={() => setShowImportTab(true)}
-                  className={`px-4 py-3 font-bold text-[13px] border-b-2 transition-all flex items-center gap-2 ${
-                    showImportTab
-                      ? 'border-[#0050cb] text-[#0050cb]'
-                      : 'border-transparent text-[#727687] hover:text-[#191b24]'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">upload_file</span>
-                  Import Excel
-                </button>
-              </div>
-
-            </div>
-
-            {/* Modal Body Container */}
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-[#f8fafc]">
-              
-              {/* Tab 1: Daftar Soal with Split Layout */}
-              {!showImportTab && (
-                <>
-                  {questionsLoading ? (
-                    <div className="flex-1 flex flex-col items-center justify-center py-12">
-                      <span className="material-symbols-outlined animate-spin text-[32px] text-[#0050cb]">progress_activity</span>
-                      <span className="mt-3 text-[14px] text-[#727687] font-semibold">Memuat soal subtes...</span>
-                    </div>
-                  ) : !ensureArray(subtestQuestions).length ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-white m-6 rounded-3xl border border-dashed border-[#c2c6d8]/40">
-                      <span className="material-symbols-outlined text-[56px] text-[#c2c6d8] mb-4">description</span>
-                      <h3 className="text-[18px] font-bold text-[#191b24] mb-1">Belum Ada Soal</h3>
-                      <p className="text-[14px] text-[#727687] max-w-sm mb-6">Subtes ini belum memiliki soal. Silakan tambah soal dengan mengimport file Excel templates.</p>
-                      <button
-                        onClick={() => setShowImportTab(true)}
-                        className="px-6 py-2.5 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all flex items-center gap-2 text-[13px] shadow-md shadow-[#0050cb]/10"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">upload_file</span>
-                        Import dari Excel
-                      </button>
-                    </div>
-                  ) : (
-                    /* Double Panel layout */
-                    <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0 w-full">
-                      
-                      {/* Left Panel: Number Navigation */}
-                      <div className="w-full lg:w-[260px] border-r border-[#e2e8f0] bg-slate-50 flex flex-col min-h-0 shrink-0">
-                        {/* Header */}
-                        <div className="p-4 bg-white border-b border-[#e2e8f0] shrink-0">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-[13px] font-bold text-[#191b24]">Navigasi Soal</h4>
-                            <span className="text-[11px] font-bold text-[#727687] bg-slate-100 px-2 py-0.5 rounded-full">
-                              {ensureArray(subtestQuestions).length} Soal
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Number Grid */}
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar min-h-0">
-                          <div className="grid grid-cols-5 gap-2">
-                            {ensureArray(subtestQuestions).map((q, idx) => {
-                              const isSelected = q.id === activeQuestionId;
-                              const diffColor = q.difficulty === 'easy'
-                                ? 'bg-emerald-400'
-                                : q.difficulty === 'medium'
-                                  ? 'bg-amber-400'
-                                  : 'bg-red-400';
-                              return (
-                                <button
-                                  key={q.id}
-                                  onClick={() => {
-                                    setActiveQuestionId(q.id);
-                                    setEditingQuestion(null);
-                                  }}
-                                  className={`relative w-full aspect-square rounded-xl border text-[14px] font-bold transition-all flex items-center justify-center ${
-                                    isSelected
-                                      ? 'bg-[#0050cb] border-[#0050cb] text-white shadow-lg shadow-[#0050cb]/20 scale-105'
-                                      : 'bg-white border-slate-200 text-[#191b24] hover:border-[#0050cb]/40 hover:bg-[#f2f3ff]'
-                                  }`}
-                                  title={`Soal ${idx + 1} — ${q.difficulty === 'easy' ? 'Mudah' : q.difficulty === 'medium' ? 'Sedang' : 'Sulit'}`}
-                                >
-                                  {idx + 1}
-                                  <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${isSelected ? 'bg-white/60' : diffColor}`} />
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {ensureArray(subtestQuestions).length === 0 && (
-                            <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-[#c2c6d8]/30 p-6">
-                              <span className="material-symbols-outlined text-[28px] text-[#c2c6d8] mb-2">quiz</span>
-                              <p className="text-[12px] text-[#727687] font-bold">Belum ada soal</p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Legend */}
-                        <div className="px-4 py-2.5 border-t border-[#e2e8f0] bg-white shrink-0">
-                          <div className="flex items-center justify-center gap-4 text-[10px] font-bold text-[#727687]">
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />Mudah</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Sedang</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />Sulit</span>
-                          </div>
-                        </div>
-
-                        {/* Sidebar Footer */}
-                        {ensureArray(subtestQuestions).length > 0 && (
-                          <div className="p-4 border-t border-[#e2e8f0] bg-white shrink-0">
-                            <button
-                              onClick={handleDeleteAllQuestions}
-                              className="w-full py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 border border-red-100 text-[12px] font-bold"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
-                              Hapus Semua Soal ({ensureArray(subtestQuestions).length})
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Right Panel: Selected Question Preview/Edit */}
-                      <div className="flex-1 bg-white flex flex-col min-h-0 overflow-hidden">
-                        {(() => {
-                          const selectedQuestion = ensureArray(subtestQuestions).find(q => q.id === activeQuestionId);
-                          if (!selectedQuestion) {
-                            return (
-                              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/50">
-                                <span className="material-symbols-outlined text-[64px] text-[#c2c6d8] mb-4">description</span>
-                                <h4 className="text-[16px] font-bold text-[#191b24]">Belum Ada Soal Terpilih</h4>
-                                <p className="text-[13px] text-[#727687] max-w-xs mt-1">Pilih salah satu soal di daftar sebelah kiri untuk melihat detail atau mengedit.</p>
-                              </div>
-                            );
-                          }
-                          const idx = ensureArray(subtestQuestions).findIndex(q => q.id === selectedQuestion.id);
-
-                          return (
-                            <>
-                              {/* Top Panel Bar */}
-                              <div className="px-6 py-4 border-b border-[#e2e8f0] bg-[#faf8ff]/50 flex flex-wrap justify-between items-center gap-4 shrink-0">
-                                <div className="flex items-center gap-3">
-                                  <h3 className="text-[16px] font-extrabold text-[#191b24]">
-                                    Detail Soal {idx + 1}
-                                  </h3>
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                    selectedQuestion.difficulty === 'easy' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                    selectedQuestion.difficulty === 'medium' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-                                    'bg-red-50 text-red-700 border border-red-200'
-                                  }`}>
-                                    {selectedQuestion.difficulty === 'easy' ? 'Mudah' : selectedQuestion.difficulty === 'medium' ? 'Sedang' : 'Sulit'}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => handleMoveQuestionUp(idx)}
-                                    disabled={idx === 0}
-                                    className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="Naikkan Urutan"
-                                  >
-                                    <span className="material-symbols-outlined text-[20px]">arrow_upward</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleMoveQuestionDown(idx)}
-                                    disabled={idx === ensureArray(subtestQuestions).length - 1}
-                                    className="p-2 text-[#0050cb] hover:bg-[#f2f3ff] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="Turunkan Urutan"
-                                  >
-                                    <span className="material-symbols-outlined text-[20px]">arrow_downward</span>
-                                  </button>
-
-                                  <div className="h-6 w-px bg-slate-200 mx-2"></div>
-
-                                  <button
-                                    onClick={() => handleShuffleChoices(selectedQuestion)}
-                                    className="px-3 py-1.5 rounded-xl text-[#0050cb] hover:bg-[#f2f3ff] transition-all flex items-center gap-1 text-[12px] font-bold"
-                                    title="Acak pilihan jawaban"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">shuffle</span>
-                                    Acak Opsi
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleRemoveQuestion(selectedQuestion.id)}
-                                    className="px-3 py-1.5 rounded-xl text-red-600 hover:bg-red-50 transition-all flex items-center gap-1 text-[12px] font-bold"
-                                    title="Hapus soal ini"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                                    Hapus Soal
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Content Area */}
-                              <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6 custom-scrollbar min-h-0">
-                                {editingQuestion && editingQuestion.id === selectedQuestion.id ? (
-                                  /* INLINE EDITOR */
-                                  <div className="space-y-6 max-w-3xl">
-                                    <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-3">
-                                      <div>
-                                        <h4 className="text-[15px] font-bold text-[#191b24]">Edit Konten Soal</h4>
-                                        <p className="text-[12px] text-[#727687]">Sesuaikan pertanyaan, gambar pendukung, dan bobot tingkat kesulitan.</p>
-                                      </div>
-                                      <span className="text-[11px] font-extrabold text-[#0050cb] bg-[#dae1ff] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                                        Edit Mode
-                                      </span>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                      <div>
-                                        <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Stimulus / Wacana (Opsional)</label>
-                                        <textarea
-                                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/80 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[100px] font-medium leading-relaxed"
-                                          value={editingQuestion.stimulus || ''}
-                                          onChange={(e) => setEditingQuestion({ ...editingQuestion, stimulus: e.target.value })}
-                                          placeholder="Masukkan stimulus/wacana di sini (opsional). Akan ditampilkan di atas pertanyaan."
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Isi Pertanyaan</label>
-                                        <textarea
-                                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[160px] font-medium leading-relaxed"
-                                          value={editingQuestion.content}
-                                          onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
-                                          placeholder="Tulis soal di sini. Gunakan sintaks LaTeX seperti $...$ atau $$...$$ untuk rumus matematika."
-                                        />
-                                      </div>
-
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                          <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Tingkat Kesulitan</label>
-                                          <select
-                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-[#0050cb] outline-none text-[14px] font-bold text-[#191b24]"
-                                            value={editingQuestion.difficulty}
-                                            onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value })}
-                                          >
-                                            <option value="easy">Easy (Mudah)</option>
-                                            <option value="medium">Medium (Sedang)</option>
-                                            <option value="hard">Hard (Sulit)</option>
-                                          </select>
-                                        </div>
-
-                                        {editingQuestion.image_url && (
-                                          <div>
-                                            <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">Posisi Gambar</label>
-                                            <div className="flex gap-4 py-2">
-                                              <label className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
-                                                <input
-                                                  type="radio"
-                                                  name="inline_img_pos"
-                                                  value="top"
-                                                  checked={['top', 'before', 'atas'].includes(editingQuestion.image_position)}
-                                                  onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'top' })}
-                                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
-                                                />
-                                                Atas
-                                              </label>
-                                              <label className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
-                                                <input
-                                                  type="radio"
-                                                  name="inline_img_pos"
-                                                  value="middle"
-                                                  checked={['middle', 'ditengah', 'tengah'].includes(editingQuestion.image_position)}
-                                                  onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'middle' })}
-                                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
-                                                />
-                                                Tengah
-                                              </label>
-                                              <label className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
-                                                <input
-                                                  type="radio"
-                                                  name="inline_img_pos"
-                                                  value="bottom"
-                                                  checked={['bottom', 'after', 'bawah'].includes(editingQuestion.image_position) || !editingQuestion.image_position}
-                                                  onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'bottom' })}
-                                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
-                                                />
-                                                Bawah (Default)
-                                              </label>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      <div className="border border-slate-200/60 rounded-xl p-4 bg-slate-50/50">
-                                        <ImageUpload
-                                          label="Gambar Pendukung Soal (Opsional)"
-                                          value={editingQuestion.image_url || ''}
-                                          onChange={(url) => setEditingQuestion({ ...editingQuestion, image_url: url })}
-                                          folder="tryout/soal"
-                                          aspectRatio="aspect-video"
-                                        />
-                                      </div>
-
-                                      {editingQuestion.choices && editingQuestion.choices.length > 0 && (
-                                        <div>
-                                          <div className="flex items-center justify-between mb-2">
-                                            <label className="block text-[13px] font-bold text-[#191b24]">Pilihan Jawaban (Non-Editable)</label>
-                                            <span className="text-[10px] font-bold text-[#727687] bg-slate-100 px-2 py-0.5 rounded">
-                                              Modifikasi via Re-import Excel
-                                            </span>
-                                          </div>
-                                          <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
-                                            {editingQuestion.choices.map((choice) => (
-                                              <div key={choice.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white">
-                                                <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold ${
-                                                  choice.is_correct ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                  {choice.label}
-                                                </span>
-                                                <span className="text-[13px] text-[#191b24] font-medium flex-1">
-                                                  <MathText text={choice.content} />
-                                                </span>
-                                                {choice.is_correct && (
-                                                  <span className="text-green-600 text-[11px] font-bold flex items-center gap-0.5">
-                                                    <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                                                    Kunci
-                                                  </span>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Action buttons */}
-                                    <div className="flex justify-end gap-3 pt-4 border-t border-[#e2e8f0]">
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditingQuestion(null)}
-                                        className="px-6 py-2.5 border border-slate-200 text-[#424656] font-bold rounded-xl hover:bg-slate-50 transition-all text-[13px]"
-                                      >
-                                        Batal
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={handleSaveQuestion}
-                                        className="px-8 py-2.5 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all text-[13px] flex items-center gap-1.5 shadow-sm shadow-[#0050cb]/10"
-                                      >
-                                        <span className="material-symbols-outlined text-[16px]">save</span>
-                                        Simpan Perubahan
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  /* PREVIEW MODE */
-                                  <div className="space-y-6">
-                                    
-                                    {/* Question box Card */}
-                                    <div className="p-8 bg-slate-50/50 rounded-3xl border border-slate-100 space-y-5">
-                                      {/* TOP IMAGE */}
-                                      {selectedQuestion.image_url && ['top', 'before', 'atas'].includes(selectedQuestion.image_position) && (
-                                        <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
-                                          <ZoomableImage
-                                            src={selectedQuestion.image_url}
-                                            alt="Soal"
-                                            className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
-                                          />
-                                        </div>
-                                      )}
-
-                                      {/* STIMULUS */}
-                                      {selectedQuestion.stimulus && (
-                                        <div className="text-[18px] text-slate-800 font-semibold leading-relaxed whitespace-pre-wrap">
-                                          <MathText text={selectedQuestion.stimulus} />
-                                        </div>
-                                      )}
-
-                                      {/* MIDDLE IMAGE */}
-                                      {selectedQuestion.image_url && ['middle', 'ditengah', 'tengah'].includes(selectedQuestion.image_position) && (
-                                        <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
-                                          <ZoomableImage
-                                            src={selectedQuestion.image_url}
-                                            alt="Soal"
-                                            className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
-                                          />
-                                        </div>
-                                      )}
-
-                                      <div className="text-[18px] text-slate-800 font-semibold leading-[1.8] whitespace-pre-wrap">
-                                        <MathText text={selectedQuestion.content || ''} />
-                                      </div>
-
-                                      {/* BOTTOM IMAGE */}
-                                      {selectedQuestion.image_url && (['bottom', 'after', 'bawah'].includes(selectedQuestion.image_position) || !['top', 'before', 'atas', 'middle', 'ditengah', 'tengah'].includes(selectedQuestion.image_position)) && (
-                                        <div className="p-3 border border-slate-100 bg-white rounded-2xl inline-block max-w-full">
-                                          <ZoomableImage
-                                            src={selectedQuestion.image_url}
-                                            alt="Soal"
-                                            className="max-w-[500px] max-h-[300px] rounded-xl object-contain"
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Choices cards list */}
-                                    {selectedQuestion.choices && selectedQuestion.choices.length > 0 && (
-                                      <div className="space-y-4">
-                                        <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider">Opsi Jawaban</h4>
-                                        <div className="space-y-3.5">
-                                          {selectedQuestion.choices.map((choice) => {
-                                            const isCorrect = choice.is_correct;
-                                            return (
-                                              <div
-                                                key={choice.id}
-                                                className={`p-5 rounded-xl border flex items-start gap-4 transition-all ${
-                                                  isCorrect
-                                                    ? 'bg-emerald-50/50 border-emerald-300 text-emerald-950 shadow-sm'
-                                                    : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300'
-                                                }`}
-                                              >
-                                                <span className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[14px] font-extrabold ${
-                                                  isCorrect
-                                                    ? 'bg-emerald-600 text-white'
-                                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
-                                                }`}>
-                                                  {choice.label}
-                                                </span>
-                                                <div className="flex-1 text-[16px] font-semibold leading-[1.7] pt-0.5 text-slate-900">
-                                                  <MathText text={choice.content} />
-                                                </div>
-                                                {isCorrect && (
-                                                  <span className="bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider shrink-0">
-                                                    <span className="material-symbols-outlined text-[14px]">check</span>
-                                                    Kunci Jawaban
-                                                  </span>
-                                                )}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Pembahasan / Explanation */}
-                                    {(() => {
-                                      const correctChoice = selectedQuestion.choices?.find(c => c.is_correct);
-                                      const explanation = correctChoice?.explanation || selectedQuestion.choices?.find(c => c.explanation)?.explanation;
-                                      if (!explanation) return null;
-                                      return (
-                                        <div className="space-y-3">
-                                          <h4 className="text-[13px] font-bold text-[#727687] uppercase tracking-wider flex items-center gap-1.5">
-                                            <span className="material-symbols-outlined text-[16px]">menu_book</span>
-                                            Pembahasan
-                                          </h4>
-                                          <div className="p-6 rounded-xl bg-sky-50/60 border border-sky-200/60">
-                                            <div className="text-[16px] text-slate-800 leading-[1.8] whitespace-pre-wrap">
-                                              <MathText text={explanation} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
-
-                                    {/* Edit Soal button */}
-                                    <div className="flex justify-end pt-4">
-                                      <button
-                                        onClick={() => setEditingQuestion({ ...selectedQuestion })}
-                                        className="px-6 py-3 bg-[#0050cb] text-white font-bold rounded-xl hover:bg-[#003fa4] transition-all flex items-center gap-2 text-[13px] shadow-md shadow-[#0050cb]/15"
-                                      >
-                                        <span className="material-symbols-outlined text-[18px]">edit</span>
-                                        Edit Soal Ini
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Tab 2: Import Excel */}
-              {showImportTab && (
-                <div className="overflow-y-auto p-10 flex-1 bg-white custom-scrollbar">
-                  <div className="space-y-6 max-w-4xl mx-auto">
-                    {ensureArray(importPreview).length === 0 ? (
-                      <div
-                        className="border-2 border-dashed border-slate-300 hover:border-[#0050cb] rounded-[24px] p-16 text-center cursor-pointer hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center group"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 group-hover:bg-[#f2f3ff] group-hover:text-[#0050cb] flex items-center justify-center transition-all mb-4">
-                          <span className="material-symbols-outlined text-[36px]">cloud_upload</span>
-                        </div>
-                        <p className="text-[18px] font-extrabold text-[#191b24] mb-1">Unggah Template Soal Excel</p>
-                        <p className="text-[14px] text-[#727687] max-w-md">Format yang didukung: .xlsx, .xls, atau .csv. Pastikan format kolom sesuai dengan template standar.</p>
-                        <div className="mt-4 px-4 py-2 rounded-xl bg-slate-100 text-[11px] font-bold text-[#424656] border border-slate-200 max-w-xl leading-relaxed text-left">
-                          <strong>Kolom yang diperlukan:</strong> question, choice_a, choice_b, choice_c, choice_d, choice_e, correct_answer, explanation
-                        </div>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept=".xlsx,.xls,.csv"
-                          onChange={handleImportFileChange}
-                          className="hidden"
-                        />
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-emerald-800">
-                            <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-                            <span className="text-[14px] font-bold">
-                              Berhasil membaca file. {ensureArray(importPreview).length} baris data siap diimport.
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setImportPreview([]);
-                              setImportFile(null);
-                              if (fileInputRef.current) fileInputRef.current.value = '';
-                            }}
-                            className="text-[12px] font-bold text-red-600 hover:text-red-800 underline"
-                          >
-                            Reset File
-                          </button>
-                        </div>
-
-                        {/* List preview of top 5 rows */}
-                        <div className="space-y-3">
-                          <h4 className="text-[12px] font-bold text-[#727687] uppercase tracking-wider">Preview 5 Soal Pertama</h4>
-                          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                            {importPreview.slice(0, 5).map((row, idx) => {
-                              const keys = Object.keys(row).map(k => k.replace(/^\uFEFF/, '').trim());
-                              const vals = Object.values(row);
-                              const findCol = (...aliases) => {
-                                for (const alias of aliases) {
-                                  const i = keys.findIndex(k => k.toLowerCase() === alias.toLowerCase());
-                                  if (i !== -1 && vals[i] !== undefined && vals[i] !== '') return String(vals[i]).trim();
-                                }
-                                return '';
-                              };
-                              const soal = findCol('soal', 'content', 'question', 'pertanyaan');
-                              const kunci = findCol('kunci jawaban', 'kunci', 'jawaban', 'answer');
-                              return (
-                                <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-left">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-[11px] font-extrabold text-[#0050cb] uppercase tracking-wider">Soal {idx + 1}</span>
-                                    {kunci && (
-                                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                        Kunci: {kunci.toUpperCase()}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[13px] text-slate-800 font-bold leading-relaxed whitespace-pre-wrap">{soal || 'Soal tidak terdeteksi'}</p>
-                                  <div className="flex flex-wrap gap-2 mt-2.5">
-                                    {['A','B','C','D','E'].map(label => {
-                                      const val = findCol(`opsi ${label.toLowerCase()}`, `choice_${label.toLowerCase()}`, label.toLowerCase(), label);
-                                      if (!val) return null;
-                                      return (
-                                        <span key={label} className={`text-[11px] px-2.5 py-1 rounded-lg border text-slate-700 ${
-                                          kunci?.toUpperCase() === label
-                                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold'
-                                            : 'bg-white border-slate-200'
-                                        }`}>
-                                          <strong>{label}.</strong> {val.length > 40 ? val.slice(0, 40) + '...' : val}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {importPreview.length > 5 && (
-                            <p className="text-center text-[12px] text-[#727687] font-semibold py-1">
-                              +{importPreview.length - 5} soal lainnya tidak ditampilkan dalam preview
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Import tab Actions */}
-                        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-                          <button
-                            onClick={() => {
-                              setImportPreview([]);
-                              setImportFile(null);
-                              if (fileInputRef.current) fileInputRef.current.value = '';
-                            }}
-                            className="px-6 py-2.5 border border-slate-200 text-[#424656] font-bold rounded-xl hover:bg-slate-50 transition-all text-[13px]"
-                          >
-                            Batal
-                          </button>
-                          <button
-                            onClick={handleImportQuestions}
-                            disabled={importLoading}
-                            className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all disabled:opacity-60 text-[13px] flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">download</span>
-                            {importLoading ? 'Mengimport...' : 'Mulai Import Soal'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-8 py-5 border-t border-[#e2e8f0] flex justify-between items-center bg-white shrink-0">
-              <div className="flex items-center gap-4">
-                <span className="text-[12px] font-bold text-[#727687] uppercase tracking-wider">Kuota Soal Subtes:</span>
-                <span className={`text-[13px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 ${
-                  ensureArray(subtestQuestions).length >= managingSubtest.questionCount
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                }`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
-                  {ensureArray(subtestQuestions).length} / {managingSubtest.questionCount} Soal
-                </span>
-              </div>
-              <button
-                onClick={() => {
-                  setShowManageQuestionsModal(false);
-                  setManagingSubtest(null);
-                  setSubtestQuestions([]);
-                  setShowImportTab(false);
-                  setImportPreview([]);
-                  setImportFile(null);
-                }}
-                className="px-8 py-2.5 bg-[#191b24] text-white font-bold rounded-xl hover:bg-[#323647] transition-all text-[13px] shadow-sm active:scale-[0.98]"
-              >
-                Selesai
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

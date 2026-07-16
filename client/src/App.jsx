@@ -17,8 +17,6 @@ const TryoutSubtesSelect = React.lazy(() => import('./pages/tryout/TryoutSubtesS
 const Bookmark = React.lazy(() => import('./pages/Bookmark'));
 const Riwayat = React.lazy(() => import('./pages/Riwayat'));
 const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
-const InputSoal = React.lazy(() => import('./pages/admin/InputSoal'));
-const ImportCSV = React.lazy(() => import('./pages/admin/ImportCSV'));
 const UserManagement = React.lazy(() => import('./pages/admin/UserManagement'));
 const AdminSettings = React.lazy(() => import('./pages/admin/AdminSettings'));
 const ManageLatihan = React.lazy(() => import('./pages/admin/ManageLatihan'));
@@ -27,6 +25,8 @@ const LatihanResult = React.lazy(() => import('./pages/tryout/LatihanResult'));
 const TryoutResult = React.lazy(() => import('./pages/tryout/TryoutResult'));
 const TopikLatihan = React.lazy(() => import('./pages/tryout/TopikLatihan'));
 const ManageTryout = React.lazy(() => import('./pages/admin/ManageTryout'));
+const TryoutDashboard = React.lazy(() => import('./pages/admin/TryoutDashboard'));
+const QuestionReview = React.lazy(() => import('./pages/admin/QuestionReview'));
 const ManageBattleSoal = React.lazy(() => import('./pages/admin/ManageBattleSoal'));
 const PricingPage = React.lazy(() => import('./pages/PricingPage'));
 const PaketBelajar = React.lazy(() => import('./pages/PaketBelajar'));
@@ -164,12 +164,12 @@ function App() {
             {/* Admin Routes */}
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboard />}>
-                <Route path="input" element={<InputSoal />} />
-                <Route path="import" element={<ImportCSV />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="latihan" element={<ManageLatihan />} />
                 <Route path="tryout" element={<ManageTryout />} />
+                <Route path="tryout-dashboard" element={<TryoutDashboard />} />
+                <Route path="question-review" element={<QuestionReview />} />
                 <Route path="battle" element={<ManageBattleSoal />} />
                 <Route path="ujian-mandiri" element={<ManageUjianMandiri />} />
                 <Route element={<AdminSKDRoute />}>

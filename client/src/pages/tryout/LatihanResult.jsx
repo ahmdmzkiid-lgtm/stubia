@@ -172,64 +172,81 @@ const LatihanResult = () => {
         </div>
 
         {/* Hero Section: Celebratory Result */}
-        <section className="py-12 md:py-20 px-4 md:px-10 max-w-[1440px] mx-auto">
-          <div className="relative overflow-hidden bg-[#0066ff] rounded-[24px] p-8 md:p-16 text-white flex flex-col items-center text-center shadow-lg">
+        <section className="py-6 sm:py-10 md:py-20 px-4 md:px-10 max-w-[1440px] mx-auto">
+          <div className="relative overflow-hidden bg-[#0066ff] rounded-[16px] sm:rounded-[24px] p-5 sm:p-8 md:p-12 lg:p-16 text-white flex flex-col items-center text-center shadow-lg">
             {/* Abstract Background Shapes */}
-            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-64 h-64 bg-[#00c1fd] opacity-10 rounded-full blur-2xl"></div>
+            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-48 sm:w-96 h-48 sm:h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-32 sm:w-64 h-32 sm:h-64 bg-[#00c1fd] opacity-10 rounded-full blur-2xl"></div>
             <div className="z-10 flex flex-col items-center">
-              <div className="mb-6 inline-flex items-center justify-center p-4 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                <span className="material-symbols-outlined text-[48px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+              <div className="mb-4 sm:mb-6 inline-flex items-center justify-center p-2.5 sm:p-4 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                <span className="material-symbols-outlined text-[32px] sm:text-[48px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                   {score >= 70 ? 'workspace_premium' : score >= 40 ? 'emoji_events' : 'school'}
                 </span>
               </div>
-              <h1 className="text-[28px] sm:text-[36px] md:text-[48px] font-bold mb-4 leading-tight">
+              <h1 className="text-[22px] sm:text-[32px] md:text-[48px] font-bold mb-2 sm:mb-4 leading-tight">
                 {score >= 80 ? 'Excellent!' : score >= 60 ? 'Bagus Sekali!' : score >= 40 ? 'Terus Berlatih!' : 'Jangan Menyerah!'}
               </h1>
-              <p className="text-[16px] md:text-[18px] text-white/80 max-w-2xl mb-12 leading-relaxed">
+              <p className="text-[13px] sm:text-[15px] md:text-[18px] text-white/80 max-w-2xl mb-6 sm:mb-10 md:mb-12 leading-relaxed">
                 Kamu telah menyelesaikan latihan <strong>{subjectName}</strong>. 
                 {score >= 70 ? ' Kemampuan analitismu menunjukkan progres yang bagus.' : ' Review pembahasan di bawah untuk memahami konsep lebih baik.'}
               </p>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-5 w-full max-w-3xl">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 md:gap-5 w-full max-w-3xl">
                 {/* IRT Score */}
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 md:p-6 flex flex-col items-center justify-center">
-                  <span className="text-[32px] md:text-[40px] font-bold">{irtScore}</span>
-                  <span className="text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Skor IRT</span>
-                  <span className="text-[10px] text-white/40 mt-0.5">/1000</span>
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg sm:rounded-xl p-2.5 sm:p-4 md:p-6 flex flex-col items-center justify-center">
+                  <span className="text-[20px] sm:text-[28px] md:text-[40px] font-bold">{irtScore}</span>
+                  <span className="text-[8px] sm:text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Skor IRT</span>
+                  <span className="text-[8px] sm:text-[10px] text-white/40 mt-0.5">/1000</span>
                 </div>
                 {/* Percentile */}
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 md:p-6 flex flex-col items-center justify-center">
-                  <span className="text-[28px] md:text-[36px] font-bold">{percentile}<span className="text-[16px]">%</span></span>
-                  <span className="text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Persentil</span>
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg sm:rounded-xl p-2.5 sm:p-4 md:p-6 flex flex-col items-center justify-center">
+                  <span className="text-[18px] sm:text-[24px] md:text-[36px] font-bold">{percentile}<span className="text-[12px] sm:text-[16px]">%</span></span>
+                  <span className="text-[8px] sm:text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Persentil</span>
                 </div>
                 {/* Correct */}
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 md:p-6 flex flex-col items-center justify-center">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="material-symbols-outlined text-[#00c1fd]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    <span className="text-[20px] md:text-[24px] font-semibold">{correctCount}</span>
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg sm:rounded-xl p-2.5 sm:p-4 md:p-6 flex flex-col items-center justify-center">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                    <span className="material-symbols-outlined text-[#00c1fd] text-[16px] sm:text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    <span className="text-[16px] sm:text-[20px] md:text-[24px] font-semibold">{correctCount}</span>
                   </div>
-                  <span className="text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Benar</span>
+                  <span className="text-[8px] sm:text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Benar</span>
                 </div>
                 {/* Incorrect */}
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 md:p-6 flex flex-col items-center justify-center">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="material-symbols-outlined text-[#ffdad6]" style={{ fontVariationSettings: "'FILL' 1" }}>cancel</span>
-                    <span className="text-[20px] md:text-[24px] font-semibold">{incorrectCount}</span>
+                <div className="hidden sm:flex bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg sm:rounded-xl p-2.5 sm:p-4 md:p-6 flex-col items-center justify-center">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                    <span className="material-symbols-outlined text-[#ffdad6] text-[16px] sm:text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>cancel</span>
+                    <span className="text-[16px] sm:text-[20px] md:text-[24px] font-semibold">{incorrectCount}</span>
                   </div>
-                  <span className="text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Salah</span>
+                  <span className="text-[8px] sm:text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Salah</span>
                 </div>
                 {/* Total */}
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 md:p-6 flex flex-col items-center justify-center">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="material-symbols-outlined text-white/80">quiz</span>
-                    <span className="text-[20px] md:text-[24px] font-semibold">{totalQuestions}</span>
+                <div className="hidden sm:flex bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg sm:rounded-xl p-2.5 sm:p-4 md:p-6 flex-col items-center justify-center">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                    <span className="material-symbols-outlined text-white/80 text-[16px] sm:text-[22px]">quiz</span>
+                    <span className="text-[16px] sm:text-[20px] md:text-[24px] font-semibold">{totalQuestions}</span>
                   </div>
-                  <span className="text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Total Soal</span>
+                  <span className="text-[8px] sm:text-[10px] md:text-[12px] text-white/60 uppercase tracking-wider font-semibold">Total Soal</span>
                   {typeof unansweredCount === 'number' && (
-                    <span className="text-[10px] text-white/80 mt-1">
+                    <span className="text-[9px] sm:text-[10px] text-white/80 mt-1">
                       Kosong: <strong>{unansweredCount}</strong>
                     </span>
                   )}
+                </div>
+              </div>
+              {/* Mobile-only: Salah + Total row */}
+              <div className="flex sm:hidden gap-2 mt-2 w-full">
+                <div className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-2.5 flex flex-col items-center justify-center">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="material-symbols-outlined text-[#ffdad6] text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>cancel</span>
+                    <span className="text-[16px] font-semibold">{incorrectCount}</span>
+                  </div>
+                  <span className="text-[8px] text-white/60 uppercase tracking-wider font-semibold">Salah</span>
+                </div>
+                <div className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-2.5 flex flex-col items-center justify-center">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="material-symbols-outlined text-white/80 text-[16px]">quiz</span>
+                    <span className="text-[16px] font-semibold">{totalQuestions}</span>
+                  </div>
+                  <span className="text-[8px] text-white/60 uppercase tracking-wider font-semibold">Total</span>
                 </div>
               </div>
             </div>
@@ -237,7 +254,7 @@ const LatihanResult = () => {
         </section>
 
         {/* Main Content Grid */}
-        <div className="max-w-[1440px] mx-auto px-4 md:px-10 pb-12 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="max-w-[1440px] mx-auto px-4 md:px-10 pb-8 sm:pb-12 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
           {/* Left Column: Pembahasan */}
           <section className="lg:col-span-8 order-2 lg:order-1">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">

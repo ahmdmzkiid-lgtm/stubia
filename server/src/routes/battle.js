@@ -24,14 +24,14 @@ router.post('/create', verifyToken, async (req, res, next) => {
 
     // Get battle questions first, fallback to manual questions if none exist
     let questionsRes = await client.query(
-      `SELECT id FROM questions WHERE subject_id = $1 AND source = 'battle' ORDER BY RANDOM() LIMIT $2`,
+      `SELECT id FROM questions WHERE subject_id = $1 AND source = 'battle' AND workflow_status = 'approved' ORDER BY RANDOM() LIMIT $2`,
       [subject_id, question_count]
     );
 
     // Fallback: if no battle-specific questions, use manual questions
     if (questionsRes.rows.length === 0) {
       questionsRes = await client.query(
-        `SELECT id FROM questions WHERE subject_id = $1 AND source = 'manual' ORDER BY RANDOM() LIMIT $2`,
+        `SELECT id FROM questions WHERE subject_id = $1 AND source = 'manual' AND workflow_status = 'approved' ORDER BY RANDOM() LIMIT $2`,
         [subject_id, question_count]
       );
     }

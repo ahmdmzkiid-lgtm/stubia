@@ -741,7 +741,7 @@ router.post("/start", verifyToken, async (req, res, next) => {
           const subjectId = subjectRes.rows[0].id;
           // Only pick questions linked to this specific tryout package (no fallback to latihan)
           const linkedRes = await client.query(
-            "SELECT id FROM questions WHERE subject_id = $1 AND tryout_package_id = $2 ORDER BY display_order ASC, created_at ASC, id ASC LIMIT $3",
+            "SELECT id FROM questions WHERE subject_id = $1 AND tryout_package_id = $2 AND workflow_status = 'approved' ORDER BY display_order ASC, created_at ASC, id ASC LIMIT $3",
             [subjectId, package_id, questionCount],
           );
           let subQuestionIds = linkedRes.rows.map((q) => q.id);

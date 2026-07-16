@@ -19,6 +19,7 @@ const {
 router.get("/", verifyToken, async (req, res, next) => {
   try {
     const {
+      id,
       subject_id,
       topic_id,
       subject_name,
@@ -26,6 +27,7 @@ router.get("/", verifyToken, async (req, res, next) => {
       tryout_package_id,
       source,
       exclude_completed,
+      workflow_status,
       page = 1,
       limit = 100,
     } = req.query;
@@ -107,7 +109,7 @@ router.get("/", verifyToken, async (req, res, next) => {
     }
 
     let query =
-      "SELECT id, subject_id, topic_id, content, image_url, image_position, difficulty, source, display_order, tryout_package_id, question_type, stimulus, created_at FROM questions WHERE 1=1";
+      "SELECT id, subject_id, topic_id, content, image_url, image_position, difficulty, source, display_order, tryout_package_id, question_type, stimulus, workflow_status, review_note, created_at FROM questions WHERE 1=1";
     const values = [];
 
     // Filter out completed questions by content_hash if exclude_completed is true
@@ -135,6 +137,11 @@ router.get("/", verifyToken, async (req, res, next) => {
         values.push(completedHashes);
         query += ` AND (content_hash IS NULL OR NOT (content_hash = ANY($${values.length}::varchar[])))`;
       }
+    }
+
+    if (id) {
+      values.push(id);
+      query += ` AND id = $${values.length}`;
     }
 
     if (subject_id) {
@@ -172,8 +179,7 @@ router.get("/", verifyToken, async (req, res, next) => {
     if (tryout_package_id) {
       values.push(tryout_package_id);
       query += ` AND tryout_package_id = $${values.length}`;
-      query += ` ORDER BY display_order ASC, created_at ASC, id ASC`;
-    } else {
+    } else if (!id) {
       // Jika tidak ada tryout_package_id (mode latihan), hanya tampilkan soal latihan (bukan soal tryout)
       query += " AND tryout_package_id IS NULL";
       if (source) {
@@ -182,8 +188,17 @@ router.get("/", verifyToken, async (req, res, next) => {
       } else {
         query += " AND (source IS NULL OR source != 'battle')";
       }
-      query += " ORDER BY display_order ASC, created_at ASC, id ASC";
     }
+
+    if (workflow_status) {
+      values.push(workflow_status);
+      query += ` AND workflow_status = $${values.length}`;
+    } else if (!(await isAdminUser(req.user.id, req.user.role))) {
+      // Students only see approved questions
+      query += " AND workflow_status = 'approved'";
+    }
+
+    query += " ORDER BY display_order ASC, created_at ASC, id ASC";
 
     query +=
       " LIMIT $" + (values.length + 1) + " OFFSET $" + (values.length + 2);
@@ -230,6 +245,7 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
     await client.query("BEGIN");
     const {
       subject_id,
+      topic_id,
       content,
       difficulty,
       choices,
@@ -238,6 +254,7 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
       question_type,
       correct_answer_text,
       stimulus,
+      tryout_package_id,
     } = req.body;
     const qType = question_type || "multiple_choice";
 
@@ -255,16 +272,30 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
     }
 
     // Get max display_order for this subject
-    const maxOrderRes = await client.query(
-      "SELECT COALESCE(MAX(display_order), 0) as max_order FROM questions WHERE subject_id = $1",
-      [subject_id],
-    );
+    let maxOrderRes;
+    if (tryout_package_id) {
+      maxOrderRes = await client.query(
+        "SELECT COALESCE(MAX(display_order), 0) as max_order FROM questions WHERE subject_id = $1 AND tryout_package_id = $2",
+        [subject_id, tryout_package_id],
+      );
+    } else if (topic_id) {
+      maxOrderRes = await client.query(
+        "SELECT COALESCE(MAX(display_order), 0) as max_order FROM questions WHERE subject_id = $1 AND topic_id = $2",
+        [subject_id, topic_id],
+      );
+    } else {
+      maxOrderRes = await client.query(
+        "SELECT COALESCE(MAX(display_order), 0) as max_order FROM questions WHERE subject_id = $1 AND tryout_package_id IS NULL AND topic_id IS NULL",
+        [subject_id],
+      );
+    }
     const nextDisplayOrder = (maxOrderRes.rows[0]?.max_order || 0) + 1;
 
     const qRes = await client.query(
-      "INSERT INTO questions (subject_id, content, difficulty, display_order, image_url, image_position, question_type, content_hash, stimulus) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
+      "INSERT INTO questions (subject_id, topic_id, content, difficulty, display_order, image_url, image_position, question_type, content_hash, stimulus, tryout_package_id, workflow_status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *",
       [
         subject_id,
+        topic_id || null,
         content,
         difficulty || "medium",
         nextDisplayOrder,
@@ -273,6 +304,9 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
         qType,
         hash,
         stimulus || null,
+        tryout_package_id || null,
+        'under_review',
+        req.user.id
       ],
     );
     const question = qRes.rows[0];
@@ -285,7 +319,7 @@ router.post("/", verifyToken, verifyAdmin, async (req, res, next) => {
         "INSERT INTO answer_choices (question_id, label, content, is_correct, explanation) VALUES ($1, $2, $3, $4, $5)",
         [question.id, "A", answerText, true, explanation],
       );
-    } else {
+    } else if (Array.isArray(choices) && choices.length > 0) {
       const choicePromises = choices.map((c) =>
         client.query(
           "INSERT INTO answer_choices (question_id, label, content, is_correct, explanation) VALUES ($1, $2, $3, $4, $5)",
@@ -518,9 +552,20 @@ router.patch(
 
 // Update Soal (Admin Only)
 router.patch("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
+  const client = await pool.connect();
   try {
+    await client.query("BEGIN");
     const { id } = req.params;
-    const { content, difficulty, image_url, image_position, stimulus } = req.body;
+    const {
+      content,
+      difficulty,
+      image_url,
+      image_position,
+      stimulus,
+      question_type,
+      choices,
+      correct_answer_text,
+    } = req.body;
 
     const updates = [];
     const values = [];
@@ -539,7 +584,7 @@ router.patch("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
     if (image_url !== undefined) {
       paramCount++;
       updates.push(`image_url = $${paramCount}`);
-      values.push(image_url);
+      values.push(image_url === "" ? null : image_url);
     }
     if (image_position !== undefined) {
       paramCount++;
@@ -549,32 +594,95 @@ router.patch("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
     if (stimulus !== undefined) {
       paramCount++;
       updates.push(`stimulus = $${paramCount}`);
-      values.push(stimulus);
+      values.push(stimulus === "" ? null : stimulus);
+    }
+    if (question_type !== undefined) {
+      paramCount++;
+      updates.push(`question_type = $${paramCount}`);
+      values.push(question_type);
     }
 
-    if (updates.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Tidak ada data yang diperbarui" });
+    if (updates.length > 0) {
+      values.push(id);
+      const result = await client.query(
+        `UPDATE questions SET ${updates.join(", ")} WHERE id = $${paramCount + 1} RETURNING *`,
+        values,
+      );
+      if (result.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res
+          .status(404)
+          .json({ success: false, error: "Soal tidak ditemukan" });
+      }
     }
 
-    values.push(id);
-    const result = await pool.query(
-      `UPDATE questions SET ${updates.join(", ")} WHERE id = $${paramCount + 1} RETURNING *`,
-      values,
-    );
-
-    if (result.rows.length === 0) {
+    // Get current question details to determine type
+    const qDetailsRes = await client.query("SELECT question_type FROM questions WHERE id = $1", [id]);
+    if (qDetailsRes.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res
         .status(404)
         .json({ success: false, error: "Soal tidak ditemukan" });
     }
+    const qType = question_type || qDetailsRes.rows[0].question_type || "multiple_choice";
+
+    if (qType === "short_answer") {
+      if (correct_answer_text !== undefined) {
+        const explanation = choices?.[0]?.explanation || null;
+        // Check if there is an existing choice
+        const existingChoiceRes = await client.query("SELECT id FROM answer_choices WHERE question_id = $1 LIMIT 1", [id]);
+        if (existingChoiceRes.rows.length > 0) {
+          await client.query(
+            "UPDATE answer_choices SET content = $1, is_correct = true, explanation = $2 WHERE id = $3",
+            [correct_answer_text, explanation, existingChoiceRes.rows[0].id]
+          );
+        } else {
+          await client.query(
+            "INSERT INTO answer_choices (question_id, label, content, is_correct, explanation) VALUES ($1, $2, $3, $4, $5)",
+            [id, "A", correct_answer_text, true, explanation]
+          );
+        }
+      }
+    } else if (choices !== undefined && Array.isArray(choices)) {
+      // Multiple choice updating
+      const clientChoiceIds = choices.filter(c => c.id).map(c => c.id);
+
+      // 1. Delete choices not in request list
+      if (clientChoiceIds.length > 0) {
+        await client.query(
+          "DELETE FROM answer_choices WHERE question_id = $1 AND id NOT IN (SELECT unnest($2::uuid[]))",
+          [id, clientChoiceIds]
+        );
+      } else {
+        await client.query(
+          "DELETE FROM answer_choices WHERE question_id = $1",
+          [id]
+        );
+      }
+
+      // 2. Insert or update choices
+      for (const choice of choices) {
+        if (choice.id) {
+          await client.query(
+            "UPDATE answer_choices SET label = $1, content = $2, is_correct = $3, explanation = $4 WHERE id = $5 AND question_id = $6",
+            [choice.label, choice.content, choice.is_correct || false, choice.explanation || null, choice.id, id]
+          );
+        } else {
+          await client.query(
+            "INSERT INTO answer_choices (question_id, label, content, is_correct, explanation) VALUES ($1, $2, $3, $4, $5)",
+            [id, choice.label, choice.content, choice.is_correct || false, choice.explanation || null]
+          );
+        }
+      }
+    }
+
+    await client.query("COMMIT");
 
     // Recalculate content hash
     await updateQuestionHash(pool, id, false);
     const updatedRes = await pool.query(
       "SELECT * FROM questions WHERE id = $1",
-      [id],
+      [id]
     );
 
     res.json({
@@ -582,6 +690,62 @@ router.patch("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
       data: updatedRes.rows[0],
       message: "Soal berhasil diperbarui",
     });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error updating question:", error);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+// Update Workflow Status (Admin / QA / Question Writer — role-gated transitions)
+router.patch("/:id/workflow", verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body;
+    const userRole = req.user.role;
+
+    if (!['draft', 'under_review', 'approved'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Status tidak valid. Gunakan: draft, under_review, atau approved' });
+    }
+
+    // Fetch current status
+    const current = await pool.query('SELECT workflow_status FROM questions WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Soal tidak ditemukan' });
+    }
+    const currentStatus = current.rows[0].workflow_status;
+
+    // Enforce role-based transition rules:
+    // question_writer: draft ↔ under_review
+    // quality_assurance: draft ↔ under_review
+    // admin: any transition
+    const isAdmin = userRole === 'admin';
+    const isQA = userRole === 'quality_assurance';
+    const isWriter = userRole === 'question_writer';
+
+    const allowed = (() => {
+      if (isAdmin) return true; // Admin can do anything
+      if (status === 'approved') return (isQA && currentStatus === 'under_review') || isAdmin;
+      if (status === 'draft' && currentStatus === 'under_review') return isQA || isAdmin;
+      if (status === 'under_review' && currentStatus === 'draft') return isWriter || isQA || isAdmin;
+      return false;
+    })();
+
+    if (!allowed) {
+      return res.status(403).json({ success: false, error: 'Anda tidak memiliki izin untuk transisi status ini' });
+    }
+
+    await pool.query('UPDATE questions SET workflow_status = $1, review_note = $2 WHERE id = $3', [status, note || null, id]);
+
+    const statusLabels = { draft: 'Draft', under_review: 'Under Review', approved: 'Approved' };
+    logAdminActivity(req, 'UPDATE', 'SOAL_WORKFLOW',
+      `Soal ID: ${id}`,
+      `Status diubah: ${statusLabels[currentStatus]} → ${statusLabels[status]}${note ? ` (${note})` : ''}`
+    );
+
+    return res.json({ success: true, message: `Status soal diubah ke ${statusLabels[status]}`, status });
   } catch (error) {
     next(error);
   }

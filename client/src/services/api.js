@@ -68,6 +68,7 @@ export const soalService = {
   deleteAllBySubject: (subjectId, params) => api.delete(`/soal/all/by-subject/${subjectId}`, { params }),
   shuffleChoices: (questionId) => api.post(`/soal/shuffle/${questionId}`),
   update: (id, data) => api.patch(`/soal/${id}`, data),
+  updateWorkflow: (id, data) => api.patch(`/soal/${id}/workflow`, data),
   reorderQuestions: (questionIds) => api.patch('/soal/reorder/batch', { questionIds }),
   getBySubject: (subjectName, params) => api.get('/soal/by-subject', { params: { subject: subjectName, ...params } }),
 };
@@ -118,6 +119,8 @@ export const adminService = {
   },
   getActivityLogs: (params) => api.get('/admin/activity-logs', { params }),
   clearActivityLogs: () => api.delete('/admin/activity-logs/clear'),
+  getTryoutDashboardStats: (params) => api.get('/admin/tryout-dashboard-stats', { params }),
+  getQuestionReview: (params) => api.get('/admin/question-review', { params }),
 };
 
 export const subjectService = {

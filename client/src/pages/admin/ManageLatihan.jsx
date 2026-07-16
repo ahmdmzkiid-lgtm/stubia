@@ -78,6 +78,7 @@ const ManageLatihan = () => {
   const [importLoading, setImportLoading] = useState(false);
   const [importPreview, setImportPreview] = useState([]);
   const importFileRef = useRef(null);
+  const autoLoadedRef = useRef(false);
 
   // Modal States
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -116,6 +117,49 @@ const ManageLatihan = () => {
       fetchTopics(selectedSubject.id);
     }
   }, [selectedSubject]);
+
+  useEffect(() => {
+    const autoLoadQuestion = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const qId = params.get('question_id');
+      const subId = params.get('subject_id');
+      
+      if (qId && subId && selectedSubject && topics.length > 0 && !autoLoadedRef.current) {
+        autoLoadedRef.current = true;
+        try {
+          const res = await soalService.list({ id: qId });
+          const question = res.data?.data?.[0];
+          if (question) {
+            const topic = topics.find(t => t.id === question.topic_id);
+            if (topic) {
+              setSelectedTopic(topic);
+              
+              setQuestionsLoading(true);
+              const listRes = await soalService.list({
+                subject_id: selectedSubject.id,
+                topic_id: topic.id
+              });
+              const qList = listRes.data?.data || [];
+              setQuestions(qList);
+              setQuestionsLoading(false);
+              
+              const fullQuestion = qList.find(q => q.id === qId) || question;
+              const isShortAnswer = fullQuestion.question_type === 'short_answer';
+              setEditingQuestion({
+                ...fullQuestion,
+                correct_answer_text: isShortAnswer ? fullQuestion.choices?.[0]?.content || '' : ''
+              });
+              setShowEditQuestionModal(true);
+            }
+          }
+        } catch (err) {
+          console.error("Auto load practice question failed:", err);
+        }
+      }
+    };
+    
+    autoLoadQuestion();
+  }, [selectedSubject, topics]);
 
   const fetchQuestions = async (subjectId, topicId, page = 1) => {
     setQuestionsLoading(true);
@@ -176,23 +220,76 @@ const ManageLatihan = () => {
     }
   };
 
+  const handleAddNewQuestionClick = () => {
+    setEditingQuestion({
+      content: '',
+      difficulty: 'medium',
+      question_type: 'multiple_choice',
+      choices: [
+        { _tempId: 'new_A', label: 'A', content: '', is_correct: true, explanation: '' },
+        { _tempId: 'new_B', label: 'B', content: '', is_correct: false, explanation: '' },
+        { _tempId: 'new_C', label: 'C', content: '', is_correct: false, explanation: '' },
+        { _tempId: 'new_D', label: 'D', content: '', is_correct: false, explanation: '' },
+        { _tempId: 'new_E', label: 'E', content: '', is_correct: false, explanation: '' }
+      ],
+      correct_answer_text: '',
+      stimulus: '',
+      image_url: '',
+      image_position: 'bottom'
+    });
+    setShowEditQuestionModal(true);
+  };
+
   const handleEditQuestion = (e, question) => {
     e.stopPropagation();
-    setEditingQuestion({ ...question });
+    const isShortAnswer = question.question_type === 'short_answer';
+    setEditingQuestion({
+      ...question,
+      correct_answer_text: isShortAnswer ? question.choices?.[0]?.content || '' : ''
+    });
     setShowEditQuestionModal(true);
   };
 
   const handleSaveQuestion = async () => {
     if (!editingQuestion) return;
     try {
-      await soalService.update(editingQuestion.id, {
-        content: editingQuestion.content,
-        difficulty: editingQuestion.difficulty,
-        image_url: editingQuestion.image_url || null,
-        image_position: editingQuestion.image_position || 'bottom',
-        stimulus: editingQuestion.stimulus || null,
-      });
-      toast.success("Soal berhasil disimpan");
+      if (editingQuestion.id) {
+        // Update Mode
+        await soalService.update(editingQuestion.id, {
+          content: editingQuestion.content,
+          difficulty: editingQuestion.difficulty,
+          image_url: editingQuestion.image_url || null,
+          image_position: editingQuestion.image_position || 'bottom',
+          stimulus: editingQuestion.stimulus || null,
+          question_type: editingQuestion.question_type || 'multiple_choice',
+          choices: editingQuestion.choices,
+          correct_answer_text: editingQuestion.correct_answer_text,
+        });
+        toast.success("Soal berhasil disimpan");
+      } else {
+        // Create Mode
+        if (!selectedSubject) {
+          toast.error("Pilih subtes terlebih dahulu");
+          return;
+        }
+        if (!selectedTopic) {
+          toast.error("Pilih topik terlebih dahulu");
+          return;
+        }
+        await soalService.create({
+          subject_id: selectedSubject.id,
+          topic_id: selectedTopic?.id || null,
+          content: editingQuestion.content,
+          difficulty: editingQuestion.difficulty,
+          image_url: editingQuestion.image_url || null,
+          image_position: editingQuestion.image_position || 'bottom',
+          stimulus: editingQuestion.stimulus || null,
+          question_type: editingQuestion.question_type || 'multiple_choice',
+          choices: editingQuestion.choices,
+          correct_answer_text: editingQuestion.correct_answer_text,
+        });
+        toast.success("Soal baru berhasil ditambahkan");
+      }
       setShowEditQuestionModal(false);
       setEditingQuestion(null);
       fetchQuestions(
@@ -270,7 +367,15 @@ const ManageLatihan = () => {
     setLoading(true);
     try {
       const res = await subjectService.list();
-      setSubjects(res.data?.data || []);
+      const list = res.data?.data || [];
+      setSubjects(list);
+      
+      const params = new URLSearchParams(window.location.search);
+      const subId = params.get('subject_id');
+      if (subId) {
+        const found = list.find(s => s.id === subId);
+        if (found) setSelectedSubject(found);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -503,15 +608,30 @@ const ManageLatihan = () => {
               </button>
             )}
             {selectedTopic ? (
-              <button
-                onClick={() => setShowImportSection(!showImportSection)}
-                className="flex-1 sm:flex-none bg-[#0050cb] text-white px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#0050cb]/20 transition-all active:translate-y-px text-[14px]"
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  upload_file
-                </span>
-                Import Excel
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowImportSection(!showImportSection)}
+                  className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-[14px] ${
+                    showImportSection
+                      ? "bg-slate-100 text-[#424656] border border-slate-200 hover:bg-slate-200"
+                      : "bg-[#e2f0fd] text-[#0050cb] border border-[#0050cb]/15 hover:bg-[#0050cb] hover:text-white"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    upload_file
+                  </span>
+                  Import Excel
+                </button>
+                <button
+                  onClick={handleAddNewQuestionClick}
+                  className="flex-1 sm:flex-none bg-[#0050cb] text-white px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#0050cb]/20 transition-all active:translate-y-px text-[14px]"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    add_circle
+                  </span>
+                  Input Manual
+                </button>
+              </div>
             ) : (
               !selectedTopic && (
                 <button
@@ -733,6 +853,17 @@ const ManageLatihan = () => {
                                 Kompleks
                               </span>
                             )}
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                              q.workflow_status === 'approved' ? 'bg-green-100 text-green-700' :
+                              q.workflow_status === 'under_review' ? 'bg-amber-100 text-amber-700' :
+                              'bg-slate-100 text-slate-500'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                                q.workflow_status === 'approved' ? 'bg-green-500' :
+                                q.workflow_status === 'under_review' ? 'bg-amber-400' : 'bg-slate-400'
+                              }`} />
+                              {q.workflow_status === 'approved' ? 'Approved' : q.workflow_status === 'under_review' ? 'Review' : 'Revisi'}
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
@@ -1534,33 +1665,43 @@ const ManageLatihan = () => {
       {showEditQuestionModal && editingQuestion && (
         <div
           className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setShowEditQuestionModal(false)}
+          onClick={() => {
+            setShowEditQuestionModal(false);
+            setEditingQuestion(null);
+          }}
         >
           <div
-            className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[20px] font-bold text-[#191b24]">
-                Edit Soal
-              </h3>
+            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-[20px] font-bold text-[#191b24]">
+                  {editingQuestion.id ? 'Edit Soal' : 'Tambah Soal Baru'}
+                </h3>
+                <p className="text-[12px] text-[#727687] mt-0.5">
+                  {editingQuestion.id ? 'Perbarui konten pertanyaan, opsi jawaban, dan pembahasan.' : 'Buat pertanyaan baru secara manual dan masukkan kunci jawabannya.'}
+                </p>
+              </div>
               <button
-                onClick={() => setShowEditQuestionModal(false)}
-                className="w-9 h-9 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656] hover:bg-[#e6e7f4]"
+                onClick={() => {
+                  setShowEditQuestionModal(false);
+                  setEditingQuestion(null);
+                }}
+                className="w-9 h-9 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#424656] hover:bg-[#e6e7f4] transition-all"
               >
-                <span className="material-symbols-outlined text-[18px]">
-                  close
-                </span>
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
             <div className="space-y-5">
+              {/* Stimulus / Wacana */}
               <div>
-                <label className="block text-[14px] font-bold text-[#191b24] mb-2">
-                  Stimulus / Wacana (opsional)
+                <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">
+                  Stimulus / Wacana (Opsional)
                 </label>
                 <textarea
-                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/40 focus:border-[#0050cb] focus:outline-none text-[15px] min-h-[80px] resize-y bg-slate-50"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/80 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[90px] font-medium leading-relaxed"
                   value={editingQuestion.stimulus || ''}
                   onChange={(e) =>
                     setEditingQuestion({
@@ -1572,12 +1713,13 @@ const ManageLatihan = () => {
                 />
               </div>
 
+              {/* Isi Pertanyaan */}
               <div>
-                <label className="block text-[14px] font-bold text-[#191b24] mb-2">
-                  Pertanyaan
+                <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">
+                  Isi Pertanyaan
                 </label>
                 <textarea
-                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/40 focus:border-[#0050cb] focus:outline-none text-[15px] min-h-[120px] resize-y"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[140px] font-medium leading-relaxed"
                   value={editingQuestion.content}
                   onChange={(e) =>
                     setEditingQuestion({
@@ -1585,139 +1727,349 @@ const ManageLatihan = () => {
                       content: e.target.value,
                     })
                   }
+                  placeholder="Tulis soal di sini. Gunakan sintaks LaTeX seperti $...$ atau $$...$$ untuk rumus matematika."
                 />
               </div>
 
-              <ImageUpload
-                label="Gambar Soal (opsional)"
-                value={editingQuestion.image_url || ""}
-                onChange={(url) =>
-                  setEditingQuestion({ ...editingQuestion, image_url: url })
-                }
-                folder="latihan/soal"
-                aspectRatio="aspect-video"
-              />
-
-              {editingQuestion.image_url && (
+              {/* Difficulty and Question Type */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[14px] font-bold text-[#191b24] mb-2">
-                    Posisi Gambar
+                  <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">
+                    Tingkat Kesulitan
                   </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="image_position"
-                        className="accent-[#0050cb]"
-                        checked={['top', 'before', 'atas'].includes(editingQuestion.image_position)}
-                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'top' })}
-                      />
-                      <span className="text-[14px] text-[#191b24]">Atas</span>
+                  <select
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-[#0050cb] outline-none text-[14px] font-bold text-[#191b24]"
+                    value={editingQuestion.difficulty}
+                    onChange={(e) =>
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        difficulty: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="easy">Easy (Mudah)</option>
+                    <option value="medium">Medium (Sedang)</option>
+                    <option value="hard">Hard (Sulit)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">
+                    Tipe Soal
+                  </label>
+                  <select
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-[#0050cb] outline-none text-[14px] font-bold text-[#191b24]"
+                    value={editingQuestion.question_type || 'multiple_choice'}
+                    onChange={(e) => {
+                      const type = e.target.value;
+                      const choices = type === 'multiple_choice' ? [
+                        { label: 'A', content: '', is_correct: true, explanation: '' },
+                        { label: 'B', content: '', is_correct: false, explanation: '' },
+                        { label: 'C', content: '', is_correct: false, explanation: '' },
+                        { label: 'D', content: '', is_correct: false, explanation: '' },
+                        { label: 'E', content: '', is_correct: false, explanation: '' }
+                      ] : type === 'complex_mc_tf' ? [
+                        { label: 'A', content: '', is_correct: true, explanation: '' },
+                        { label: 'B', content: '', is_correct: false, explanation: '' },
+                        { label: 'C', content: '', is_correct: false, explanation: '' }
+                      ] : [];
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        question_type: type,
+                        choices,
+                        correct_answer_text: ''
+                      });
+                    }}
+                  >
+                    <option value="multiple_choice">Pilihan Ganda</option>
+                    <option value="short_answer">Jawaban Singkat</option>
+                    <option value="complex_mc_tf">Pernyataan Benar/Salah (PG Kompleks)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Image Upload and Position */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border border-slate-200/60 rounded-xl p-4 bg-slate-50/50">
+                  <ImageUpload
+                    label="Gambar Pendukung Soal (Opsional)"
+                    value={editingQuestion.image_url || ''}
+                    onChange={(url) =>
+                      setEditingQuestion({ ...editingQuestion, image_url: url })
+                    }
+                    folder="latihan/soal"
+                    aspectRatio="aspect-video"
+                  />
+                </div>
+
+                {editingQuestion.image_url && (
+                  <div>
+                    <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">
+                      Posisi Gambar
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="image_position"
-                        className="accent-[#0050cb]"
-                        checked={['middle', 'ditengah', 'tengah'].includes(editingQuestion.image_position)}
-                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'middle' })}
-                      />
-                      <span className="text-[14px] text-[#191b24]">Tengah</span>
+                    <div className="flex gap-4 py-2">
+                      {[['top', 'Atas'], ['middle', 'Tengah'], ['bottom', 'Bawah']].map(([pos, label]) => (
+                        <label key={pos} className="flex items-center gap-2 text-[13px] cursor-pointer text-[#424656] font-bold">
+                          <input
+                            type="radio"
+                            name="img_pos_modal"
+                            value={pos}
+                            checked={editingQuestion.image_position === pos || (pos === 'bottom' && !editingQuestion.image_position)}
+                            onChange={() => setEditingQuestion({ ...editingQuestion, image_position: pos })}
+                            className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Short Answer Editor */}
+              {editingQuestion.question_type === 'short_answer' && (
+                <div className="space-y-4 border-t border-slate-100 pt-4">
+                  <div>
+                    <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">
+                      Kunci Jawaban Singkat
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="image_position"
-                        className="accent-[#0050cb]"
-                        checked={['bottom', 'after', 'bawah'].includes(editingQuestion.image_position) || !editingQuestion.image_position}
-                        onChange={() => setEditingQuestion({ ...editingQuestion, image_position: 'bottom' })}
-                      />
-                      <span className="text-[14px] text-[#191b24]">Bawah</span>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] font-semibold"
+                      value={editingQuestion.correct_answer_text || ''}
+                      onChange={(e) => setEditingQuestion({ ...editingQuestion, correct_answer_text: e.target.value })}
+                      placeholder="Masukkan jawaban singkat yang benar"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-bold text-[#191b24] mb-1.5">
+                      Pembahasan
                     </label>
+                    <textarea
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] min-h-[100px] font-medium"
+                      value={editingQuestion.choices?.[0]?.explanation || ''}
+                      onChange={(e) => {
+                        const updated = [...(editingQuestion.choices || [])];
+                        if (!updated[0]) {
+                          updated[0] = { label: 'A', content: editingQuestion.correct_answer_text || '', is_correct: true, explanation: e.target.value };
+                        } else {
+                          updated[0] = { ...updated[0], explanation: e.target.value };
+                        }
+                        setEditingQuestion({ ...editingQuestion, choices: updated });
+                      }}
+                      placeholder="Masukkan penjelasan pembahasan"
+                    />
                   </div>
                 </div>
               )}
 
-              <div>
-                <label className="block text-[14px] font-bold text-[#191b24] mb-2">
-                  Tingkat Kesulitan
-                </label>
-                <select
-                  className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8]/40 focus:border-[#0050cb] focus:outline-none text-[15px]"
-                  value={editingQuestion.difficulty}
-                  onChange={(e) =>
-                    setEditingQuestion({
-                      ...editingQuestion,
-                      difficulty: e.target.value,
-                    })
-                  }
-                >
-                  <option value="easy">Mudah</option>
-                  <option value="medium">Sedang</option>
-                  <option value="hard">Sulit</option>
-                </select>
-              </div>
-
-              {editingQuestion.choices &&
-                editingQuestion.choices.length > 0 && (
-                  <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-2">
-                      Pilihan Jawaban
-                    </label>
-                    <div className="space-y-2">
-                      {editingQuestion.choices.map((c) => (
-                        <div
-                          key={c.id}
-                          className={`p-3 rounded-xl border text-[14px] flex items-start gap-3 ${
-                            c.is_correct
-                              ? "border-green-300 bg-green-50"
-                              : "border-[#c2c6d8]/30 bg-[#f2f3ff]/50"
-                          }`}
+              {/* Multiple Choice / Complex MC TF Editor */}
+              {(editingQuestion.question_type === 'multiple_choice' || editingQuestion.question_type === 'complex_mc_tf' || !editingQuestion.question_type) && (
+                <div className="space-y-4 border-t border-slate-100 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <label className="block text-[13px] font-bold text-[#191b24]">
+                        {editingQuestion.question_type === 'complex_mc_tf' ? 'Pernyataan Soal' : 'Pilihan Jawaban'}
+                      </label>
+                      {(editingQuestion.choices || []).length < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const labels = ['A', 'B', 'C', 'D', 'E'];
+                            const nextLabel = labels[(editingQuestion.choices || []).length];
+                            const newChoice = {
+                              _tempId: `new_${nextLabel}_${Date.now()}`,
+                              label: nextLabel,
+                              content: '',
+                              is_correct: false,
+                              explanation: ''
+                            };
+                            setEditingQuestion({
+                              ...editingQuestion,
+                              choices: [...(editingQuestion.choices || []), newChoice]
+                            });
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-extrabold bg-[#e2f0fd] text-[#0050cb] hover:bg-[#0050cb] hover:text-white rounded-lg transition-all flex items-center gap-1 border border-[#0050cb]/15 shadow-sm"
                         >
-                          <span
-                            className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0 ${
-                              c.is_correct
-                                ? "bg-green-500 text-white"
-                                : "bg-[#c2c6d8]/30 text-[#424656]"
-                            }`}
-                          >
-                            {c.label}
-                          </span>
-                          <MathText
-                            className={
-                              c.is_correct
-                                ? "text-green-800 font-medium"
-                                : "text-[#191b24]"
-                            }
-                            text={c.content || ""}
-                          />
-                        </div>
-                      ))}
+                          <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                          {editingQuestion.question_type === 'complex_mc_tf' ? 'Tambah Pernyataan' : 'Tambah Opsi'}
+                        </button>
+                      )}
                     </div>
-                    <p className="text-[12px] text-[#727687] mt-2">
-                      * Pilihan jawaban tidak dapat diedit di sini. Gunakan
-                      import Excel untuk mengganti soal.
-                    </p>
+                    <span className="text-[11px] font-bold text-[#727687] bg-slate-100 px-2 py-0.5 rounded">
+                      Seret opsi untuk mengurutkan (Drag & Drop)
+                    </span>
                   </div>
-                )}
 
-              <div className="flex gap-3 pt-4 border-t border-[#c2c6d8]/20">
-                <button
-                  onClick={handleSaveQuestion}
-                  className="bg-[#0050cb] text-white px-6 py-3 rounded-xl font-bold text-[14px] hover:bg-[#003fa4] transition-all flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    save
-                  </span>
-                  Simpan
-                </button>
-                <button
-                  onClick={() => setShowEditQuestionModal(false)}
-                  className="border border-[#c2c6d8]/40 text-[#424656] px-5 py-3 rounded-xl font-bold text-[14px] hover:bg-[#f2f3ff] transition-all"
-                >
-                  Batal
-                </button>
-              </div>
+                  <div className="space-y-3">
+                    {(editingQuestion.choices || []).map((choice, idx) => {
+                      return (
+                        <div
+                          key={choice._tempId || choice.id || choice.label}
+                          draggable="true"
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', idx);
+                          }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                            if (isNaN(sourceIdx) || sourceIdx === idx) return;
+                            const updated = [...editingQuestion.choices];
+                            const [removed] = updated.splice(sourceIdx, 1);
+                            updated.splice(idx, 0, removed);
+                            const labels = ['A', 'B', 'C', 'D', 'E'];
+                            const finalChoices = updated.map((c, i) => ({
+                              ...c,
+                              label: labels[i] || c.label
+                            }));
+                            setEditingQuestion({
+                              ...editingQuestion,
+                              choices: finalChoices
+                            });
+                          }}
+                          className="flex flex-col md:flex-row items-stretch gap-3 p-4 rounded-2xl border border-slate-200 bg-white hover:border-[#0050cb]/30 transition-all cursor-move group relative"
+                        >
+                          {/* Left Action: Drag Icon & Label & Key Selector */}
+                          <div className="flex items-center gap-3 shrink-0 md:w-44">
+                            <span className="material-symbols-outlined text-slate-400 cursor-move group-hover:text-slate-600">
+                              drag_indicator
+                            </span>
+                            <span className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[13px] font-extrabold text-[#191b24]">
+                              {choice.label}
+                            </span>
+                            {editingQuestion.question_type === 'complex_mc_tf' ? (
+                              <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...editingQuestion.choices];
+                                    updated[idx] = { ...choice, is_correct: true };
+                                    setEditingQuestion({ ...editingQuestion, choices: updated });
+                                  }}
+                                  className={`px-2 py-1 rounded text-[10px] font-extrabold transition-all ${
+                                    choice.is_correct
+                                      ? 'bg-emerald-600 text-white shadow-sm'
+                                      : 'text-[#424656] hover:bg-slate-200'
+                                  }`}
+                                >
+                                  Benar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...editingQuestion.choices];
+                                    updated[idx] = { ...choice, is_correct: false };
+                                    setEditingQuestion({ ...editingQuestion, choices: updated });
+                                  }}
+                                  className={`px-2 py-1 rounded text-[10px] font-extrabold transition-all ${
+                                    !choice.is_correct
+                                      ? 'bg-red-600 text-white shadow-sm'
+                                      : 'text-[#424656] hover:bg-slate-200'
+                                  }`}
+                                >
+                                  Salah
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[12px] font-extrabold text-[#424656]">
+                                <input
+                                  type="radio"
+                                  name="correct_choice_radio_modal"
+                                  checked={!!choice.is_correct}
+                                  onChange={() => {
+                                    const updated = editingQuestion.choices.map((c, i) => ({
+                                      ...c,
+                                      is_correct: i === idx
+                                    }));
+                                    setEditingQuestion({ ...editingQuestion, choices: updated });
+                                  }}
+                                  className="w-4 h-4 text-[#0050cb] focus:ring-[#0050cb]"
+                                />
+                                Kunci
+                              </label>
+                            )}
+                          </div>
+
+                          {/* Center & Right Inputs */}
+                          <div className="flex-grow space-y-2">
+                            <input
+                              type="text"
+                              value={choice.content || ''}
+                              onChange={(e) => {
+                                const updated = [...editingQuestion.choices];
+                                updated[idx] = { ...choice, content: e.target.value };
+                                setEditingQuestion({ ...editingQuestion, choices: updated });
+                              }}
+                              placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Isi pernyataan ${choice.label}` : `Isi pilihan jawaban ${choice.label}`}
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[13px] font-semibold"
+                            />
+                            <input
+                              type="text"
+                              value={choice.explanation || ''}
+                              onChange={(e) => {
+                                const updated = [...editingQuestion.choices];
+                                updated[idx] = { ...choice, explanation: e.target.value };
+                                setEditingQuestion({ ...editingQuestion, choices: updated });
+                              }}
+                              placeholder={editingQuestion.question_type === 'complex_mc_tf' ? `Pembahasan untuk pernyataan ${choice.label} (opsional)` : `Pembahasan untuk opsi ${choice.label} (opsional)`}
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-1 focus:ring-[#0050cb] outline-none text-[12px] text-slate-500 font-medium"
+                            />
+                          </div>
+
+                          {/* Delete Button (Visible if choices > 3) */}
+                          {(editingQuestion.choices || []).length > 3 && (
+                            <div className="flex items-center justify-center shrink-0 self-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = editingQuestion.choices.filter((_, i) => i !== idx);
+                                  const labels = ['A', 'B', 'C', 'D', 'E'];
+                                  const finalChoices = updated.map((c, i) => ({
+                                    ...c,
+                                    label: labels[i] || c.label
+                                  }));
+                                  if (editingQuestion.question_type !== 'complex_mc_tf' && !finalChoices.some(c => c.is_correct)) {
+                                    if (finalChoices[0]) finalChoices[0].is_correct = true;
+                                  }
+                                  setEditingQuestion({
+                                    ...editingQuestion,
+                                    choices: finalChoices
+                                  });
+                                }}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                title={editingQuestion.question_type === 'complex_mc_tf' ? 'Hapus Pernyataan' : 'Hapus Pilihan'}
+                              >
+                                <span className="material-symbols-outlined text-[20px]">delete</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-6 mt-6 border-t border-slate-100">
+              <button
+                onClick={handleSaveQuestion}
+                disabled={!editingQuestion.content}
+                className="bg-[#0050cb] text-white px-6 py-3 rounded-xl font-bold text-[14px] hover:bg-[#003fa4] transition-all flex items-center gap-2 shadow-md shadow-[#0050cb]/15 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-[18px]">save</span>
+                Simpan
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditQuestionModal(false);
+                  setEditingQuestion(null);
+                }}
+                className="border border-[#c2c6d8]/40 text-[#424656] px-5 py-3 rounded-xl font-bold text-[14px] hover:bg-slate-50 transition-all"
+              >
+                Batal
+              </button>
             </div>
           </div>
         </div>

@@ -41,9 +41,11 @@ const fetchRecentActivities = async (limit = 50, offset = 0) => {
     pool.query(
       `SELECT ts.id as ref_id, u.id as user_id, u.name, u.email, 'tryout_submit' as action, 'utbk_tryout' as source,
               COALESCE(ts.submitted_at, ts.started_at, NOW()) as timestamp,
-              ts.package_id, ts.total_score
+              ts.package_id, ts.total_score,
+              tp.title as package_title
        FROM tryout_sessions ts
        JOIN users u ON u.id = ts.user_id
+       LEFT JOIN tryout_packages tp ON tp.id = ts.package_id
        ORDER BY timestamp DESC
        LIMIT $1`,
       [fetchLimit]
@@ -51,9 +53,11 @@ const fetchRecentActivities = async (limit = 50, offset = 0) => {
     pool.query(
       `SELECT ts.id as ref_id, u.id as user_id, u.name, u.email, 'um_tryout_submit' as action, 'um_tryout' as source,
               COALESCE(ts.submitted_at, ts.started_at, NOW()) as timestamp,
-              ts.package_id, ts.total_score
+              ts.package_id, ts.total_score,
+              tp.title as package_title
        FROM um_tryout_sessions ts
        JOIN users u ON u.id = ts.user_id
+       LEFT JOIN um_tryout_packages tp ON tp.id = ts.package_id
        ORDER BY timestamp DESC
        LIMIT $1`,
       [fetchLimit]
@@ -61,9 +65,11 @@ const fetchRecentActivities = async (limit = 50, offset = 0) => {
     pool.query(
       `SELECT ls.id as ref_id, u.id as user_id, u.name, u.email, 'latihan_submit' as action, 'latihan' as source,
               COALESCE(ls.submitted_at, ls.started_at, NOW()) as timestamp,
-              ls.latihan_id, ls.subject_name, ls.correct_count, ls.incorrect_count, ls.unanswered_count
+              ls.latihan_id, ls.subject_name, ls.correct_count, ls.incorrect_count, ls.unanswered_count,
+              t.title as topic_title
        FROM latihan_sessions ls
        JOIN users u ON u.id = ls.user_id
+       LEFT JOIN topics t ON t.id = ls.topic_id
        ORDER BY timestamp DESC
        LIMIT $1`,
       [fetchLimit]
@@ -90,13 +96,21 @@ const fetchRecentActivities = async (limit = 50, offset = 0) => {
       id: `tryout-${r.ref_id}`,
       ...r,
       severity: 'info',
-      meta: { package_id: r.package_id, score: r.total_score },
+      meta: {
+        package_id: r.package_id,
+        package_title: r.package_title,
+        score: r.total_score
+      },
     })),
     ...umTryoutRes.rows.map(r => ({
       id: `umtryout-${r.ref_id}`,
       ...r,
       severity: 'info',
-      meta: { package_id: r.package_id, score: r.total_score },
+      meta: {
+        package_id: r.package_id,
+        package_title: r.package_title,
+        score: r.total_score
+      },
     })),
     ...latihanRes.rows.map(r => ({
       id: `latihan-${r.ref_id}`,
@@ -105,6 +119,7 @@ const fetchRecentActivities = async (limit = 50, offset = 0) => {
       meta: {
         latihan_id: r.latihan_id,
         subject_name: r.subject_name,
+        topic_title: r.topic_title,
         correct: r.correct_count,
         incorrect: r.incorrect_count,
         unanswered: r.unanswered_count,
@@ -700,6 +715,361 @@ router.delete('/activity-logs/clear', verifyToken, verifyAdmin, async (req, res,
   try {
     await pool.query('DELETE FROM admin_activity_logs');
     res.json({ success: true, message: 'Semua log aktivitas admin berhasil dihapus.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/admin/tryout-dashboard-stats - Get UTBK Tryout dashboard summary & analytics
+router.get('/tryout-dashboard-stats', verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    const { package_id } = req.query;
+    
+    // 1. Total users (students registered for or taking tryouts, filtered to student role)
+    let totalStudentsQuery = '';
+    let totalStudentsParams = [];
+    if (package_id && package_id !== 'all') {
+      totalStudentsQuery = `
+        SELECT COUNT(DISTINCT r.user_id) as total
+        FROM (
+          SELECT tr.user_id 
+          FROM tryout_registrations tr
+          JOIN users u ON tr.user_id = u.id
+          WHERE tr.package_type = 'utbk' AND tr.utbk_package_id = $1 AND u.role = 'student'
+          UNION
+          SELECT ts.user_id 
+          FROM tryout_sessions ts
+          JOIN users u ON ts.user_id = u.id
+          WHERE ts.package_id = $1 AND u.role = 'student'
+        ) as r
+      `;
+      totalStudentsParams.push(package_id);
+    } else {
+      totalStudentsQuery = `
+        SELECT COUNT(DISTINCT r.user_id) as total
+        FROM (
+          SELECT tr.user_id 
+          FROM tryout_registrations tr
+          JOIN users u ON tr.user_id = u.id
+          WHERE tr.package_type = 'utbk' AND u.role = 'student'
+          UNION
+          SELECT ts.user_id 
+          FROM tryout_sessions ts
+          JOIN users u ON ts.user_id = u.id
+          WHERE u.role = 'student'
+        ) as r
+      `;
+    }
+    const totalStudentsRes = await pool.query(totalStudentsQuery, totalStudentsParams);
+    const totalStudents = parseInt(totalStudentsRes.rows[0].total, 10) || 0;
+    
+    // 2. Active students today (started/submitted tryout today, filtered to student role)
+    let activeTodayQuery = `
+      SELECT COUNT(DISTINCT ts.user_id) as count
+      FROM tryout_sessions ts
+      JOIN users u ON ts.user_id = u.id
+      WHERE (ts.started_at >= CURRENT_DATE OR ts.submitted_at >= CURRENT_DATE) AND u.role = 'student'
+    `;
+    let activeTodayParams = [];
+    if (package_id && package_id !== 'all') {
+      activeTodayQuery += " AND ts.package_id = $1";
+      activeTodayParams.push(package_id);
+    }
+    const activeTodayRes = await pool.query(activeTodayQuery, activeTodayParams);
+    const activeStudentsToday = parseInt(activeTodayRes.rows[0].count, 10) || 0;
+
+    // 3. Running tryouts (started but not submitted, filtered to student role)
+    let runningQuery = `
+      SELECT COUNT(*) as count
+      FROM tryout_sessions ts
+      JOIN users u ON ts.user_id = u.id
+      WHERE ts.submitted_at IS NULL AND u.role = 'student'
+    `;
+    let runningParams = [];
+    if (package_id && package_id !== 'all') {
+      runningQuery += " AND ts.package_id = $1";
+      runningParams.push(package_id);
+    }
+    const runningRes = await pool.query(runningQuery, runningParams);
+    const runningTryouts = parseInt(runningRes.rows[0].count, 10) || 0;
+
+    // 4. Completed tryouts (submitted, filtered to student role)
+    let completedQuery = `
+      SELECT COUNT(*) as count
+      FROM tryout_sessions ts
+      JOIN users u ON ts.user_id = u.id
+      WHERE ts.submitted_at IS NOT NULL AND u.role = 'student'
+    `;
+    let completedParams = [];
+    if (package_id && package_id !== 'all') {
+      completedQuery += " AND ts.package_id = $1";
+      completedParams.push(package_id);
+    }
+    const completedRes = await pool.query(completedQuery, completedParams);
+    const completedTryouts = parseInt(completedRes.rows[0].count, 10) || 0;
+
+    // 5. Average score (filtered to student role)
+    let avgScoreQuery = `
+      SELECT ROUND(AVG(ts.total_score)::numeric, 1) as avg 
+      FROM tryout_sessions ts
+      JOIN users u ON ts.user_id = u.id
+      WHERE ts.submitted_at IS NOT NULL AND u.role = 'student'
+    `;
+    let avgScoreParams = [];
+    if (package_id && package_id !== 'all') {
+      avgScoreQuery += " AND ts.package_id = $1";
+      avgScoreParams.push(package_id);
+    }
+    const avgScoreRes = await pool.query(avgScoreQuery, avgScoreParams);
+    const averageScore = parseFloat(avgScoreRes.rows[0]?.avg) || 0;
+
+    // 6. Tryout Packages list for dropdown filter
+    const packagesRes = await pool.query("SELECT id, title FROM tryout_packages ORDER BY created_at DESC");
+    const packagesList = packagesRes.rows;
+
+    // 7. Participation Trend (last 7 days, filtered to student role)
+    let trendQuery = `
+      SELECT DATE_TRUNC('day', COALESCE(ts.submitted_at, ts.started_at))::date as date, COUNT(*) as count
+      FROM tryout_sessions ts
+      JOIN users u ON ts.user_id = u.id
+      WHERE COALESCE(ts.submitted_at, ts.started_at) >= NOW() - INTERVAL '7 days' AND u.role = 'student'
+    `;
+    let trendParams = [];
+    if (package_id && package_id !== 'all') {
+      trendQuery += " AND ts.package_id = $1";
+      trendParams.push(package_id);
+    }
+    trendQuery += " GROUP BY date ORDER BY date";
+    const trendRes = await pool.query(trendQuery, trendParams);
+    const trendData = trendRes.rows.map(r => ({
+      date: new Date(r.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+      count: parseInt(r.count, 10) || 0
+    }));
+
+    // 8. Classical & IRT Subtest Averages (Parse JSON on node level, filtered to student role)
+    let sessionsQuery = `
+      SELECT ts.score_breakdown
+      FROM tryout_sessions ts
+      JOIN users u ON ts.user_id = u.id
+      WHERE ts.submitted_at IS NOT NULL AND u.role = 'student'
+    `;
+    let sessionsParams = [];
+    if (package_id && package_id !== 'all') {
+      sessionsQuery += " AND ts.package_id = $1";
+      sessionsParams.push(package_id);
+    }
+    const sessionsRes = await pool.query(sessionsQuery, sessionsParams);
+    
+    const subtestScores = {}; // subject_name -> { sum: 0, count: 0 }
+    const distribution = {
+      '0-400': 0,
+      '401-500': 0,
+      '501-600': 0,
+      '601-700': 0,
+      '701-800': 0,
+      '801-1000': 0
+    };
+
+    sessionsRes.rows.forEach(r => {
+      let breakdown = r.score_breakdown;
+      if (typeof breakdown === 'string') {
+        try { breakdown = JSON.parse(breakdown); } catch (e) { return; }
+      }
+      
+      // Calculate subtest averages
+      const subScores = breakdown?.subjectScores || {};
+      Object.keys(subScores).forEach(subName => {
+        const score = subScores[subName]?.score || 0;
+        if (!subtestScores[subName]) {
+          subtestScores[subName] = { sum: 0, count: 0 };
+        }
+        subtestScores[subName].sum += score;
+        subtestScores[subName].count++;
+      });
+
+      // Calculate score distribution
+      const score = breakdown?.totalScore || 0;
+      if (score <= 400) distribution['0-400']++;
+      else if (score <= 500) distribution['401-500']++;
+      else if (score <= 600) distribution['501-600']++;
+      else if (score <= 700) distribution['601-700']++;
+      else if (score <= 800) distribution['701-800']++;
+      else distribution['801-1000']++;
+    });
+
+    const subtestAverages = Object.keys(subtestScores).map(subName => ({
+      name: subName,
+      avg: Math.round(subtestScores[subName].sum / subtestScores[subName].count) || 0
+    }));
+
+    let leaderboard = [];
+    if (package_id && package_id !== 'all') {
+      const leaderboardRes = await pool.query(`
+        SELECT DISTINCT ON (ts.user_id)
+          ts.user_id,
+          u.name,
+          u.email,
+          ts.total_score,
+          ts.submitted_at
+        FROM tryout_sessions ts
+        JOIN users u ON u.id = ts.user_id
+        WHERE ts.package_id = $1
+          AND ts.submitted_at IS NOT NULL
+          AND ts.total_score IS NOT NULL
+          AND u.role = 'student'
+        ORDER BY ts.user_id, ts.submitted_at DESC
+      `, [package_id]);
+      
+      leaderboard = leaderboardRes.rows
+        .map((r) => ({
+          user_id: r.user_id,
+          name: r.name,
+          email: r.email,
+          score: Math.round(r.total_score || 0),
+          submitted_at: r.submitted_at
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+        .map((item, idx) => ({
+          rank: idx + 1,
+          ...item
+        }));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalStudents,
+          activeStudentsToday,
+          runningTryouts,
+          completedTryouts,
+          averageScore
+        },
+        packages: packagesList,
+        trend: trendData,
+        subtests: subtestAverages,
+        distribution: Object.keys(distribution).map(range => ({
+          range,
+          count: distribution[range]
+        })),
+        leaderboard
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /admin/question-review — Workflow review dashboard for Admin, QA, and Question Writer
+router.get('/question-review', verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    const {
+      workflow_status,
+      subject_id,
+      tryout_package_id,
+      topic_id,
+      search,
+      page = 1,
+      limit = 30,
+    } = req.query;
+
+    const safeLimit = Math.min(parseInt(limit, 10) || 30, 100);
+    const safeOffset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * safeLimit;
+
+    const values = [];
+    let where = 'WHERE 1=1';
+
+    if (workflow_status) {
+      values.push(workflow_status);
+      where += ` AND q.workflow_status = $${values.length}`;
+    }
+    if (subject_id) {
+      values.push(subject_id);
+      where += ` AND q.subject_id = $${values.length}`;
+    }
+    if (tryout_package_id) {
+      values.push(tryout_package_id);
+      where += ` AND q.tryout_package_id = $${values.length}`;
+    }
+    if (topic_id) {
+      values.push(topic_id);
+      where += ` AND q.topic_id = $${values.length}`;
+    }
+    if (search) {
+      values.push(`%${search}%`);
+      where += ` AND q.content ILIKE $${values.length}`;
+    }
+
+    const countRes = await pool.query(
+      `SELECT COUNT(*)::int as total FROM questions q ${where}`,
+      values
+    );
+    const total = countRes.rows[0]?.total || 0;
+
+    values.push(safeLimit);
+    values.push(safeOffset);
+
+    const dataRes = await pool.query(
+      `SELECT q.id, q.content, q.difficulty, q.question_type, q.workflow_status,
+              q.created_at, q.tryout_package_id, q.topic_id, q.stimulus,
+              q.image_url, q.image_position, q.review_note,
+              s.name as subject_name,
+              tp.title as package_title,
+              t.title as topic_title,
+              u.name as creator_name,
+              (SELECT COUNT(*) FROM answer_choices ac WHERE ac.question_id = q.id)::int as choices_count
+       FROM questions q
+       LEFT JOIN subjects s ON s.id = q.subject_id
+       LEFT JOIN tryout_packages tp ON tp.id = q.tryout_package_id
+       LEFT JOIN topics t ON t.id = q.topic_id
+       LEFT JOIN users u ON u.id = q.created_by
+       ${where}
+       ORDER BY
+         CASE q.workflow_status
+           WHEN 'under_review' THEN 1
+           WHEN 'draft' THEN 2
+           WHEN 'approved' THEN 3
+         END,
+         q.created_at DESC
+       LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    );
+
+    // Fetch choices for these questions
+    if (dataRes.rows.length > 0) {
+      const questionIds = dataRes.rows.map((q) => q.id);
+      const placeholders = questionIds.map((_, i) => `$${i + 1}`).join(",");
+
+      const choicesResult = await pool.query(
+        `SELECT * FROM answer_choices WHERE question_id IN (${placeholders}) ORDER BY label ASC`,
+        questionIds
+      );
+
+      for (const question of dataRes.rows) {
+        question.choices = choicesResult.rows.filter(
+          (c) => c.question_id === question.id
+        );
+      }
+    }
+
+    // Status summary counts
+    const summaryRes = await pool.query(
+      `SELECT workflow_status, COUNT(*)::int as count
+       FROM questions
+       GROUP BY workflow_status`
+    );
+    const summary = { draft: 0, under_review: 0, approved: 0 };
+    summaryRes.rows.forEach(r => { summary[r.workflow_status] = r.count; });
+
+    res.json({
+      success: true,
+      data: dataRes.rows,
+      total,
+      page: parseInt(page, 10),
+      totalPages: Math.ceil(total / safeLimit),
+      summary,
+    });
   } catch (error) {
     next(error);
   }

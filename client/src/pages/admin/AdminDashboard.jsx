@@ -73,8 +73,8 @@ const AdminDashboard = () => {
 
   const navLinks = [
     { path: '/admin', icon: 'dashboard', label: 'Dashboard' },
-    { path: '/admin/input', icon: 'edit_note', label: 'Input Manual' },
-    { path: '/admin/import', icon: 'upload_file', label: 'Import Excel' },
+    { path: '/admin/tryout-dashboard', icon: 'analytics', label: 'Dashboard Tryout' },
+    { path: '/admin/question-review', icon: 'rate_review', label: 'Review Soal' },
     { path: '/admin/duplicates', icon: 'content_paste_off', label: 'Scanner Duplikat' },
     { path: '/admin/vouchers', icon: 'confirmation_number', label: 'Voucher Diskon' },
     { path: '/admin/latihan', icon: 'assignment', label: 'Manage Latihan' },
@@ -95,8 +95,8 @@ const AdminDashboard = () => {
     if (user.role === 'admin') return true;
     if (user.role === 'question_writer') {
       return [
-        '/admin/input',
-        '/admin/import',
+        '/admin/tryout-dashboard',
+        '/admin/question-review',
         '/admin/duplicates',
         '/admin/latihan',
         '/admin/tryout',
@@ -108,6 +108,8 @@ const AdminDashboard = () => {
     }
     if (user.role === 'quality_assurance') {
       return [
+        '/admin/tryout-dashboard',
+        '/admin/question-review',
         '/admin/duplicates',
         '/admin/latihan',
         '/admin/tryout',

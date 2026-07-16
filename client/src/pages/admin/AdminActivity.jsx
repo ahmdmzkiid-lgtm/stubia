@@ -20,6 +20,41 @@ const formatDateTime = (ts) => {
   return `${date} ${time}`;
 };
 
+const formatActionName = (action) => {
+  if (!action) return '-';
+  const mapping = {
+    'user_registered': 'Registrasi Baru',
+    'latihan_submit': 'Submit Latihan',
+    'tryout_submit': 'Submit Tryout UTBK',
+    'um_tryout_submit': 'Submit Tryout Mandiri',
+  };
+  return mapping[action] || action;
+};
+
+const formatActivityDetail = (ev) => {
+  if (ev.action === 'user_registered') {
+    return 'Registrasi Akun Baru';
+  }
+  if (ev.action === 'latihan_submit') {
+    const parts = [];
+    if (ev.meta?.subject_name) {
+      parts.push(ev.meta.subject_name);
+    }
+    if (ev.meta?.topic_title) {
+      parts.push(`(${ev.meta.topic_title})`);
+    }
+    const subjectAndTopic = parts.join(' ');
+    const scoreStr = `${ev.meta?.correct || 0} Benar, ${ev.meta?.incorrect || 0} Salah`;
+    return `${subjectAndTopic || 'Latihan'} — ${scoreStr}`;
+  }
+  if (ev.action === 'tryout_submit' || ev.action === 'um_tryout_submit') {
+    const pkg = ev.meta?.package_title || 'Paket Tryout';
+    const score = ev.meta?.score !== undefined ? `Skor: ${ev.meta.score}` : 'Ujian diselesaikan';
+    return `${pkg} — ${score}`;
+  }
+  return '-';
+};
+
 const AdminActivity = () => {
   useAuth();
   const [events, setEvents] = useState([]);
@@ -159,7 +194,7 @@ const AdminActivity = () => {
             >
               {actionOptions.map((opt) => (
                 <option key={opt} value={opt}>
-                  {opt === 'all' ? 'Semua' : opt}
+                  {opt === 'all' ? 'Semua Kategori' : formatActionName(opt)}
                 </option>
               ))}
             </select>
@@ -230,12 +265,12 @@ const AdminActivity = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-[#5b6178]">{ev.email || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${actionBadgeClasses(ev.action)}`}>
-                      {ev.action || '-'}
+                      {formatActionName(ev.action)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-[#5b6178]">{formatDateTime(ev.timestamp)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-[#5b6178] font-mono text-xs">
-                    {ev.meta?.latihan_id ? `Latihan: ${String(ev.meta.latihan_id).slice(0, 12)}...` : ev.meta?.package_id ? `Package: ${String(ev.meta.package_id).slice(0, 12)}...` : ev.meta?.score !== undefined ? `Score: ${ev.meta.score}` : '-'}
+                  <td className="px-6 py-4 text-[#424656] font-medium text-xs max-w-md truncate">
+                    {formatActivityDetail(ev)}
                   </td>
                 </tr>
               ))}

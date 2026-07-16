@@ -266,96 +266,96 @@ const TryoutResult = () => {
     <div className="min-h-screen bg-[#faf8ff] text-[#191b24]">
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
 
-      <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-12">
+      <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-8 lg:py-12">
         {/* Back Button */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <button 
             onClick={() => navigate('/tryout/packages')} 
-            className="flex items-center gap-2 text-[#0050cb] hover:text-[#003fb2] font-semibold text-[14px] transition-colors"
+            className="flex items-center gap-1.5 text-[#0050cb] hover:text-[#003fb2] font-semibold text-[13px] sm:text-[14px] transition-colors"
           >
-            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            <span className="material-symbols-outlined text-[18px] sm:text-[20px]">arrow_back</span>
             <span>Kembali ke Pusat Tryout</span>
           </button>
         </div>
 
         {/* Header Section */}
-        <section className="mb-20">
-          <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-10">
+        <section className="mb-8 sm:mb-12 lg:mb-16">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 sm:gap-6 mb-6 sm:mb-8">
             <div>
-              <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-bold text-[#191b24] mb-2 leading-tight">Hasil Tryout</h1>
-              <p className="text-base sm:text-[18px] text-[#424656]">{result.title}{result.subtitle ? ` - ${result.subtitle}` : ''}</p>
+              <h1 className="text-[24px] sm:text-[32px] lg:text-[40px] font-bold text-[#191b24] mb-1 sm:mb-2 leading-tight">Hasil Tryout</h1>
+              <p className="text-[13px] sm:text-base lg:text-[18px] text-[#424656]">{result.title}{result.subtitle ? ` - ${result.subtitle}` : ''}</p>
             </div>
-            <div className="flex gap-4">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c2c6d8] text-[#424656] hover:bg-[#ecedfa] transition-all">
-                <span className="material-symbols-outlined">download</span>
-                <span className="text-[14px] font-medium">Unduh Sertifikat</span>
+            <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+              <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#c2c6d8] text-[#424656] hover:bg-[#ecedfa] transition-all text-[12px] sm:text-[14px]">
+                <span className="material-symbols-outlined text-[18px] sm:text-[22px]">download</span>
+                <span className="font-medium">Unduh Sertifikat</span>
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c2c6d8] text-[#424656] hover:bg-[#ecedfa] transition-all">
-                <span className="material-symbols-outlined">share</span>
-                <span className="text-[14px] font-medium">Bagikan Hasil</span>
+              <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#c2c6d8] text-[#424656] hover:bg-[#ecedfa] transition-all text-[12px] sm:text-[14px]">
+                <span className="material-symbols-outlined text-[18px] sm:text-[22px]">share</span>
+                <span className="font-medium">Bagikan Hasil</span>
               </button>
             </div>
           </div>
         </section>
 
         {/* Bento Grid Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 mb-10 sm:mb-16 lg:mb-20">
           {/* Main Score Card with IRT */}
-          <div className="md:col-span-4 bg-[#0050cb] rounded-xl p-8 flex flex-col justify-between text-white shadow-lg min-h-[320px]">
+          <div className="md:col-span-4 bg-[#0050cb] rounded-xl p-5 sm:p-6 lg:p-8 flex flex-col justify-between text-white shadow-lg min-h-0 sm:min-h-[300px] lg:min-h-[320px]">
             <div>
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <p className="text-[12px] font-medium opacity-80 uppercase tracking-widest">Skor IRT</p>
-                <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-semibold">3PL</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#00c1fd]/20 rounded text-[10px] font-semibold">
+              <div className="flex items-center gap-2 mb-1.5 sm:mb-2 flex-wrap">
+                <p className="text-[10px] sm:text-[12px] font-medium opacity-80 uppercase tracking-widest">Skor IRT</p>
+                <span className="px-1.5 sm:px-2 py-0.5 bg-white/20 rounded text-[9px] sm:text-[10px] font-semibold">3PL</span>
+                <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 bg-[#00c1fd]/20 rounded text-[9px] sm:text-[10px] font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00c1fd] animate-pulse"></span>
                   LIVE
                 </span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-[72px] font-bold leading-tight">{result.totalScore}</span>
-                <span className="text-[20px] opacity-60">/1000</span>
+                <span className="text-[48px] sm:text-[56px] lg:text-[72px] font-bold leading-tight">{result.totalScore}</span>
+                <span className="text-[16px] sm:text-[18px] lg:text-[20px] opacity-60">/1000</span>
               </div>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="material-symbols-outlined text-[#00c1fd]">
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-1 sm:mt-2">
+                <span className="material-symbols-outlined text-[#00c1fd] text-[18px] sm:text-[22px]">
                   {result.scoreChange >= 0 ? 'trending_up' : 'trending_down'}
                 </span>
-                <span className="text-[14px] font-medium">
+                <span className="text-[12px] sm:text-[14px] font-medium">
                   {result.scoreChange > 0 ? '+' : ''}{result.scoreChange || 0}% dari Tryout lalu
                 </span>
               </div>
               {result.theta !== undefined && (
-                <div className="mt-3 text-[12px] opacity-70">
+                <div className="mt-2 sm:mt-3 text-[11px] sm:text-[12px] opacity-70">
                   Ability (θ): {result.theta} • Percentile: {result.percentile}
                 </div>
               )}
               {result.computedAt && (
-                <div className="mt-1 text-[10px] opacity-60">
+                <div className="mt-1 text-[9px] sm:text-[10px] opacity-60">
                   Dihitung ulang: {new Date(result.computedAt).toLocaleTimeString('id-ID')}
                 </div>
               )}
             </div>
-            <div className="mt-8 pt-8 border-t border-white/20">
-              <p className="text-[12px] font-medium opacity-70 mb-2">Mastery ({result.targetPassingGrade || 0}%)</p>
-              <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+            <div className="mt-5 sm:mt-6 lg:mt-8 pt-4 sm:pt-6 lg:pt-8 border-t border-white/20">
+              <p className="text-[11px] sm:text-[12px] font-medium opacity-70 mb-1.5 sm:mb-2">Mastery ({result.targetPassingGrade || 0}%)</p>
+              <div className="w-full bg-white/20 h-1.5 sm:h-2 rounded-full overflow-hidden">
                 <div className="bg-[#00c1fd] h-full transition-all duration-1000" style={{ width: `${result.targetPassingGrade || 0}%` }}></div>
               </div>
-              <p className="text-[12px] font-medium mt-2">
+              <p className="text-[11px] sm:text-[12px] font-medium mt-1.5 sm:mt-2">
                 {result.percentile ? `Top ${100 - result.percentile}% nasional` : 'Berdasarkan hasil pengerjaan'}
               </p>
             </div>
           </div>
 
           {/* Stats Card */}
-          <div className="md:col-span-4 bg-[#f2f3ff] rounded-xl p-8 border border-[#c2c6d8]/30 flex flex-col justify-between">
+          <div className="md:col-span-4 bg-[#f2f3ff] rounded-xl p-5 sm:p-6 lg:p-8 border border-[#c2c6d8]/30 flex flex-col justify-between">
             <div>
-              <p className="text-[14px] font-medium text-[#424656] uppercase tracking-widest mb-4">Statistik Jawaban</p>
+              <p className="text-[11px] sm:text-[13px] lg:text-[14px] font-medium text-[#424656] uppercase tracking-widest mb-3 sm:mb-4">Statistik Jawaban</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-[48px] font-bold text-[#191b24]">{stats.correct}</span>
-                <span className="text-[18px] text-[#424656]">/{stats.total} Benar</span>
+                <span className="text-[36px] sm:text-[42px] lg:text-[48px] font-bold text-[#191b24]">{stats.correct}</span>
+                <span className="text-[14px] sm:text-[16px] lg:text-[18px] text-[#424656]">/{stats.total} Benar</span>
               </div>
             </div>
-            <div className="mt-6 mb-4">
-              <div className="w-full bg-[#ecedfa] h-3 rounded-full overflow-hidden flex">
+            <div className="mt-4 sm:mt-6 mb-3 sm:mb-4">
+              <div className="w-full bg-[#ecedfa] h-2.5 sm:h-3 rounded-full overflow-hidden flex">
                 {stats.total > 0 && (
                   <>
                     <div className="bg-[#00c1fd] h-full transition-all duration-1000" style={{ width: `${(stats.correct / stats.total) * 100}%` }}></div>
@@ -365,34 +365,34 @@ const TryoutResult = () => {
                 )}
               </div>
             </div>
-            <div className="mt-auto space-y-4">
+            <div className="mt-auto space-y-2.5 sm:space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#00c1fd]"></span>
-                  <span className="text-[14px] text-[#424656]">Benar</span>
+                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#00c1fd]"></span>
+                  <span className="text-[13px] sm:text-[14px] text-[#424656]">Benar</span>
                 </div>
-                <span className="text-[20px] font-bold text-[#191b24]">{stats.correct}</span>
+                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-bold text-[#191b24]">{stats.correct}</span>
               </div>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#ba1a1a]"></span>
-                  <span className="text-[14px] text-[#424656]">Salah</span>
+                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#ba1a1a]"></span>
+                  <span className="text-[13px] sm:text-[14px] text-[#424656]">Salah</span>
                 </div>
-                <span className="text-[20px] font-bold text-[#191b24]">{stats.incorrect}</span>
+                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-bold text-[#191b24]">{stats.incorrect}</span>
               </div>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#c2c6d8]"></span>
-                  <span className="text-[14px] text-[#424656]">Kosong</span>
+                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#c2c6d8]"></span>
+                  <span className="text-[13px] sm:text-[14px] text-[#424656]">Kosong</span>
                 </div>
-                <span className="text-[20px] font-bold text-[#191b24]">{stats.unanswered}</span>
+                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-bold text-[#191b24]">{stats.unanswered}</span>
               </div>
             </div>
           </div>
 
           {/* Peringkat Tryout - Tabbed Leaderboard */}
           <div className="md:col-span-4">
-            <div className="bg-white rounded-xl p-5 md:p-6 shadow-sm border border-[#c2c6d8]/20 max-h-[calc(100vh-140px)] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
+            <div className="bg-white rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-[#c2c6d8]/20 max-h-[380px] sm:max-h-[calc(100vh-140px)] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
               {/* Tab Toggle */}
               {leaderboard?.targetPtn && leaderboard?.targetMajor ? (
                 <div className="flex gap-1 p-1 bg-[#f0f1f7] rounded-xl mb-4">
@@ -573,12 +573,12 @@ const TryoutResult = () => {
         </div>
 
         {/* Subtest Analysis */}
-        <section className="mb-20">
-          <div className="flex justify-between items-baseline mb-12">
-            <h2 className="text-[32px] font-bold text-[#191b24]">Analisis PerSubtes</h2>
-            <p className="text-[14px] font-medium text-[#0050cb] hover:underline cursor-pointer">Lihat Metodologi Penilaian</p>
+        <section className="mb-16">
+          <div className="flex justify-between items-baseline mb-6">
+            <h2 className="text-[24px] font-bold text-[#191b24]">Analisis PerSubtes</h2>
+            <p className="text-[13px] font-medium text-[#0050cb] hover:underline cursor-pointer">Lihat Metodologi Penilaian</p>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-2 sm:space-y-3">
             {(sortedSubjects || []).map((subject, idx) => {
               const colors = getSubjectColors(subject.statusColor);
               const isGood = subject.statusColor === 'primary' || subject.statusColor === 'secondary';
@@ -589,56 +589,51 @@ const TryoutResult = () => {
               return (
                 <section
                   key={idx}
-                  className="bg-white rounded-xl p-6 md:p-8 border border-[#c2c6d8]/30 hover:border-[#0050cb]/20 transition-all duration-300"
-                  style={{ boxShadow: '0 4px 20px -2px rgba(0, 80, 203, 0.04)' }}
+                  className="bg-white rounded-xl px-3.5 py-3 sm:px-5 sm:py-4 border border-[#c2c6d8]/30 hover:border-[#0050cb]/20 transition-all duration-300"
+                  style={{ boxShadow: '0 2px 12px -2px rgba(0, 80, 203, 0.04)' }}
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 lg:gap-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 lg:gap-6">
                     {/* Left: Subject & Status */}
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3 mb-3">
-                        <span className="bg-[#dae1ff] text-[#0050cb] px-3 py-1 rounded-full text-[12px] font-semibold">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                        <span className="bg-[#dae1ff] text-[#0050cb] px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold">
                           SUBTEST {String(idx + 1).padStart(2, '0')}
                         </span>
-                        <div className={`flex items-center gap-1.5 ${colors.icon}`}>
-                          <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        <div className={`flex items-center gap-1 ${colors.icon}`}>
+                          <span className="material-symbols-outlined text-[11px] sm:text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                             {isGood ? 'check_circle' : 'circle'}
                           </span>
-                          <span className="text-[14px] font-medium">{subject.status || 'Perlu Fokus'}</span>
+                          <span className="text-[11px] sm:text-[12px] font-medium">{subject.status || 'Perlu Fokus'}</span>
                         </div>
                       </div>
-                      <h3 className="text-[20px] md:text-[24px] font-bold text-[#191b24] mb-3">
+                      <h3 className="text-[13px] sm:text-[15px] md:text-[16px] font-bold text-[#191b24] leading-snug truncate">
                         {getShortName(subject.name)}
                       </h3>
-                      <p className="text-[#424656] text-[16px] max-w-lg mb-4 lg:mb-0">
-                        {subject.description || 'Tidak ada deskripsi tersedia.'}
-                      </p>
                     </div>
 
                     {/* Right: Metrics Grid */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:min-w-[450px]">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-4 lg:min-w-[400px]">
                       <div>
-                        <span className="block text-[#424656] text-[12px] font-semibold mb-1">Akurasi</span>
-                        <span className="text-[24px] font-bold text-[#191b24]">{subject.correct || 0}/{subject.total || 0}</span>
-                        <div className="text-[10px] text-[#727687] mt-0.5">
-                          <span>Salah: {incorrectCount}</span>
-                          <span className="mx-1">•</span>
+                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Akurasi</span>
+                        <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#191b24] leading-tight">{subject.correct || 0}/{subject.total || 0}</span>
+                        <div className="text-[8px] sm:text-[9px] text-[#727687] mt-0.5 leading-tight">
                           <span>Kosong: {unansweredCount}</span>
                         </div>
                       </div>
                       <div>
-                        <span className="block text-[#424656] text-[12px] font-semibold mb-1">Avg. Speed</span>
-                        <span className="text-[24px] font-bold text-[#191b24]">{subject.avgSpeed || 0}s</span>
+                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Avg. Speed</span>
+                        <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#191b24] leading-tight">{subject.avgSpeed || 0}s</span>
                       </div>
                       <div>
-                        <span className="block text-[#424656] text-[12px] font-semibold mb-1">Skor</span>
+                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Skor</span>
                         <div className="flex items-baseline">
-                          <span className="text-[24px] font-bold text-[#0050cb]">{subject.score || 0}</span>
-                          <span className="text-[11px] text-[#727687] ml-0.5">/1000</span>
+                          <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#0050cb] leading-tight">{subject.score || 0}</span>
+                          <span className="text-[9px] sm:text-[10px] text-[#727687] ml-0.5">/1000</span>
                         </div>
                       </div>
                       <div className="flex flex-col justify-center">
-                        <span className="block text-[#424656] text-[12px] font-semibold mb-2">Mastery</span>
-                        <div className="w-full bg-[#f1f5f9] h-1.5 rounded-full overflow-hidden">
+                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-1 sm:mb-1.5">Mastery</span>
+                        <div className="w-full bg-[#f1f5f9] h-1 sm:h-1.5 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${colors.bgSolid || 'bg-[#0050cb]'}`}
                             style={{ width: `${subject.percentage || 0}%` }}
