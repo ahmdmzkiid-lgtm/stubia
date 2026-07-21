@@ -42,7 +42,11 @@ api.interceptors.response.use(
     });
 
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
+      // Don't remove token if the 401 came from an auth endpoint
+      // (e.g. failed Google login attempt shouldn't wipe existing session)
+      if (!suppressToast) {
+        localStorage.removeItem('token');
+      }
       // window.location.href = '/login'; // Optional: auto redirect
     }
     if (!suppressToast) {
@@ -55,6 +59,7 @@ api.interceptors.response.use(
 export const authService = {
   login: (credentials) => api.post('/auth/login', credentials),
   loginWithGoogle: (accessToken) => api.post('/auth/google', { access_token: accessToken }),
+  googleCallback: (code, redirectUri) => api.post('/auth/google-code', { code, redirect_uri: redirectUri }),
   register: (userData) => api.post('/auth/register', userData),
   me: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/update-profile', data),

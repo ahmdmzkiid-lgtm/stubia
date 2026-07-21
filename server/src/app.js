@@ -5,12 +5,18 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const express = require('express');
 const cors = require('cors');
-//const helmet = require('helmet');
+const helmet = require('helmet');
 const morgan = require('morgan');
 const { initializeDatabase } = require('./config/db');
 const { populateQuestionHashes } = require('./utils/populateQuestionHashes');
 
 const app = express();
+
+// Security Headers (Helmet configured for OAuth compatibility)
+app.use(helmet({
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // Middleware CORS Manual & Otomatis (Anti-Block Hostinger)
 app.use((req, res, next) => {
@@ -40,6 +46,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
 
   // Potong langsung request OPTIONS (Preflight) agar mengembalikan status 204 No Content
   if (req.method === 'OPTIONS') {

@@ -68,6 +68,7 @@ const CMSArticles = React.lazy(() => import('./pages/cms/CMSArticles'));
 const CMSCareers = React.lazy(() => import('./pages/cms/CMSCareers'));
 const CMSFellowship = React.lazy(() => import('./pages/cms/CMSFellowship'));
 const CMSActivityLogs = React.lazy(() => import('./pages/cms/CMSActivityLogs'));
+const GoogleCallback = React.lazy(() => import('./pages/GoogleCallback'));
 const NotFound = React.lazy(() => import('./pages/NotFound'));
 const SKDHome = React.lazy(() => import('./pages/skd/SKDHome'));
 const SKDTryoutSession = React.lazy(() => import('./pages/skd/SKDTryoutSession'));
@@ -109,6 +110,7 @@ function App() {
             <Route path="/blog" element={<BlogList />} />
             <Route path="/blog/:slug" element={<BlogDetail />} />
             <Route path="/fellowship" element={<Fellowship />} />
+            <Route path="/auth/google/callback" element={<GoogleCallback />} />
             <Route element={<PublicRoute />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />

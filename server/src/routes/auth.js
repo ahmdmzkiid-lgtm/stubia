@@ -102,7 +102,85 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-// Google Login
+// Helper function to extract or fallback name from Google payload
+const getSafeNameFromPayload = (payload) => {
+  if (payload.name && payload.name.trim() !== '') {
+    return payload.name.trim();
+  }
+  if (payload.given_name || payload.family_name) {
+    return `${payload.given_name || ''} ${payload.family_name || ''}`.trim();
+  }
+  if (payload.email) {
+    const emailPrefix = payload.email.split('@')[0];
+    return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+  }
+  return 'Pengguna Stubia';
+};
+
+// Google Login via Authorization Code Redirect Flow (New Preferred Flow)
+router.post('/google-code', async (req, res, next) => {
+  try {
+    const { code, redirect_uri } = req.body;
+    if (!code) {
+      return res.status(400).json({ success: false, error: 'Authorization code Google diperlukan.' });
+    }
+
+    const oauth2Client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri || `${process.env.CLIENT_URL || 'http://localhost:8080'}/auth/google/callback`
+    );
+
+    const { tokens } = await oauth2Client.getToken(code);
+    if (!tokens.id_token) {
+      return res.status(400).json({ success: false, error: 'Gagal mendapatkan ID token dari Google.' });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, sub: googleId } = payload;
+    const safeName = getSafeNameFromPayload(payload);
+
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    let user;
+
+    if (result.rows.length === 0) {
+      // User baru: buat akun
+      const insertResult = await pool.query(
+        'INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING id, name, email, role',
+        [safeName, email, googleId]
+      );
+      user = insertResult.rows[0];
+      const { sendWelcomeEmail } = require('../services/emailService');
+      sendWelcomeEmail(user.email, user.name).catch(err => console.error('Google welcome email error:', err));
+    } else {
+      user = result.rows[0];
+      // Update google_id jika belum ada
+      if (!user.google_id) {
+        await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
+        user.google_id = googleId;
+      }
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    delete user.password_hash;
+    res.json({ success: true, data: { user, token }, message: 'Logged in with Google successfully.' });
+  } catch (error) {
+    console.error('Google code exchange error:', error);
+    res.status(401).json({ success: false, error: 'Gagal otentikasi dengan Google. Silakan coba lagi.' });
+  }
+});
+
+// Google Login (Pop-up flow legacy compatibility)
 router.post('/google', async (req, res, next) => {
   try {
     const { access_token } = req.body; // Actually an ID token from credential
@@ -116,7 +194,8 @@ router.post('/google', async (req, res, next) => {
     });
     
     const payload = ticket.getPayload();
-    const { email, name, sub: googleId } = payload;
+    const { email, sub: googleId } = payload;
+    const safeName = getSafeNameFromPayload(payload);
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     let user;
@@ -125,7 +204,7 @@ router.post('/google', async (req, res, next) => {
       // User baru: buat akun, tandai sebagai akun Google
       const insertResult = await pool.query(
         'INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING id, name, email, role',
-        [name, email, googleId]
+        [safeName, email, googleId]
       );
       user = insertResult.rows[0];
       const { sendWelcomeEmail } = require('../services/emailService');

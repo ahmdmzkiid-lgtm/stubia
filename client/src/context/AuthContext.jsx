@@ -59,6 +59,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Handle Google OAuth redirect callback.
+   * Called when Google redirects back to /auth/google/callback?code=xxx
+   * Sends the authorization code to the backend to exchange for user + JWT.
+   */
+  const handleGoogleCallback = async (code, redirectUri) => {
+    try {
+      const response = await authService.googleCallback(code, redirectUri);
+      const { token: newToken, user: userData } = response.data.data;
+      localStorage.setItem('token', newToken);
+      setToken(newToken);
+      setUser(userData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const login = async (credentials) => {
     const res = await authService.login(credentials);
     const { token: newToken, user: userData } = res.data.data;
@@ -92,6 +110,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     loginWithGoogle,
+    handleGoogleCallback,
     register,
     logout,
     refreshUser,
