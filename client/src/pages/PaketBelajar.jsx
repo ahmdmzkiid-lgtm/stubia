@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { subscriptionService } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
@@ -6,14 +6,20 @@ import { useAuth } from '../hooks/useAuth';
 import StudentNavbar from '../components/layout/StudentNavbar';
 import toast from 'react-hot-toast';
 
+const CATEGORY_TABS = [
+  { id: 'utbk_sub', label: 'UTBK Langganan', icon: 'calendar_month' },
+  { id: 'utbk_quota', label: 'UTBK Eceran (Kuota)', icon: 'local_activity' },
+  { id: 'um', label: 'Ujian Mandiri (UM)', icon: 'account_balance' },
+  { id: 'cpns', label: 'SKD CPNS', icon: 'verified_user' },
+];
+
 export default function PaketBelajar() {
   const { user } = useContext(AuthContext);
   const { logout } = useAuth();
   const [plans, setPlans] = useState([]);
   const [currentSub, setCurrentSub] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('utbk_sub'); // 'utbk_sub', 'utbk_quota', 'um'
-  const [utbkDropdownOpen, setUtbkDropdownOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('utbk_sub'); // 'utbk_sub', 'utbk_quota', 'um', 'cpns'
   const [cart, setCart] = useState([]);
   const navigate = useNavigate();
 
@@ -117,80 +123,29 @@ export default function PaketBelajar() {
         }
       `}</style>
 
-      {/* Tabs */}
-      <div className="max-w-5xl mx-auto px-4 mb-8 flex justify-center">
-        <div 
-          className="relative border-b border-[#c2c6d8]/30 pb-1"
-          onMouseEnter={() => setUtbkDropdownOpen(true)}
-          onMouseLeave={() => setUtbkDropdownOpen(false)}
-        >
-          <button
-            className="py-3 px-6 font-semibold text-xs sm:text-sm text-[#0050cb] border-b-2 border-[#0050cb] transition-all flex items-center gap-1.5 sm:gap-2 focus:outline-none"
-          >
-            <span className="material-symbols-outlined text-base sm:text-lg">
-              {activeTab === 'utbk_sub' ? 'calendar_month' : activeTab === 'utbk_quota' ? 'local_activity' : activeTab === 'um' ? 'account_balance' : 'verified_user'}
-            </span>
-            {activeTab === 'utbk_sub' ? 'UTBK Langganan' : activeTab === 'utbk_quota' ? 'UTBK Eceran (Kuota)' : activeTab === 'um' ? 'Ujian Mandiri (UM)' : 'SKD CPNS'}
-            <span 
-              className="material-symbols-outlined text-base sm:text-[16px] transition-transform duration-200" 
-              style={{ transform: utbkDropdownOpen ? 'rotate(180deg)' : 'none' }}
-            >
-              keyboard_arrow_down
-            </span>
-          </button>
-
-          {utbkDropdownOpen && (
-            <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-60 bg-white border border-[#c2c6d8]/30 rounded-2xl shadow-xl py-2 z-50 animate-fade-in">
+      {/* Touch-Friendly Category Tabs (2x2 Grid on Mobile, 4 columns on Desktop - No Scrolling Needed) */}
+      <div className="max-w-3xl mx-auto px-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+          {CATEGORY_TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
               <button
-                onClick={() => {
-                  setActiveTab('utbk_sub');
-                  setUtbkDropdownOpen(false);
-                }}
-                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
-                  activeTab === 'utbk_sub' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-3 rounded-2xl text-[11px] xs:text-xs sm:text-sm font-bold transition-all duration-200 select-none active:scale-95 cursor-pointer text-center leading-snug ${
+                  isActive
+                    ? 'bg-[#0050cb] text-white shadow-lg shadow-[#0050cb]/20 ring-2 ring-[#0050cb]/30'
+                    : 'bg-white border border-[#c2c6d8]/40 text-[#424656] hover:bg-[#f2f3ff] hover:text-[#0050cb] shadow-sm'
                 }`}
               >
-                <span className="material-symbols-outlined text-base">calendar_month</span>
-                UTBK Langganan
+                <span className="material-symbols-outlined text-lg sm:text-xl shrink-0">
+                  {tab.icon}
+                </span>
+                <span className="line-clamp-2">{tab.label}</span>
               </button>
-              <button
-                onClick={() => {
-                  setActiveTab('utbk_quota');
-                  setUtbkDropdownOpen(false);
-                }}
-                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
-                  activeTab === 'utbk_quota' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base">local_activity</span>
-                UTBK Eceran (Kuota)
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('um');
-                  setUtbkDropdownOpen(false);
-                }}
-                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
-                  activeTab === 'um' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base">account_balance</span>
-                Ujian Mandiri (UM)
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('cpns');
-                  setUtbkDropdownOpen(false);
-                }}
-                className={`w-full text-left block px-5 py-3 text-[14px] font-semibold hover:bg-[#f2f3ff] transition-colors flex items-center gap-2.5 ${
-                  activeTab === 'cpns' ? 'text-[#0050cb] bg-[#dae1ff]/40 font-bold' : 'text-[#424656]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base">verified_user</span>
-                SKD CPNS
-              </button>
-            </div>
-          )}
+            );
+          })}
         </div>
       </div>
 

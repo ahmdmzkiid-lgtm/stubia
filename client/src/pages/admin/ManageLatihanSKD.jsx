@@ -514,17 +514,18 @@ const ManageLatihanSKD = () => {
             ) : (
               !selectedTopic && (
                 <button
-                  onClick={() =>
-                    selectedSubject
-                      ? handleOpenTopicModal()
-                      : null
-                  }
-                  className={`flex-1 sm:flex-none bg-[#0050cb] text-white px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#0050cb]/20 transition-all active:translate-y-px text-[14px] ${!selectedSubject ? 'hidden' : ''}`}
+                  onClick={() => {
+                    if (!selectedSubject && subjects.length > 0) {
+                      setSelectedSubject(subjects[0]);
+                    }
+                    handleOpenTopicModal();
+                  }}
+                  className="flex-1 sm:flex-none bg-[#0050cb] hover:bg-[#003fa4] text-white px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#0050cb]/20 transition-all active:translate-y-px text-[14px]"
                 >
                   <span className="material-symbols-outlined text-[18px]">
                     add_circle
                   </span>
-                  Tambah Paket Baru
+                  Tambah Paket Latihan Baru
                 </button>
               )
             )}
@@ -901,7 +902,7 @@ const ManageLatihanSKD = () => {
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center">
+                      <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center mb-3">
                         <div>
                           <span className="block text-[9px] uppercase font-bold text-[#727687]">Passing Grade</span>
                           <span className="text-[14px] font-extrabold text-[#191b24]">{s.passing_grade || 0}</span>
@@ -915,6 +916,17 @@ const ManageLatihanSKD = () => {
                           <span className="text-[14px] font-extrabold text-[#191b24]">{s.duration_minutes || 0}m</span>
                         </div>
                       </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSubject(s);
+                        }}
+                        className="w-full bg-[#0050cb] hover:bg-[#003fa4] text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
+                      >
+                        Kelola Paket Latihan
+                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                      </button>
                     </div>
                   ))}
           </div>
