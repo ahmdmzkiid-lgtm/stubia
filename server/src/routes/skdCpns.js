@@ -53,7 +53,11 @@ function hasCpnsPlanAccess(activePlans, requiredPlan) {
 router.get("/subjects", verifyToken, async (req, res, next) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM skd_subjects WHERE is_active = TRUE ORDER BY display_order ASC"
+      `SELECT s.*, COALESCE(tc.cnt, 0)::int AS topic_count
+       FROM skd_subjects s
+       LEFT JOIN (SELECT subject_id, COUNT(*) AS cnt FROM skd_topics GROUP BY subject_id) tc ON tc.subject_id = s.id
+       WHERE s.is_active = TRUE
+       ORDER BY s.display_order ASC`
     );
     res.json({ success: true, data: result.rows });
   } catch (err) {
@@ -842,20 +846,56 @@ router.get("/admin/subjects", [verifyToken, verifyAdmin], async (req, res, next)
   } catch (err) { next(err); }
 });
 
+router.post("/admin/subjects", [verifyToken, verifyAdmin], async (req, res, next) => {
+  const { name, full_name, description, question_count, duration_minutes, passing_grade, is_tkp, display_order, is_active, icon } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO skd_subjects (name, full_name, description, question_count, duration_minutes, passing_grade, is_tkp, display_order, is_active, icon)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [
+        name,
+        full_name || name,
+        description || null,
+        question_count || 30,
+        duration_minutes || 30,
+        passing_grade || 65,
+        is_tkp || false,
+        display_order || 0,
+        is_active !== undefined ? is_active : true,
+        icon || null
+      ]
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) { next(err); }
+});
+
 router.patch("/admin/subjects/:id", [verifyToken, verifyAdmin], async (req, res, next) => {
   const { id } = req.params;
-  const { passing_grade, is_active, question_count, duration_minutes } = req.body;
+  const { name, full_name, description, passing_grade, is_active, question_count, duration_minutes, is_tkp, icon } = req.body;
   try {
     const result = await pool.query(
       `UPDATE skd_subjects SET
-         passing_grade = COALESCE($1, passing_grade),
-         is_active = COALESCE($2, is_active),
-         question_count = COALESCE($3, question_count),
-         duration_minutes = COALESCE($4, duration_minutes)
-       WHERE id = $5 RETURNING *`,
-      [passing_grade, is_active, question_count, duration_minutes, id]
+         name = COALESCE($1, name),
+         full_name = COALESCE($2, full_name),
+         description = COALESCE($3, description),
+         passing_grade = COALESCE($4, passing_grade),
+         is_active = COALESCE($5, is_active),
+         question_count = COALESCE($6, question_count),
+         duration_minutes = COALESCE($7, duration_minutes),
+         is_tkp = COALESCE($8, is_tkp),
+         icon = COALESCE($9, icon)
+       WHERE id = $10 RETURNING *`,
+      [name, full_name, description, passing_grade, is_active, question_count, duration_minutes, is_tkp, icon, id]
     );
     res.json({ success: true, data: result.rows[0] });
+  } catch (err) { next(err); }
+});
+
+router.delete("/admin/subjects/:id", [verifyToken, verifyAdmin], async (req, res, next) => {
+  const { id } = req.params;
+  try {
+    await pool.query("DELETE FROM skd_subjects WHERE id = $1", [id]);
+    res.json({ success: true, message: "Subtes berhasil dihapus" });
   } catch (err) { next(err); }
 });
 

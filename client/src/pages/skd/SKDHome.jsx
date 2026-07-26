@@ -169,164 +169,110 @@ export default function SKDHome() {
       <StudentNavbar user={user} isAdmin={isAdmin} onLogout={() => { logout(); navigate('/'); }} />
 
       <main className="flex-grow">
-        {/* Premium Light Mesh Hero Section matching website branding */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#f2f3ff] via-[#faf8ff] to-white text-[#191b24] py-12 lg:py-20 border-b border-[#c2c6d8]/20">
-          <style>{`
-            @keyframes float {
-              0%, 100% { transform: translateY(0) rotate(0deg); }
-              50% { transform: translateY(-10px) rotate(1deg); }
-            }
-            @keyframes float-slow {
-              0%, 100% { transform: translateY(0) rotate(0deg); }
-              50% { transform: translateY(-15px) rotate(-1deg); }
-            }
-            @keyframes pulse-slow {
-              0%, 100% { opacity: 0.15; transform: scale(1); }
-              50% { opacity: 0.25; transform: scale(1.1); }
-            }
-            .animate-float { animation: float 6s ease-in-out infinite; }
-            .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
-            .animate-pulse-slow { animation: pulse-slow 8s ease-in-out infinite; }
-            .mesh-bg-light {
-              background: radial-gradient(circle at 10% 20%, rgba(0, 80, 203, 0.08) 0%, transparent 40%),
-                          radial-gradient(circle at 90% 80%, rgba(140, 20, 252, 0.06) 0%, transparent 45%),
-                          radial-gradient(circle at 50% 50%, rgba(0, 80, 203, 0.04) 0%, transparent 50%);
-            }
-          `}</style>
-
-          {/* Background patterns */}
-          <div className="absolute inset-0 mesh-bg-light pointer-events-none" />
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #0050cb 1px, transparent 1px), radial-gradient(circle at 80% 20%, #0050cb 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-          
-          {/* Blur Orbs */}
-          <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none animate-pulse-slow" />
-          <div className="absolute bottom-1/4 left-1/4 w-[250px] h-[250px] bg-purple-600/5 rounded-full blur-[90px] pointer-events-none animate-pulse-slow" style={{ animationDelay: '2s' }} />
-
-          <div className="relative max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+        {/* Hero Section */}
+        <section className="relative bg-[#faf8ff] border-b border-[#c2c6d8]/20 py-10 lg:py-16">
+          <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
               
-              {/* Left Column: Context & CTA */}
+              {/* Left Column */}
               <div className="lg:col-span-7 flex flex-col justify-center">
-                <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#f2f3ff] border border-[#c2c6d8]/40 backdrop-blur-md w-fit mb-6 shadow-xs">
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0050cb] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0050cb]"></span>
-                  </span>
-                  <span className="text-[12px] font-bold uppercase tracking-widest text-[#0050cb]">CAT BKN SIMULATOR 2026</span>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-[#c2c6d8]/40 w-fit mb-5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0050cb]"></span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#424656]">Simulasi CAT BKN 2026</span>
                 </div>
 
-                <h1 className="text-[38px] sm:text-[48px] lg:text-[56px] font-black leading-[1.1] mb-5 tracking-tight text-[#191b24]">
-                  Taklukkan Ujian <br />
-                  <span className="bg-gradient-to-r from-[#0050cb] via-blue-600 to-[#8c14fc] bg-clip-text text-transparent">
-                    SKD CPNS 2026
-                  </span>
+                <h1 className="text-[32px] sm:text-[40px] lg:text-[48px] font-black leading-[1.12] mb-4 tracking-tight text-[#191b24]">
+                  Persiapan SKD CPNS<br />
+                  <span className="text-[#0050cb]">yang Terukur</span>
                 </h1>
 
-                <p className="text-[15px] sm:text-[17px] text-[#424656] leading-relaxed max-w-xl mb-8">
-                  Akses modul tryout & latihan soal berbasis Computer Assisted Test (CAT) BKN terlengkap. 
-                  Dilengkapi dengan pembobotan nilai TKP dinamis (1-5) serta analisis ambang batas (Passing Grade) secara instan.
+                <p className="text-[14px] sm:text-[15px] text-[#727687] leading-relaxed max-w-md mb-7">
+                  Tryout & latihan soal berbasis sistem CAT BKN dengan pembobotan TKP (1-5) dan tracking passing grade secara realtime.
                 </p>
 
-                {/* Micro-features */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-8 max-w-lg">
-                  {[
-                    { icon: 'verified', text: 'Sesuai Kisi-Kisi PermenPAN-RB' },
-                    { icon: 'speed', text: 'Realtime Passing Grade Tracker' },
-                    { icon: 'query_stats', text: 'Pembahasan Komprehensif' },
-                    { icon: 'psychology', text: 'Analisis Kemampuan Personalisasi' }
-                  ].map((feat, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-full bg-[#0050cb]/10 flex items-center justify-center border border-[#0050cb]/25 shrink-0">
-                        <span className="material-symbols-outlined text-[14px] text-[#0050cb]">{feat.icon}</span>
-                      </div>
-                      <span className="text-[13px] text-[#424656] font-semibold">{feat.text}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-wrap gap-3 mb-8">
                   <button
                     onClick={() => {
                       const element = document.getElementById('tryout-section') || document.querySelector('main');
                       if (element) element.scrollIntoView({ behavior: 'smooth' });
                     }}
-                    className="px-7 py-3.5 rounded-2xl text-[14px] font-extrabold bg-[#0050cb] hover:bg-[#003da1] text-white transition-all transform hover:-translate-y-0.5 shadow-lg shadow-blue-500/25 flex items-center gap-2"
+                    className="px-6 py-3 rounded-xl text-[13px] font-bold bg-[#0050cb] text-white hover:bg-[#003fa4] transition-all shadow-sm flex items-center gap-2"
                   >
-                    Mulai Belajar Sekarang
-                    <span className="material-symbols-outlined text-[18px]">arrow_right_alt</span>
+                    Mulai Belajar
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </button>
                   <button
                     onClick={() => navigate('/paket-belajar')}
-                    className="px-6 py-3.5 rounded-2xl text-[14px] font-extrabold bg-white hover:bg-gray-50 text-[#0050cb] border border-[#c2c6d8]/60 shadow-xs transition-all flex items-center gap-2"
+                    className="px-6 py-3 rounded-xl text-[13px] font-bold bg-white text-[#424656] border border-[#c2c6d8]/50 hover:border-[#0050cb]/40 hover:text-[#0050cb] transition-all"
                   >
-                    Lihat Paket Premium
+                    Lihat Paket
                   </button>
+                </div>
+
+                {/* Compact feature list */}
+                <div className="flex flex-wrap gap-x-5 gap-y-2 text-[12px] text-[#727687]">
+                  {[
+                    { icon: 'verified', text: 'Sesuai kisi-kisi PermenPAN-RB' },
+                    { icon: 'speed', text: 'Passing grade tracker' },
+                    { icon: 'query_stats', text: 'Pembahasan lengkap' },
+                  ].map((feat, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[14px] text-[#0050cb]">{feat.icon}</span>
+                      <span className="font-medium">{feat.text}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Right Column: Premium Mockup Graphic */}
-              <div className="lg:col-span-5 relative flex justify-center items-center">
-                <div className="absolute w-[350px] h-[350px] bg-gradient-to-tr from-blue-200 to-purple-200 rounded-full opacity-30 blur-3xl pointer-events-none" />
-
-                {/* Floating main mockup card */}
-                <div className="relative w-full max-w-[390px] bg-white/90 border border-[#c2c6d8]/40 backdrop-blur-xl rounded-[28px] p-6 shadow-2xl animate-float">
-                  
-                  {/* Card Header */}
-                  <div className="flex justify-between items-center pb-4 border-b border-[#c2c6d8]/20 mb-5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-3.5 h-3.5 rounded-full bg-red-500" />
-                      <div className="w-3.5 h-3.5 rounded-full bg-yellow-400" />
-                      <div className="w-3.5 h-3.5 rounded-full bg-green-500" />
-                    </div>
-                    <span className="text-[11px] font-bold text-[#0050cb] tracking-wider uppercase bg-[#f2f3ff] px-2.5 py-1 rounded-md border border-[#c2c6d8]/30">CAT MODE ACTIVE</span>
-                  </div>
-
-                  {/* Mock Score Overview */}
-                  <div className="space-y-4">
-                    <div className="bg-[#f8f9ff] border border-[#c2c6d8]/30 rounded-2xl p-4">
-                      <span className="text-[11px] font-bold text-[#727687] uppercase tracking-wide">ESTIMASI TOTAL SKOR</span>
-                      <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-[42px] font-black text-[#191b24] leading-none tracking-tight">410</span>
-                        <span className="text-[14px] font-bold text-emerald-600">/ 550 Max</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-2 text-[12px] text-emerald-600 font-bold">
-                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                        Lolos Ambang Batas SKD 2026
-                      </div>
-                    </div>
-
-                    {/* Progress bars for subjects */}
-                    <div className="space-y-3">
+              {/* Right Column: Compact Info Cards */}
+              <div className="lg:col-span-5">
+                <div className="space-y-3">
+                  {/* Passing Grade Overview */}
+                  <div className="bg-white rounded-2xl border border-[#c2c6d8]/30 p-5">
+                    <div className="text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-4">Ambang Batas SKD CPNS 2026</div>
+                    <div className="space-y-3.5">
                       {[
-                        { name: 'TWK', score: 115, pg: 65, color: 'from-orange-500 to-amber-500', colorText: 'text-orange-600' },
-                        { name: 'TIU', score: 135, pg: 80, color: 'from-blue-500 to-cyan-500', colorText: 'text-blue-600' },
-                        { name: 'TKP', score: 160, pg: 166, color: 'from-emerald-500 to-green-500', colorText: 'text-emerald-600' },
-                      ].map((item, idx) => (
-                        <div key={idx} className="border border-[#c2c6d8]/20 rounded-xl p-3">
-                          <div className="flex justify-between items-center text-[12px] font-bold mb-1.5">
-                            <span className="text-[#191b24]">{item.name}</span>
-                            <span className={item.colorText}>{item.score} <span className="text-[#727687] font-medium">/ PG {item.pg}</span></span>
+                        { name: 'TWK', fullName: 'Wawasan Kebangsaan', pg: 65, max: 175, questions: 35, color: '#e65100', bg: '#fff3e0' },
+                        { name: 'TIU', fullName: 'Intelejensia Umum', pg: 80, max: 175, questions: 35, color: '#1565c0', bg: '#e3f2fd' },
+                        { name: 'TKP', fullName: 'Karakteristik Pribadi', pg: 166, max: 225, questions: 45, color: '#2e7d32', bg: '#e8f5e9' },
+                      ].map((item) => (
+                        <div key={item.name} className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0"
+                            style={{ backgroundColor: item.bg, color: item.color }}>
+                            {item.name}
                           </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className={`h-full bg-gradient-to-r ${item.color} rounded-full`} style={{ width: `${(item.score / 175) * 100}%` }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[12px] font-semibold text-[#424656] truncate">{item.fullName}</span>
+                              <span className="text-[12px] font-bold shrink-0 ml-2" style={{ color: item.color }}>PG {item.pg}<span className="text-[#c2c6d8] font-normal">/{item.max}</span></span>
+                            </div>
+                            <div className="h-1.5 bg-[#f2f3ff] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${(item.pg / item.max) * 100}%`, backgroundColor: item.color }} />
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-
-                  {/* Decorative badge */}
-                  <div className="absolute -bottom-6 -left-6 bg-white border border-[#c2c6d8]/40 backdrop-blur-md px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-float-slow">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-200 shrink-0">
-                      <span className="material-symbols-outlined text-[16px] text-emerald-600">military_tech</span>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-[#727687] font-bold">AKURASI PREDIKSI</div>
-                      <div className="text-[13px] font-black text-[#191b24]">94.8% (Tinggi)</div>
+                    <div className="mt-4 pt-3 border-t border-[#c2c6d8]/20 flex items-center justify-between">
+                      <span className="text-[11px] text-[#727687]">Total Soal: <strong className="text-[#191b24]">110 soal</strong></span>
+                      <span className="text-[11px] text-[#727687]">Skor Maks: <strong className="text-[#191b24]">550 poin</strong></span>
                     </div>
                   </div>
 
+                  {/* Quick stats row */}
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {[
+                      { value: '110', label: 'Soal per sesi', icon: 'quiz' },
+                      { value: '100\'', label: 'Durasi ujian', icon: 'timer' },
+                      { value: 'CAT', label: 'Sistem BKN', icon: 'computer' },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white rounded-xl border border-[#c2c6d8]/30 p-3 text-center">
+                        <span className="material-symbols-outlined text-[16px] text-[#0050cb] mb-1 block">{stat.icon}</span>
+                        <div className="text-[16px] font-black text-[#191b24] leading-tight">{stat.value}</div>
+                        <div className="text-[10px] text-[#727687] font-medium mt-0.5">{stat.label}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -334,36 +280,7 @@ export default function SKDHome() {
           </div>
         </section>
 
-        {/* Passing Grade Reference Cards */}
-        <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {[
-              { label: 'TWK', fullName: 'Tes Wawasan Kebangsaan', pg: 65, maxScore: 175, questions: 35, color: SUBJECT_COLOR.TWK },
-              { label: 'TIU', fullName: 'Tes Intelejensia Umum', pg: 80, maxScore: 175, questions: 35, color: SUBJECT_COLOR.TIU },
-              { label: 'TKP', fullName: 'Tes Karakteristik Pribadi', pg: 166, maxScore: 225, questions: 45, color: SUBJECT_COLOR.TKP },
-            ].map((s) => (
-              <div key={s.label} className="bg-white rounded-2xl p-5 border border-[#c2c6d8]/40 shadow-xs hover:shadow-md transition-all">
-                <div className="flex items-center gap-3.5 mb-3.5">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black shadow-xs"
-                    style={{ backgroundColor: s.color.bg, color: s.color.icon }}>
-                    {s.label}
-                  </div>
-                  <div>
-                    <div className="text-[14px] font-bold text-[#191b24]">{s.fullName}</div>
-                    <div className="text-[11px] text-[#727687]">{s.questions} Soal • Maks {s.maxScore} Poin</div>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-[12px] font-medium text-[#424656]">Passing Grade BKN</span>
-                  <span className="text-[15px] font-black" style={{ color: s.color.icon }}>{s.pg}</span>
-                </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${(s.pg / s.maxScore) * 100}%`, backgroundColor: s.color.bar }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+
 
         {/* Tabs & Search Filter Header */}
         <section id="tryout-section" className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 pb-4 scroll-mt-24">
@@ -514,8 +431,8 @@ export default function SKDHome() {
           {activeTab === 'latihan' && (
             <div>
               {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {[1, 2, 3].map((i) => <div key={i} className="h-52 bg-[#f2f3ff] animate-pulse rounded-2xl" />)}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map((i) => <div key={i} className="h-36 bg-[#f2f3ff] animate-pulse rounded-[16px]" />)}
                 </div>
               ) : subjects.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-2xl border border-[#c2c6d8]/40">
@@ -523,7 +440,7 @@ export default function SKDHome() {
                   <p className="text-[17px] font-bold text-[#191b24]">Belum ada subtes latihan tersedia</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {subjects.map((subject) => (
                     <SubjectCard
                       key={subject.id}
@@ -691,68 +608,50 @@ function TryoutCard({ pkg, idx, regStatus, hasCpnsSubscription, hasPlanAccess, o
   );
 }
 
-// ── SubjectCard ──
+// ── SubjectCard (UTBK-style topic card) ──
 function SubjectCard({ subject, onClick }) {
-  const color = SUBJECT_COLOR[subject.name] || SUBJECT_COLOR.TWK;
-  const isTkp = subject.is_tkp;
+  const color = SUBJECT_COLOR[subject.name] || (
+    subject.name?.toUpperCase().includes('TWK') ? SUBJECT_COLOR.TWK :
+    subject.name?.toUpperCase().includes('TKP') ? SUBJECT_COLOR.TKP :
+    SUBJECT_COLOR.TIU
+  );
+  const topicCount = subject.topic_count || 0;
+  const isMaterialIcon = subject.icon && !['TWK', 'TIU', 'TKP'].includes(subject.icon);
 
   return (
     <div
       onClick={onClick}
-      className="bg-white border border-[#c2c6d8]/40 rounded-2xl p-6 cursor-pointer hover:shadow-xl hover:border-[#0050cb]/30 transition-all group flex flex-col justify-between"
+      className="relative bg-white border border-[#c2c6d8]/30 rounded-[16px] p-4 transition-all duration-200 flex flex-col justify-between cursor-pointer group hover:shadow-lg hover:border-[#0050cb]/40"
     >
       <div>
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-13 h-13 rounded-2xl flex items-center justify-center text-[18px] font-black shadow-xs transition-transform group-hover:scale-110"
-            style={{ backgroundColor: color.bg, color: color.icon }}>
-            {subject.name}
-          </div>
-          <div>
-            <h3 className="text-[16px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors">
-              {subject.full_name}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${color.badge}`}>{subject.name}</span>
-              {isTkp && <span className="text-[11px] font-semibold text-emerald-700">Skor 1–5</span>}
-            </div>
+        <div className="flex items-center gap-2 mb-3">
+          {/* Subtest Icon/Badge matching prompt image */}
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-[13px] tracking-tight shadow-xs text-white shrink-0 transition-transform group-hover:scale-105"
+            style={{ backgroundColor: color.icon }}
+          >
+            {isMaterialIcon ? (
+              <span className="material-symbols-outlined text-[22px]">{subject.icon}</span>
+            ) : (
+              subject.name
+            )}
           </div>
         </div>
-
-        {/* Passing Grade */}
-        <div className="mb-4 p-3 rounded-xl border" style={{ backgroundColor: color.bg + '80', borderColor: color.icon + '30' }}>
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-[12px] font-semibold text-[#424656]">Passing Grade BKN</span>
-            <span className="text-[14px] font-black" style={{ color: color.icon }}>{subject.passing_grade}</span>
-          </div>
-          <div className="h-1.5 bg-white/60 rounded-full overflow-hidden">
-            <div className="h-full rounded-full" style={{
-              width: `${Math.min(100, (subject.passing_grade / (isTkp ? 225 : 175)) * 100)}%`,
-              backgroundColor: color.icon
-            }} />
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="text-center p-2 bg-[#f2f3ff] rounded-xl">
-            <div className="text-[17px] font-black text-[#0050cb]">{subject.question_count}</div>
-            <div className="text-[10px] font-bold text-[#727687] uppercase">Soal/Paket</div>
-          </div>
-          <div className="text-center p-2 bg-[#f2f3ff] rounded-xl">
-            <div className="text-[17px] font-black text-[#0050cb]">{subject.duration_minutes}'</div>
-            <div className="text-[10px] font-bold text-[#727687] uppercase">Durasi</div>
-          </div>
-        </div>
-
-        <p className="text-[12px] text-[#424656] leading-relaxed mb-4 line-clamp-2">
-          {subject.description || 'Latihan soal sesuai kisi-kisi resmi BKN.'}
+        <h3 className="text-[14px] font-bold text-[#191b24] mb-1 leading-tight group-hover:text-[#0050cb] transition-colors">
+          {subject.full_name || subject.name}
+        </h3>
+        <p className="text-[12px] text-[#424656] leading-relaxed line-clamp-2">
+          {subject.description || `Latihan soal ${subject.name} sesuai kisi-kisi resmi BKN.`}
         </p>
+        {topicCount > 0 && (
+          <span className="inline-block mt-2.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: color.bg, color: color.icon }}>
+            {topicCount} paket soal
+          </span>
+        )}
       </div>
-
-      <div className="flex items-center justify-between pt-3 border-t border-[#c2c6d8]/20">
-        <span className="text-[13px] font-bold text-[#0050cb]">Mulai Latihan</span>
-        <span className="material-symbols-outlined text-[#0050cb] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+      <div className="mt-3 pt-3 border-t border-[#c2c6d8]/20 flex items-center justify-between">
+        <span className="text-[12px] font-bold text-[#0050cb]">Mulai</span>
+        <span className="material-symbols-outlined text-[16px] text-[#0050cb] group-hover:translate-x-1 transition-transform">arrow_forward</span>
       </div>
     </div>
   );

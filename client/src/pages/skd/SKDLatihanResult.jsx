@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import StudentNavbar from '../../components/layout/StudentNavbar';
 import Footer from '../../components/Footer';
+import MathText from '../../components/MathText';
 
 const SUBJECT_COLOR = {
   TWK: { primary: '#e65100', light: '#fff3e0', badge: 'bg-orange-100 text-orange-700' },
@@ -200,8 +201,23 @@ export default function SKDLatihanResult() {
                             </span>
                           )}
                         </div>
-                        <div className="text-[14px] text-[#191b24] leading-relaxed line-clamp-2"
-                          dangerouslySetInnerHTML={{ __html: ans.question_content }} />
+
+                        {/* Stimulus / Bacaan */}
+                        {ans.stimulus && (
+                          <div className="mb-2 text-[14px] text-[#424656] leading-relaxed whitespace-pre-wrap">
+                            <MathText text={ans.stimulus} />
+                          </div>
+                        )}
+
+                        {/* Question Image */}
+                        {ans.image_url && (
+                          <img src={ans.image_url} alt="Soal" className="max-w-full max-h-60 rounded-xl my-2 border border-[#c2c6d8]/30" />
+                        )}
+
+                        {/* Question Content */}
+                        <div className="text-[14px] text-[#191b24] font-medium leading-relaxed mb-2">
+                          <MathText text={ans.question_content || ''} />
+                        </div>
 
                         {/* Chosen answer summary */}
                         {ans.chosen_choice_id ? (
@@ -209,7 +225,9 @@ export default function SKDLatihanResult() {
                             isCorrect ? 'text-green-600' : 'text-red-500'
                           }`}>
                             <span>Pilihan {ans.chosen_label}: </span>
-                            <span className="font-normal text-[#424656]" dangerouslySetInnerHTML={{ __html: (ans.chosen_content || '').substring(0, 60) + '...' }} />
+                            <span className="font-normal text-[#424656]">
+                              <MathText text={(ans.chosen_content || '').substring(0, 80)} />
+                            </span>
                           </div>
                         ) : (
                           <div className="mt-2 text-[12px] font-semibold text-gray-400 flex items-center gap-1">
@@ -249,7 +267,7 @@ export default function SKDLatihanResult() {
                                   : 'bg-gray-100 text-gray-600'
                               }`}>{choice.label}</div>
                               <div className="flex-1">
-                                <div className="text-[13px] text-[#191b24]" dangerouslySetInnerHTML={{ __html: choice.content }} />
+                                <MathText className="text-[13px] text-[#191b24]" text={choice.content || ''} />
                                 {isTkp && <span className="text-[11px] font-bold text-green-600 mt-0.5 block">+{choice.tkp_point} poin</span>}
                               </div>
                               {isChosen && <span className="material-symbols-outlined text-[14px] shrink-0 text-[#727687]">arrow_left</span>}
@@ -264,8 +282,7 @@ export default function SKDLatihanResult() {
                           <div className="text-[11px] font-bold text-[#0050cb] mb-1.5 flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">lightbulb</span> Pembahasan
                           </div>
-                          <div className="text-[13px] text-[#424656] leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: ans.explanation }} />
+                          <MathText className="text-[13px] text-[#424656] leading-relaxed" text={ans.explanation || ''} />
                         </div>
                       )}
                     </div>

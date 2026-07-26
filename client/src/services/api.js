@@ -349,7 +349,9 @@ export const skdService = {
 
   // Admin
   adminGetSubjects: () => api.get('/skd/admin/subjects'),
+  adminCreateSubject: (data) => api.post('/skd/admin/subjects', data),
   adminUpdateSubject: (id, data) => api.patch(`/skd/admin/subjects/${id}`, data),
+  adminDeleteSubject: (id) => api.delete(`/skd/admin/subjects/${id}`),
   adminGetTopics: (subjectId) => api.get(`/skd/admin/subjects/${subjectId}/topics`),
   adminCreateTopic: (subjectId, data) => api.post(`/skd/admin/subjects/${subjectId}/topics`, data),
   adminUpdateTopic: (id, data) => api.patch(`/skd/admin/topics/${id}`, data),

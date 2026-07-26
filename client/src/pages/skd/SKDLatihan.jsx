@@ -113,8 +113,12 @@ export default function SKDLatihan() {
             style={{ backgroundImage: 'radial-gradient(circle at 70% 30%, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
           <div className="relative">
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-[22px] font-black">
-                {subject.name}
+              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-[20px] font-black shrink-0">
+                {subject.icon && !['TWK', 'TIU', 'TKP'].includes(subject.icon) ? (
+                  <span className="material-symbols-outlined text-[32px]">{subject.icon}</span>
+                ) : (
+                  subject.name
+                )}
               </div>
               <div>
                 <div className="text-[12px] font-bold uppercase tracking-wider opacity-70 mb-1">Latihan Soal SKD</div>

@@ -65,14 +65,23 @@ const ManageLatihanSKD = () => {
   const [showEditQuestionModal, setShowEditQuestionModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
 
+  const [topicSearch, setTopicSearch] = useState("");
+  const [topicPage, setTopicPage] = useState(1);
+
   const [subjectForm, setSubjectForm] = useState({
-    passing_grade: 0,
+    name: "",
+    full_name: "",
+    description: "",
+    passing_grade: 65,
     is_active: true,
     question_count: 30,
-    duration_minutes: 30
+    duration_minutes: 30,
+    is_tkp: false,
+    icon: "",
   });
 
   const [topicForm, setTopicForm] = useState({
+    subject_id: "",
     title: "",
     description: "",
     icon: "notes",
@@ -299,36 +308,69 @@ const ManageLatihanSKD = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await skdService.adminUpdateSubject(editingItem.id, subjectForm);
-      toast.success("Subtes diperbarui");
+      if (editingItem) {
+        await skdService.adminUpdateSubject(editingItem.id, subjectForm);
+        toast.success("Subtes diperbarui");
+      } else {
+        await skdService.adminCreateSubject(subjectForm);
+        toast.success("Subtes baru berhasil ditambahkan");
+      }
       fetchSubjects();
       setShowSubjectModal(false);
       setEditingItem(null);
     } catch (err) {
       console.error(err);
-      toast.error("Gagal memperbarui subtes");
+      toast.error(err.response?.data?.error || "Gagal menyimpan subtes");
     }
     setIsSubmitting(false);
   };
 
+  const handleDeleteSubject = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm("Apakah Anda yakin ingin menghapus subtes ini beserta seluruh paket soal di dalamnya?")) return;
+    try {
+      await skdService.adminDeleteSubject(id);
+      toast.success("Subtes berhasil dihapus");
+      fetchSubjects();
+      if (selectedSubject?.id === id) {
+        setSelectedSubject(null);
+      }
+    } catch (err) {
+      toast.error("Gagal menghapus subtes");
+    }
+  };
+
   const handleTopicSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedSubject) return;
+    const targetSubjectId = selectedSubject ? selectedSubject.id : topicForm.subject_id;
+    if (!targetSubjectId) {
+      toast.error("Pilih subtes terlebih dahulu");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (editingItem) {
-        await skdService.adminUpdateTopic(editingItem.id, topicForm);
-        toast.success("Topik diperbarui");
+        await skdService.adminUpdateTopic(editingItem.id, {
+          ...topicForm,
+          subject_id: targetSubjectId
+        });
+        toast.success("Topik/Paket diperbarui");
       } else {
-        await skdService.adminCreateTopic(selectedSubject.id, topicForm);
-        toast.success("Topik ditambahkan");
+        await skdService.adminCreateTopic(targetSubjectId, topicForm);
+        toast.success("Paket latihan berhasil ditambahkan");
       }
-      fetchTopics(selectedSubject.id);
+      
+      const chosenSubject = subjects.find(s => s.id === targetSubjectId);
+      if (chosenSubject && !selectedSubject) {
+        setSelectedSubject(chosenSubject);
+      } else if (selectedSubject) {
+        fetchTopics(selectedSubject.id);
+      }
       setShowTopicModal(false);
       setEditingItem(null);
     } catch (err) {
       console.error(err);
-      toast.error("Gagal menyimpan topik");
+      toast.error("Gagal menyimpan topik/paket");
     }
     setIsSubmitting(false);
   };
@@ -345,21 +387,43 @@ const ManageLatihanSKD = () => {
     }
   };
 
-  const handleOpenSubjectModal = (item) => {
-    setEditingItem(item);
-    setSubjectForm({
-      passing_grade: item.passing_grade || 0,
-      is_active: item.is_active !== undefined ? item.is_active : true,
-      question_count: item.question_count || 30,
-      duration_minutes: item.duration_minutes || 30
-    });
+  const handleOpenSubjectModal = (item = null) => {
+    if (item) {
+      setEditingItem(item);
+      setSubjectForm({
+        name: item.name || "",
+        full_name: item.full_name || "",
+        description: item.description || "",
+        passing_grade: item.passing_grade || 65,
+        is_active: item.is_active !== undefined ? item.is_active : true,
+        question_count: item.question_count || 30,
+        duration_minutes: item.duration_minutes || 30,
+        is_tkp: !!item.is_tkp,
+        icon: item.icon || "",
+      });
+    } else {
+      setEditingItem(null);
+      setSubjectForm({
+        name: "",
+        full_name: "",
+        description: "",
+        passing_grade: 65,
+        is_active: true,
+        question_count: 30,
+        duration_minutes: 30,
+        is_tkp: false,
+        icon: "",
+      });
+    }
     setShowSubjectModal(true);
   };
 
   const handleOpenTopicModal = (item = null) => {
+    const defaultSubId = selectedSubject?.id || (subjects[0]?.id || "");
     if (item) {
       setEditingItem(item);
       setTopicForm({
+        subject_id: item.subject_id || defaultSubId,
         title: item.title || "",
         description: item.description || "",
         icon: item.icon || "notes",
@@ -370,6 +434,7 @@ const ManageLatihanSKD = () => {
     } else {
       setEditingItem(null);
       setTopicForm({
+        subject_id: defaultSubId,
         title: "",
         description: "",
         icon: "notes",
@@ -508,25 +573,31 @@ const ManageLatihanSKD = () => {
                   <span className="material-symbols-outlined text-[18px]">
                     delete_sweep
                   </span>
-                  Hapus Semua Soal
                 </button>
               </div>
             ) : (
               !selectedTopic && (
-                <button
-                  onClick={() => {
-                    if (!selectedSubject && subjects.length > 0) {
-                      setSelectedSubject(subjects[0]);
-                    }
-                    handleOpenTopicModal();
-                  }}
-                  className="flex-1 sm:flex-none bg-[#0050cb] hover:bg-[#003fa4] text-white px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#0050cb]/20 transition-all active:translate-y-px text-[14px]"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    add_circle
-                  </span>
-                  Tambah Paket Latihan Baru
-                </button>
+                !selectedSubject ? (
+                  <button
+                    onClick={() => handleOpenSubjectModal(null)}
+                    className="flex-1 sm:flex-none bg-[#0050cb] hover:bg-[#003fa4] text-white px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#0050cb]/20 transition-all active:translate-y-px text-[14px]"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      add
+                    </span>
+                    Tambah Subtes Baru
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenTopicModal(null)}
+                    className="flex-1 sm:flex-none bg-[#0050cb] hover:bg-[#003fa4] text-white px-4 sm:px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#0050cb]/20 transition-all active:translate-y-px text-[14px]"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      add_circle
+                    </span>
+                    Tambah Paket Baru
+                  </button>
+                )
               )
             )}
           </div>
@@ -866,18 +937,16 @@ const ManageLatihanSKD = () => {
                       <div>
                         <div className="flex justify-between items-start mb-6">
                           <div
-                            className="p-4 rounded-2xl transition-transform group-hover:scale-110 duration-300 shadow-sm"
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center font-extrabold text-[13px] shadow-sm text-white shrink-0 transition-transform group-hover:scale-105"
                             style={{
-                              backgroundColor: "#f2f3ff",
-                              color: "#0050cb",
+                              backgroundColor: s.name?.toUpperCase().includes('TWK') ? '#e65100' : s.name?.toUpperCase().includes('TKP') ? '#2e7d32' : '#1565c0',
                             }}
                           >
-                            <span
-                              className="material-symbols-outlined text-[28px]"
-                              style={{ fontVariationSettings: "'FILL' 1" }}
-                            >
-                              school
-                            </span>
+                            {s.icon && !['TWK', 'TIU', 'TKP'].includes(s.icon) ? (
+                              <span className="material-symbols-outlined text-[24px]">{s.icon}</span>
+                            ) : (
+                              s.name
+                            )}
                           </div>
                           <div className="flex gap-1">
                             <button
@@ -885,10 +954,20 @@ const ManageLatihanSKD = () => {
                                 e.stopPropagation();
                                 handleOpenSubjectModal(s);
                               }}
+                              title="Edit subtes"
                               className="p-2 text-[#727687] hover:text-[#0050cb] hover:bg-[#dae1ff]/30 rounded-full transition-colors"
                             >
                               <span className="material-symbols-outlined text-[20px]">
                                 edit
+                              </span>
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteSubject(s.id, e)}
+                              title="Hapus subtes"
+                              className="p-2 text-[#727687] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/30 rounded-full transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">
+                                delete
                               </span>
                             </button>
                           </div>
@@ -933,93 +1012,150 @@ const ManageLatihanSKD = () => {
         ) : (
           /* LEVEL 2: Topic List for Selected Subject */
           <div className="space-y-6 animate-fade-in-up">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(topics || []).map((t, idx) => (
-                <div
-                  key={t.id}
-                  className="bg-white border border-[#c2c6d8]/30 rounded-[32px] p-6 hover:shadow-xl transition-all group border-l-4 border-l-[#0050cb] flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 rounded-2xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb] relative">
-                        <span className="material-symbols-outlined text-[24px]">
-                          {t.icon || "notes"}
-                        </span>
-                        <span className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#0050cb] text-white text-[11px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
-                          {idx + 1}
-                        </span>
-                      </div>
-                      {user?.role !== "quality_assurance" && (
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleOpenTopicModal(t)}
-                            className="p-2 text-[#727687] hover:text-[#0050cb] hover:bg-[#dae1ff]/30 rounded-full transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[20px]">
-                              edit
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTopic(t.id)}
-                            className="p-2 text-[#727687] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/30 rounded-full transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[20px]">
-                              delete
-                            </span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <h4 className="text-[18px] font-bold text-[#191b24] mb-1">
-                      {t.title}
-                    </h4>
-                    <p className="text-[13px] text-[#424656] mb-4 line-clamp-2">
-                      {t.description || "Topik pembelajaran latihan soal SKD."}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#c2c6d8]/20">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[11px] font-bold text-[#727687] uppercase bg-[#f2f3ff] px-2 py-0.5 rounded-md">
-                        {t.difficulty_level || 'Dasar'}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleOpenKelolaSoal(t)}
-                        className="text-[12px] font-bold text-[#0050cb] flex items-center gap-1 hover:underline"
-                      >
-                        Kelola Soal Paket
-                        <span className="material-symbols-outlined text-[14px]">
-                          arrow_forward
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {/* Add Topic CTA */}
-              <button
-                onClick={() => handleOpenTopicModal()}
-                className="border-2 border-dashed border-[#c2c6d8]/50 rounded-[32px] p-8 flex flex-col items-center justify-center text-center hover:border-[#0050cb] hover:bg-[#dae1ff]/10 transition-all group min-h-[220px]"
-              >
-                <div className="w-14 h-14 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#727687] group-hover:bg-[#0050cb] group-hover:text-white mb-4 transition-all">
-                  <span className="material-symbols-outlined">add</span>
-                </div>
-                <span className="font-bold text-[#424656] group-hover:text-[#0050cb]">
-                  Tambah Paket Baru
+            {/* Search & Stats Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-[#c2c6d8]/30 shadow-xs">
+              <div className="relative flex-1 min-w-[240px]">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#727687]">
+                  search
                 </span>
-              </button>
-            </div>
-            {(!topics || topics.length === 0) && (
-              <div className="text-center py-20 bg-white rounded-[40px] border border-[#c2c6d8]/30">
-                <span className="material-symbols-outlined text-[64px] text-[#c2c6d8] mb-4">
-                  folder_open
-                </span>
-                <p className="text-[#727687] font-medium">
-                  Belum ada paket latihan untuk subtes ini. Mulai buat sekarang!
-                </p>
+                <input
+                  type="text"
+                  placeholder="Cari paket latihan..."
+                  value={topicSearch}
+                  onChange={(e) => {
+                    setTopicSearch(e.target.value);
+                    setTopicPage(1);
+                  }}
+                  className="w-full pl-11 pr-4 py-2.5 bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0050cb]"
+                />
               </div>
-            )}
+              <div className="text-[13px] font-bold text-[#424656] px-2">
+                Total: {(topics || []).length} Paket Soal
+              </div>
+            </div>
+
+            {/* Grid Topics */}
+            {(() => {
+              const filtered = (topics || []).filter(t => 
+                (t.title || "").toLowerCase().includes(topicSearch.toLowerCase()) ||
+                (t.description || "").toLowerCase().includes(topicSearch.toLowerCase())
+              );
+              const perPage = 12;
+              const totalPages = Math.ceil(filtered.length / perPage) || 1;
+              const paginated = filtered.slice((topicPage - 1) * perPage, topicPage * perPage);
+
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {paginated.map((t, idx) => (
+                      <div
+                        key={t.id}
+                        className="bg-white border border-[#c2c6d8]/30 rounded-[32px] p-6 hover:shadow-xl transition-all group border-l-4 border-l-[#0050cb] flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-[#dae1ff]/50 flex items-center justify-center text-[#0050cb] relative">
+                              <span className="material-symbols-outlined text-[24px]">
+                                {t.icon || "notes"}
+                              </span>
+                              <span className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#0050cb] text-white text-[11px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
+                                {(topicPage - 1) * perPage + idx + 1}
+                              </span>
+                            </div>
+                            {user?.role !== "quality_assurance" && (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleOpenTopicModal(t)}
+                                  className="p-2 text-[#727687] hover:text-[#0050cb] hover:bg-[#dae1ff]/30 rounded-full transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[20px]">
+                                    edit
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTopic(t.id)}
+                                  className="p-2 text-[#727687] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/30 rounded-full transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[20px]">
+                                    delete
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <h4 className="text-[18px] font-bold text-[#191b24] mb-1">
+                            {t.title}
+                          </h4>
+                          <p className="text-[13px] text-[#424656] mb-4 line-clamp-2">
+                            {t.description || "Topik pembelajaran latihan soal SKD."}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#c2c6d8]/20">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] font-bold text-[#727687] uppercase bg-[#f2f3ff] px-2 py-0.5 rounded-md">
+                              {t.difficulty_level || 'Dasar'}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleOpenKelolaSoal(t)}
+                              className="text-[12px] font-bold text-[#0050cb] flex items-center gap-1 hover:underline"
+                            >
+                              Kelola Soal Paket
+                              <span className="material-symbols-outlined text-[14px]">
+                                arrow_forward
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {/* Add Topic CTA */}
+                    <button
+                      onClick={() => handleOpenTopicModal()}
+                      className="border-2 border-dashed border-[#c2c6d8]/50 rounded-[32px] p-8 flex flex-col items-center justify-center text-center hover:border-[#0050cb] hover:bg-[#dae1ff]/10 transition-all group min-h-[220px]"
+                    >
+                      <div className="w-14 h-14 rounded-full bg-[#f2f3ff] flex items-center justify-center text-[#727687] group-hover:bg-[#0050cb] group-hover:text-white mb-4 transition-all">
+                        <span className="material-symbols-outlined">add</span>
+                      </div>
+                      <span className="font-bold text-[#424656] group-hover:text-[#0050cb]">
+                        Tambah Paket Baru
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Pagination for topics */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-6">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setTopicPage(p)}
+                          className={`w-9 h-9 rounded-xl font-bold text-[13px] transition-all ${
+                            p === topicPage
+                              ? "bg-[#0050cb] text-white shadow-md"
+                              : "bg-white border border-[#c2c6d8]/30 text-[#424656] hover:bg-[#f2f3ff]"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {filtered.length === 0 && (
+                    <div className="text-center py-16 bg-white rounded-[40px] border border-[#c2c6d8]/30">
+                      <span className="material-symbols-outlined text-[56px] text-[#c2c6d8] mb-3">
+                        folder_open
+                      </span>
+                      <p className="text-[#727687] font-medium">
+                        {topicSearch ? `Tidak ada paket soal yang cocok dengan "${topicSearch}".` : "Belum ada paket latihan untuk subtes ini. Mulai buat sekarang!"}
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -1031,10 +1167,10 @@ const ManageLatihanSKD = () => {
             <div className="p-10 border-b border-[#c2c6d8]/20 flex justify-between items-center bg-[#faf8ff]">
               <div>
                 <h3 className="font-bold text-[28px] text-[#191b24]">
-                  Konfigurasi Subtes SKD
+                  {editingItem ? "Edit Subtes SKD" : "Tambah Subtes Baru"}
                 </h3>
                 <p className="text-[14px] text-[#727687]">
-                  Konfigurasi detail kategori latihan SKD CPNS.
+                  Konfigurasi detail kategori subtes latihan SKD CPNS.
                 </p>
               </div>
               <button
@@ -1046,62 +1182,132 @@ const ManageLatihanSKD = () => {
             </div>
             <form
               onSubmit={handleSubjectSubmit}
-              className="p-10 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar"
+              className="p-10 space-y-5 overflow-y-auto max-h-[75vh] custom-scrollbar"
             >
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-[14px] font-bold text-[#191b24] mb-2">Passing Grade *</label>
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">Nama Singkat Subtes *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Misal: TIU 1, TWK 2"
+                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all text-[15px]"
+                    value={subjectForm.name}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">Nama Lengkap Subtes</label>
+                  <input
+                    type="text"
+                    placeholder="Misal: Tes Inteligensia Umum - Kelompok 1"
+                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all text-[15px]"
+                    value={subjectForm.full_name}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, full_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">Passing Grade *</label>
                   <input
                     type="number"
                     required
-                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all text-[15px]"
+                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all text-[15px]"
                     value={subjectForm.passing_grade}
                     onChange={(e) => setSubjectForm({ ...subjectForm, passing_grade: parseInt(e.target.value) || 0 })}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-2">Target Jumlah Soal *</label>
+                    <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">Target Soal *</label>
                     <input
                       type="number"
                       required
-                      className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#0050cb]"
+                      className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb]"
                       value={subjectForm.question_count}
                       onChange={(e) => setSubjectForm({ ...subjectForm, question_count: parseInt(e.target.value) || 0 })}
                     />
                   </div>
                   <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-2">Durasi Standar (Menit) *</label>
+                    <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">Durasi (Menit) *</label>
                     <input
                       type="number"
                       required
-                      className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#0050cb]"
+                      className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb]"
                       value={subjectForm.duration_minutes}
                       onChange={(e) => setSubjectForm({ ...subjectForm, duration_minutes: parseInt(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
-                <label className="flex items-center gap-3 text-[14px] font-bold text-[#191b24] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 rounded border-[#c2c6d8] text-[#0050cb]"
-                    checked={!!subjectForm.is_active}
-                    onChange={(e) =>
-                      setSubjectForm({
-                        ...subjectForm,
-                        is_active: e.target.checked,
-                      })
-                    }
-                  />
-                  Aktifkan subtes
-                </label>
+                <div>
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">Pilih Icon Subtes</label>
+                  <p className="text-[12px] text-[#727687] mb-2">Pilih ikon visual atau gunakan Badge Teks (seperti TWK, TIU, TKP).</p>
+                  <div className="grid grid-cols-6 gap-2 bg-[#f2f3ff] p-3 rounded-2xl border border-[#c2c6d8]/20 max-h-[130px] overflow-y-auto custom-scrollbar">
+                    <button
+                      type="button"
+                      onClick={() => setSubjectForm({ ...subjectForm, icon: "" })}
+                      className={`h-9 px-2 rounded-xl text-[11px] font-bold transition-all col-span-2 ${
+                        !subjectForm.icon
+                          ? "bg-[#0050cb] text-white shadow-md"
+                          : "bg-white text-[#424656] hover:bg-[#dae1ff]/40"
+                      }`}
+                    >
+                      Badge Teks ({subjectForm.name || "Nama"})
+                    </button>
+                    {ICON_OPTIONS.map((iconName) => (
+                      <button
+                        key={iconName}
+                        type="button"
+                        onClick={() => setSubjectForm({ ...subjectForm, icon: iconName })}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                          subjectForm.icon === iconName
+                            ? "bg-[#0050cb] text-white shadow-md scale-105"
+                            : "bg-white text-[#424656] hover:bg-[#dae1ff]/40"
+                        }`}
+                        title={iconName}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">{iconName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2">
+                  <label className="flex items-center gap-3 text-[14px] font-bold text-[#191b24] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 rounded border-[#c2c6d8] text-[#0050cb]"
+                      checked={!!subjectForm.is_tkp}
+                      onChange={(e) =>
+                        setSubjectForm({
+                          ...subjectForm,
+                          is_tkp: e.target.checked,
+                        })
+                      }
+                    />
+                    Tipe Subtes TKP (Sistem Poin 1-5)
+                  </label>
+                  <label className="flex items-center gap-3 text-[14px] font-bold text-[#191b24] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 rounded border-[#c2c6d8] text-[#0050cb]"
+                      checked={!!subjectForm.is_active}
+                      onChange={(e) =>
+                        setSubjectForm({
+                          ...subjectForm,
+                          is_active: e.target.checked,
+                        })
+                      }
+                    />
+                    Aktifkan subtes
+                  </label>
+                </div>
               </div>
               <div className="pt-4">
                 <button
                   disabled={isSubmitting}
-                  className="w-full py-5 bg-[#0050cb] text-white rounded-[24px] font-bold text-[16px] hover:bg-[#003fa4] transition-all disabled:opacity-50"
+                  className="w-full py-4 bg-[#0050cb] text-white rounded-[24px] font-bold text-[16px] hover:bg-[#003fa4] transition-all disabled:opacity-50 shadow-md"
                 >
-                  {isSubmitting ? "Menyimpan..." : "Simpan Konfigurasi"}
+                  {isSubmitting ? "Menyimpan..." : "Simpan Subtes"}
                 </button>
               </div>
             </form>
@@ -1119,7 +1325,7 @@ const ManageLatihanSKD = () => {
                   {editingItem ? "Edit Paket Latihan" : "Tambah Paket Baru"}
                 </h3>
                 <p className="text-[14px] text-[#727687]">
-                  Konfigurasi detail paket latihan untuk {selectedSubject?.name}.
+                  {selectedSubject ? `Konfigurasi detail paket latihan untuk ${selectedSubject.name}.` : "Pilih subtes dan buat paket latihan baru."}
                 </p>
               </div>
               <button
@@ -1131,16 +1337,36 @@ const ManageLatihanSKD = () => {
             </div>
             <form
               onSubmit={handleTopicSubmit}
-              className="p-10 grid grid-cols-1 md:grid-cols-2 gap-10 overflow-y-auto max-h-[80vh] custom-scrollbar"
+              className="p-10 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto max-h-[80vh] custom-scrollbar"
             >
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-[14px] font-bold text-[#191b24] mb-2">
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">
+                    Subtes SKD Target *
+                  </label>
+                  <select
+                    required
+                    disabled={!!selectedSubject || !!editingItem}
+                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb] disabled:opacity-75 font-semibold text-[#191b24]"
+                    value={topicForm.subject_id}
+                    onChange={(e) =>
+                      setTopicForm({ ...topicForm, subject_id: e.target.value })
+                    }
+                  >
+                    {subjects.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.name} ({sub.full_name || sub.name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">
                     Nama Paket *
                   </label>
                   <input
                     required
-                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all"
+                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all text-[15px]"
                     value={topicForm.title}
                     onChange={(e) =>
                       setTopicForm({ ...topicForm, title: e.target.value })
@@ -1149,12 +1375,12 @@ const ManageLatihanSKD = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[14px] font-bold text-[#191b24] mb-2">
+                  <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">
                     Deskripsi
                   </label>
                   <textarea
-                    rows={4}
-                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all resize-none"
+                    rows={3}
+                    className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb] transition-all resize-none text-[14px]"
                     value={topicForm.description}
                     onChange={(e) =>
                       setTopicForm({
@@ -1167,89 +1393,72 @@ const ManageLatihanSKD = () => {
                 </div>
               </div>
 
-              <div className="space-y-6 flex flex-col">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-2">
-                      Urutan Display
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#0050cb]"
-                      value={topicForm.display_order}
-                      onChange={(e) =>
-                        setTopicForm({
-                          ...topicForm,
-                          display_order: parseInt(e.target.value) || 1,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-2">
-                      Level
-                    </label>
-                    <select
-                      className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#0050cb]"
-                      value={topicForm.difficulty_level}
-                      onChange={(e) =>
-                        setTopicForm({ ...topicForm, difficulty_level: e.target.value })
-                      }
-                    >
-                      <option>Dasar</option>
-                      <option>Menengah</option>
-                      <option>Tingkat Lanjut</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-4 p-4 bg-[#f2f3ff] rounded-2xl border border-[#c2c6d8]/10">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={topicForm.is_popular}
-                      onChange={(e) =>
-                        setTopicForm({
-                          ...topicForm,
-                          is_popular: e.target.checked,
-                        })
-                      }
-                      className="w-5 h-5 rounded border-[#c2c6d8] text-[#0050cb] focus:ring-[#0050cb]"
-                    />
-                    <span className="text-[14px] font-bold text-[#424656] group-hover:text-[#0050cb] transition-colors">
-                      Beri Tag "Populer"
-                    </span>
-                  </label>
-                </div>
-                <div>
-                  <label className="block text-[14px] font-bold text-[#191b24] mb-3">
-                    Pilih Ikon
-                  </label>
-                  <div className="grid grid-cols-5 gap-3 p-4 bg-[#f2f3ff] rounded-2xl max-h-40 overflow-y-auto custom-scrollbar">
-                    {ICON_OPTIONS.map((icon) => (
-                      <button
-                        key={icon}
-                        type="button"
-                        onClick={() => setTopicForm({ ...topicForm, icon })}
-                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${topicForm.icon === icon ? "bg-[#0050cb] text-white shadow-lg" : "bg-white text-[#727687]"}`}
+              <div className="space-y-5 flex flex-col justify-between">
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">
+                        Urutan Display
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb]"
+                        value={topicForm.display_order}
+                        onChange={(e) =>
+                          setTopicForm({
+                            ...topicForm,
+                            display_order: parseInt(e.target.value) || 1,
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">
+                        Level
+                      </label>
+                      <select
+                        className="w-full bg-[#f2f3ff] border border-[#c2c6d8]/20 rounded-2xl px-5 py-3.5 outline-none focus:ring-2 focus:ring-[#0050cb]"
+                        value={topicForm.difficulty_level}
+                        onChange={(e) =>
+                          setTopicForm({ ...topicForm, difficulty_level: e.target.value })
+                        }
                       >
-                        <span className="material-symbols-outlined text-[18px]">
-                          {icon}
-                        </span>
-                      </button>
-                    ))}
+                        <option>Dasar</option>
+                        <option>Menengah</option>
+                        <option>HOTS</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[14px] font-bold text-[#191b24] mb-1.5">
+                      Pilih Icon Paket
+                    </label>
+                    <div className="grid grid-cols-6 gap-2 bg-[#f2f3ff] p-3 rounded-2xl border border-[#c2c6d8]/20 max-h-[120px] overflow-y-auto custom-scrollbar">
+                      {ICON_OPTIONS.map((iconName) => (
+                        <button
+                          key={iconName}
+                          type="button"
+                          onClick={() => setTopicForm({ ...topicForm, icon: iconName })}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                            topicForm.icon === iconName
+                              ? "bg-[#0050cb] text-white shadow-md scale-105"
+                              : "bg-white text-[#424656] hover:bg-[#dae1ff]/40"
+                          }`}
+                          title={iconName}
+                        >
+                          <span className="material-symbols-outlined text-[18px]">{iconName}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="mt-auto pt-4">
+                <div className="pt-4">
                   <button
                     disabled={isSubmitting}
-                    className="w-full py-5 bg-[#0050cb] text-white rounded-[24px] font-bold text-[16px] hover:bg-[#003fa4] transition-all disabled:opacity-50"
+                    className="w-full py-4 bg-[#0050cb] text-white rounded-2xl font-bold text-[15px] hover:bg-[#003fa4] transition-all disabled:opacity-50 shadow-md"
                   >
-                    {isSubmitting
-                      ? "Menyimpan..."
-                      : editingItem
-                        ? "Perbarui Paket Latihan"
-                        : "Simpan Paket Latihan"}
+                    {isSubmitting ? "Menyimpan..." : editingItem ? "Simpan Perubahan" : "Buat Paket Soal"}
                   </button>
                 </div>
               </div>
@@ -1257,6 +1466,7 @@ const ManageLatihanSKD = () => {
           </div>
         </div>
       )}
+
 
       {/* Edit Question Modal */}
       {showEditQuestionModal && editingQuestion && (

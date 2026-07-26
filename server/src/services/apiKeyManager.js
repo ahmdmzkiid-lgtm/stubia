@@ -212,7 +212,10 @@ class ApiKeyManager {
     return message.includes('too many requests') ||
            message.includes('quota') ||
            message.includes('rate limit') ||
-           message.includes('429');
+           message.includes('429') ||
+           message.includes('403') ||
+           message.includes('forbidden') ||
+           message.includes('denied access');
   }
 }
 
