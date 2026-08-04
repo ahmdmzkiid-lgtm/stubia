@@ -230,7 +230,7 @@ const PusatTryout = () => {
                         isLocked ? 'bg-gray-100' : 'bg-[#f2f3ff]'
                       }`}>
                         <span className={`static sm:absolute sm:top-3 sm:left-3 px-2.5 py-0.5 text-[10px] font-bold rounded-md ${planBadgeBg} ${planBadgeText}`}>
-                          UTBK
+                          UTBK/SNBT
                         </span>
                         <div className="flex items-center gap-2">
                           <span className="sm:hidden text-[12px] font-bold text-[#727687] uppercase tracking-wider">Paket</span>

@@ -26,15 +26,15 @@ const saveMessages = (msgs) => {
 
 const DEFAULT_MESSAGE = {
   role: 'model',
-  text: 'Halo! 👋 Aku Bia, konsultan belajarmu di Stubia.\n\nAku bisa bantu kamu untuk:\n• 📚 Rekomendasi strategi belajar UTBK\n• 🏫 Info Perguruan Tinggi Negeri & jurusan\n• 📊 Analisis peluang masuk PTN\n• 💡 Tips & trik persiapan UTBK\n\nSilakan tanya apa saja ya!',
+  text: 'Halo! 👋 Aku Bia, konsultan belajarmu di Stubia.\n\nAku bisa bantu kamu untuk:\n• 📚 Rekomendasi strategi belajar UTBK/SNBT\n• 🏫 Info Perguruan Tinggi Negeri & jurusan\n• 📊 Analisis peluang masuk PTN\n• 💡 Tips & trik persiapan UTBK/SNBT\n\nSilakan tanya apa saja ya!',
   time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
 const QUICK_PROMPTS = [
-  { label: 'Strategi Belajar', icon: 'school', message: 'Bia, aku mau minta rekomendasi strategi belajar UTBK yang cocok buat aku' },
+  { label: 'Strategi Belajar', icon: 'school', message: 'Bia, aku mau minta rekomendasi strategi belajar UTBK/SNBT yang cocok buat aku' },
   { label: 'Info PTN & Jurusan', icon: 'apartment', message: 'Bia, aku mau tanya info tentang Perguruan Tinggi Negeri dan jurusannya' },
   { label: 'Peluang Masuk PTN', icon: 'analytics', message: 'Bia, aku mau analisis peluang masuk PTN berdasarkan skor tryout aku' },
-  { label: 'Tips & Trik UTBK', icon: 'lightbulb', message: 'Bia, aku butuh tips dan trik untuk mengerjakan soal UTBK' },
+  { label: 'Tips & Trik UTBK/SNBT', icon: 'lightbulb', message: 'Bia, aku butuh tips dan trik untuk mengerjakan soal UTBK/SNBT' },
 ];
 
 const KonsultasiKakZ = () => {

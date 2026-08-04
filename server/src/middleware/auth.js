@@ -89,8 +89,8 @@ const verifyAdmin = async (req, res, next) => {
             return next();
           }
         }
-      } else if (method === "PATCH") {
-        if (baseUrl === "/api/soal" && path.endsWith("/workflow")) {
+      } else if (method === "PATCH" || method === "POST") {
+        if (baseUrl === "/api/soal" && (path.endsWith("/workflow") || path.endsWith("/bulk-workflow"))) {
           return next();
         }
       }

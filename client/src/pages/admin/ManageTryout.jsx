@@ -6,9 +6,18 @@ import ImageUpload from '../../components/ImageUpload';
 import MathText from '../../components/MathText';
 import ZoomableImage from '../../components/ui/ZoomableImage';
 import { useAuth } from '../../hooks/useAuth';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 const ManageTryout = () => {
   const { user } = useAuth();
+  const [confirmModalState, setConfirmModalState] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya, Lanjutkan',
+    type: 'danger',
+    onConfirm: null,
+  });
   const [packages, setPackages] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -227,14 +236,24 @@ const ManageTryout = () => {
 
   const handleDelete = (e, id) => {
     e.stopPropagation();
-    if (!window.confirm("Hapus paket tryout ini?")) return;
-    tryoutService.deletePackage(id).then(() => {
-      toast.success("Tryout dihapus");
-      fetchData();
-      if (selectedPackage?.id === id) setSelectedPackage(null);
-    }).catch((err) => {
-      const msg = err.response?.data?.error || 'Gagal menghapus tryout.';
-      toast.error(msg);
+    setConfirmModalState({
+      isOpen: true,
+      title: 'Hapus Paket Tryout',
+      message: 'Apakah Anda yakin ingin menghapus paket tryout ini beserta seluruh konfigurasi di dalamnya?',
+      confirmText: 'Ya, Hapus',
+      type: 'danger',
+      onConfirm: () => {
+        tryoutService.deletePackage(id).then(() => {
+          toast.success("Tryout dihapus");
+          setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+          fetchData();
+          if (selectedPackage?.id === id) setSelectedPackage(null);
+        }).catch((err) => {
+          const msg = err.response?.data?.error || 'Gagal menghapus tryout.';
+          toast.error(msg);
+          setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+        });
+      }
     });
   };
 
@@ -311,48 +330,105 @@ const ManageTryout = () => {
     }
   };
 
-  const handleRemoveQuestion = async (questionId) => {
-    if (!window.confirm('Hapus soal ini?')) return;
-    try {
-      await soalService.delete(questionId);
-      setSubtestQuestions(prev => {
-        const filtered = prev.filter(q => q.id !== questionId);
-        if (activeQuestionId === questionId) {
-          if (filtered.length > 0) {
-            const oldIndex = prev.findIndex(q => q.id === questionId);
-            const nextActiveIndex = Math.min(oldIndex, filtered.length - 1);
-            setActiveQuestionId(filtered[nextActiveIndex].id);
-          } else {
-            setActiveQuestionId(null);
-          }
+  const handleRemoveQuestion = (questionId) => {
+    setConfirmModalState({
+      isOpen: true,
+      title: 'Hapus Soal',
+      message: 'Apakah Anda yakin ingin menghapus soal ini dari subtes?',
+      confirmText: 'Ya, Hapus',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await soalService.delete(questionId);
+          setSubtestQuestions(prev => {
+            const filtered = prev.filter(q => q.id !== questionId);
+            if (activeQuestionId === questionId) {
+              if (filtered.length > 0) {
+                const oldIndex = prev.findIndex(q => q.id === questionId);
+                const nextActiveIndex = Math.min(oldIndex, filtered.length - 1);
+                setActiveQuestionId(filtered[nextActiveIndex].id);
+              } else {
+                setActiveQuestionId(null);
+              }
+            }
+            return filtered;
+          });
+          setEditingQuestion(null);
+          setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+          toast.success('Soal dihapus');
+        } catch {
+          toast.error('Gagal menghapus soal');
+          setConfirmModalState(prev => ({ ...prev, isOpen: false }));
         }
-        return filtered;
-      });
-      setEditingQuestion(null);
-      toast.success('Soal dihapus');
-    } catch {
-      toast.error('Gagal menghapus soal');
-    }
+      }
+    });
   };
 
-  const handleDeleteAllQuestions = async () => {
+  const handleDeleteAllQuestions = () => {
     if (!managingSubtest) return;
     const matchedSubject = subjects.find(s => s.name === managingSubtest.name || s.title === managingSubtest.name);
     if (!matchedSubject) {
       toast.error('Subject tidak ditemukan');
       return;
     }
-    if (!window.confirm(`Hapus SEMUA soal di "${managingSubtest.name}"? Tindakan ini tidak bisa dibatalkan!`)) return;
 
-    try {
-      const res = await soalService.deleteAllBySubject(matchedSubject.id, { tryout_package_id: selectedPackage?.id });
-      setSubtestQuestions([]);
-      setActiveQuestionId(null);
-      setEditingQuestion(null);
-      toast.success(res.data.message || 'Semua soal berhasil dihapus');
-    } catch {
-      toast.error('Gagal menghapus semua soal');
+    setConfirmModalState({
+      isOpen: true,
+      title: 'Hapus Semua Soal Subtes',
+      message: `Hapus SEMUA soal di subtes "${managingSubtest.name}"? Tindakan ini tidak dapat dibatalkan!`,
+      confirmText: 'Ya, Hapus Semua',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await soalService.deleteAllBySubject(matchedSubject.id, { tryout_package_id: selectedPackage?.id });
+          setSubtestQuestions([]);
+          setActiveQuestionId(null);
+          setEditingQuestion(null);
+          setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+          toast.success(res.data.message || 'Semua soal berhasil dihapus');
+        } catch {
+          toast.error('Gagal menghapus semua soal');
+          setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const handleApproveAllSubtest = () => {
+    if (!managingSubtest) return;
+    const count = ensureArray(subtestQuestions).filter(q => q.workflow_status !== 'approved').length;
+    if (count === 0) {
+      toast.success('Semua soal di subtes ini sudah berstatus Approved.');
+      return;
     }
+
+    setConfirmModalState({
+      isOpen: true,
+      title: 'Approve All Soal Subtes',
+      message: `Setujui (Approve) seluruh ${count} soal pada subtes "${managingSubtest.name}"?`,
+      confirmText: 'Ya, Approve Semua',
+      type: 'info',
+      onConfirm: async () => {
+        try {
+          const subject = subjects.find(s => s.name === managingSubtest.name || s.title === managingSubtest.name);
+          const res = await soalService.bulkUpdateWorkflow({
+            status: 'approved',
+            question_ids: ensureArray(subtestQuestions).map(q => q.id)
+          });
+          if (res.data?.success) {
+            toast.success(`Berhasil menyetujui ${res.data.updatedCount || count} soal subtes!`);
+            setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+            if (subject) {
+              const qRes = await soalService.list({ subject_id: subject.id, tryout_package_id: selectedPackage?.id, limit: 100 });
+              setSubtestQuestions(qRes.data?.data || []);
+            }
+          }
+        } catch {
+          toast.error('Gagal menyetujui semua soal subtes');
+          setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleMoveQuestionUp = async (index) => {
@@ -766,6 +842,18 @@ const ManageTryout = () => {
                   Input Manual
                 </button>
               </div>
+
+              {(user?.role === 'admin' || user?.role === 'quality_assurance') && ensureArray(subtestQuestions).length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleApproveAllSubtest}
+                  className="px-3.5 py-1.5 rounded-xl text-[12px] font-extrabold bg-[#0050cb] hover:bg-[#003da6] text-white flex items-center gap-1.5 transition-all shadow-sm shrink-0 ml-auto my-auto cursor-pointer"
+                  title="Setujui (Approve) seluruh soal di subtes ini"
+                >
+                  <span className="material-symbols-outlined text-[16px]">done_all</span>
+                  Approve All Soal
+                </button>
+              )}
             </div>
 
             {/* Body Container */}
@@ -818,8 +906,8 @@ const ManageTryout = () => {
                         </div>
 
                         {/* Number Grid */}
-                        <div className="p-4">
-                          <div className="grid grid-cols-5 gap-2">
+                        <div className="p-3 sm:p-4">
+                          <div className="flex lg:grid lg:grid-cols-5 gap-2 overflow-x-auto pb-2 lg:pb-0 no-scrollbar">
                             {ensureArray(subtestQuestions).map((q, idx) => {
                               const isSelected = q.id === activeQuestionId;
                               const diffColor = q.difficulty === 'easy'
@@ -834,9 +922,9 @@ const ManageTryout = () => {
                                     setActiveQuestionId(q.id);
                                     setEditingQuestion(null);
                                   }}
-                                  className={`relative w-full aspect-square rounded-xl border text-[14px] font-bold transition-all flex items-center justify-center ${
+                                  className={`relative min-w-[42px] h-[42px] lg:w-full lg:h-auto lg:aspect-square rounded-xl border text-[13px] sm:text-[14px] font-bold transition-all flex items-center justify-center shrink-0 ${
                                     isSelected
-                                      ? 'bg-[#0050cb] border-[#0050cb] text-white shadow-lg shadow-[#0050cb]/20 scale-105'
+                                      ? 'bg-[#0050cb] border-[#0050cb] text-white shadow-md shadow-[#0050cb]/20 scale-105'
                                       : 'bg-white border-slate-200 text-[#191b24] hover:border-[#0050cb]/40 hover:bg-[#f2f3ff]'
                                   }`}
                                   title={`Soal ${idx + 1} — ${q.difficulty === 'easy' ? 'Mudah' : q.difficulty === 'medium' ? 'Sedang' : 'Sulit'}`}
@@ -849,7 +937,7 @@ const ManageTryout = () => {
                           </div>
 
                           {ensureArray(subtestQuestions).length === 0 && (
-                            <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-[#c2c6d8]/30 p-6">
+                            <div className="text-center py-6 sm:py-10 bg-white rounded-2xl border border-dashed border-[#c2c6d8]/30 p-4 sm:p-6">
                               <span className="material-symbols-outlined text-[28px] text-[#c2c6d8] mb-2">quiz</span>
                               <p className="text-[12px] text-[#727687] font-bold">Belum ada soal</p>
                             </div>
@@ -1665,10 +1753,10 @@ const ManageTryout = () => {
             </div>
 
             {/* Footer */}
-            <div className="px-8 py-5 border-t border-[#e2e8f0] flex justify-between items-center bg-white shrink-0">
-              <div className="flex items-center gap-4">
-                <span className="text-[12px] font-bold text-[#727687] uppercase tracking-wider">Kuota Soal Subtes:</span>
-                <span className={`text-[13px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 ${
+            <div className="px-4 sm:px-8 py-3.5 sm:py-5 border-t border-[#e2e8f0] flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white shrink-0">
+              <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4">
+                <span className="text-[11px] sm:text-[12px] font-bold text-[#727687] uppercase tracking-wider">Kuota Soal:</span>
+                <span className={`text-[12px] sm:text-[13px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 ${
                   ensureArray(subtestQuestions).length >= managingSubtest.questionCount
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
@@ -1686,7 +1774,7 @@ const ManageTryout = () => {
                   setImportPreview([]);
                   setImportFile(null);
                 }}
-                className="px-8 py-2.5 bg-[#191b24] text-white font-bold rounded-xl hover:bg-[#323647] transition-all text-[13px] shadow-sm active:scale-[0.98]"
+                className="w-full sm:w-auto px-8 py-2.5 bg-[#191b24] text-white font-bold rounded-xl hover:bg-[#323647] transition-all text-[13px] shadow-sm active:scale-[0.98]"
               >
                 Selesai
               </button>
@@ -1911,47 +1999,47 @@ const ManageTryout = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-10 border-b border-[#c2c6d8]/20 flex justify-between items-center bg-[#faf8ff]">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-4xl rounded-2xl sm:rounded-[36px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 sm:p-8 lg:p-10 border-b border-[#c2c6d8]/20 flex justify-between items-center bg-[#faf8ff]">
               <div>
-                <h2 className="text-[28px] font-bold text-[#191b24]">{editingPackage ? 'Edit Tryout' : 'Buat Tryout Baru'}</h2>
-                <p className="text-[14px] text-[#727687]">Konfigurasi detail paket simulasi nasional di bawah ini.</p>
+                <h2 className="text-[20px] sm:text-[28px] font-bold text-[#191b24]">{editingPackage ? 'Edit Tryout' : 'Buat Tryout Baru'}</h2>
+                <p className="text-[12px] sm:text-[14px] text-[#727687]">Konfigurasi detail paket simulasi nasional di bawah ini.</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-white shadow-sm transition-all text-[#424656]">
-                <span className="material-symbols-outlined">close</span>
+              <button onClick={() => setShowModal(false)} className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full hover:bg-white shadow-sm transition-all text-[#424656] shrink-0">
+                <span className="material-symbols-outlined text-[20px] sm:text-[24px]">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="overflow-y-auto p-10 flex-1 bg-[#faf8ff]/30 custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
-                <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-8 lg:p-10 flex-1 bg-[#faf8ff]/30 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10 mb-8 sm:mb-12">
+                <div className="space-y-4 sm:space-y-6">
                   <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-2">Judul Tryout</label>
+                    <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Judul Tryout</label>
                     <input
                       type="text"
                       required
                       placeholder="Contoh: Tryout Nasional Batch 1"
-                      className="w-full px-6 py-4 rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[15px]"
+                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] sm:text-[15px]"
                       value={formData.title}
                       onChange={e => setFormData({...formData, title: e.target.value})}
                     />
                   </div>
                   <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-2">Jadwal Pelaksanaan</label>
+                    <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Jadwal Pelaksanaan</label>
                     <input
                       type="datetime-local"
-                      className="w-full px-6 py-4 rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[15px]"
+                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] sm:text-[15px]"
                       value={formData.scheduled_at}
                       onChange={e => setFormData({...formData, scheduled_at: e.target.value})}
                     />
                   </div>
                 </div>
-                <div className="space-y-6">
-                  <label className="flex items-center gap-4 cursor-pointer p-6 bg-white rounded-[32px] border border-[#c2c6d8]/20 shadow-sm w-full group hover:border-[#0050cb] transition-all">
+                <div className="space-y-4 sm:space-y-6">
+                  <label className="flex items-center gap-3 sm:gap-4 cursor-pointer p-4 sm:p-6 bg-white rounded-2xl sm:rounded-[32px] border border-[#c2c6d8]/20 shadow-sm w-full group hover:border-[#0050cb] transition-all">
                     <input
                       type="checkbox"
-                      className="w-6 h-6 rounded-md border-[#c2c6d8] text-[#0050cb] focus:ring-[#0050cb]"
+                      className="w-5 h-5 sm:w-6 sm:h-6 rounded-md border-[#c2c6d8] text-[#0050cb] focus:ring-[#0050cb]"
                       checked={formData.is_active}
                       onChange={e => setFormData({
                         ...formData,
@@ -1960,19 +2048,19 @@ const ManageTryout = () => {
                       })}
                     />
                     <div>
-                      <span className="text-[18px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors">Aktifkan & Publikasikan Paket</span>
-                      <p className="text-[12px] text-[#727687]">Aktifkan paket agar dapat diakses dan dilihat oleh pengguna.</p>
+                      <span className="text-[15px] sm:text-[18px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors">Aktifkan & Publikasikan Paket</span>
+                      <p className="text-[11px] sm:text-[12px] text-[#727687]">Aktifkan paket agar dapat diakses dan dilihat oleh pengguna.</p>
                     </div>
                   </label>
                   <div>
-                    <label className="block text-[14px] font-bold text-[#191b24] mb-3">Paket Minimum</label>
-                    <div className="flex gap-3">
+                    <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-3">Paket Minimum</label>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                       {PLAN_OPTIONS.map(opt => (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => setFormData({...formData, required_plan: opt.value})}
-                          className={`flex-1 py-3.5 rounded-xl font-bold text-[13px] border-2 transition-all flex items-center justify-center gap-2 ${
+                          className={`py-3 rounded-xl font-bold text-[12px] sm:text-[13px] border-2 transition-all flex items-center justify-center gap-1.5 ${
                             formData.required_plan === opt.value
                               ? 'border-[#0050cb] bg-[#dae1ff] text-[#0050cb]'
                               : 'border-[#c2c6d8]/20 bg-[#f2f3ff] text-[#727687] hover:border-[#c2c6d8]'
@@ -1983,50 +2071,50 @@ const ManageTryout = () => {
                         </button>
                       ))}
                     </div>
-                    <p className="text-[12px] text-[#727687] mt-2">User harus punya paket ini untuk bisa ikut tryout.</p>
+                    <p className="text-[11px] sm:text-[12px] text-[#727687] mt-2">User harus punya paket ini untuk bisa ikut tryout.</p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-[20px] font-bold text-[#191b24] mb-8 flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#0050cb] bg-[#dae1ff] p-2 rounded-xl">layers</span>
-                  Konfigurasi 7 Subtes UTBK
+                <h3 className="text-[18px] sm:text-[20px] font-bold text-[#191b24] mb-6 sm:mb-8 flex items-center gap-2.5">
+                  <span className="material-symbols-outlined text-[#0050cb] bg-[#dae1ff] p-2 rounded-xl text-[20px]">layers</span>
+                  Konfigurasi 7 Subtes UTBK/SNBT
                 </h3>
-                <div className="space-y-5">
+                <div className="space-y-4 sm:space-y-5">
                   {ensureArray(formData.subject_config, true).map((sub, idx) => (
-                    <div key={idx} className="bg-white p-8 rounded-[32px] border border-[#c2c6d8]/10 shadow-sm flex flex-wrap lg:flex-nowrap items-center gap-8 hover:shadow-md transition-shadow">
-                      <div className="flex-1 min-w-[240px]">
-                        <span className="text-[11px] font-bold text-[#0050cb] uppercase tracking-[0.2em] block mb-2">Subtes {idx + 1}</span>
-                        <h4 className="font-bold text-[#191b24] text-[18px]">{sub.name}</h4>
+                    <div key={idx} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[28px] border border-[#c2c6d8]/10 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center hover:shadow-md transition-shadow">
+                      <div className="sm:col-span-2 lg:col-span-1">
+                        <span className="text-[10px] sm:text-[11px] font-bold text-[#0050cb] uppercase tracking-[0.2em] block mb-1">Subtes {idx + 1}</span>
+                        <h4 className="font-bold text-[#191b24] text-[15px] sm:text-[18px]">{sub.name}</h4>
                       </div>
-                      <div className="w-full lg:w-48">
-                        <label className="block text-[12px] font-bold text-[#727687] mb-2 uppercase tracking-wider">Jumlah Soal</label>
+                      <div>
+                        <label className="block text-[11px] sm:text-[12px] font-bold text-[#727687] mb-1.5 uppercase tracking-wider">Jumlah Soal</label>
                         <input
                           type="number"
                           min="1"
-                          className="w-full px-4 py-3.5 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24]"
+                          className="w-full px-3.5 py-2.5 sm:py-3 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24] text-[14px]"
                           value={sub.questionCount}
                           onChange={e => updateSubtestConfig(idx, 'questionCount', parseInt(e.target.value) || 0)}
                         />
                       </div>
-                      <div className="w-full lg:w-32">
-                        <label className="block text-[12px] font-bold text-[#727687] mb-2 uppercase tracking-wider">Menit</label>
+                      <div>
+                        <label className="block text-[11px] sm:text-[12px] font-bold text-[#727687] mb-1.5 uppercase tracking-wider">Menit</label>
                         <input
                           type="number"
                           min="0"
-                          className="w-full px-4 py-3.5 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24]"
+                          className="w-full px-3.5 py-2.5 sm:py-3 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24] text-[14px]"
                           value={sub.durationMin || 0}
                           onChange={e => updateSubtestConfig(idx, 'durationMin', parseInt(e.target.value) || 0)}
                         />
                       </div>
-                      <div className="w-full lg:w-32">
-                        <label className="block text-[12px] font-bold text-[#727687] mb-2 uppercase tracking-wider">Detik</label>
+                      <div>
+                        <label className="block text-[11px] sm:text-[12px] font-bold text-[#727687] mb-1.5 uppercase tracking-wider">Detik</label>
                         <input
                           type="number"
                           min="0"
                           max="59"
-                          className="w-full px-4 py-3.5 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24]"
+                          className="w-full px-3.5 py-2.5 sm:py-3 rounded-xl border border-[#c2c6d8]/20 bg-[#f2f3ff] focus:ring-2 focus:ring-[#0050cb] outline-none font-bold text-[#191b24] text-[14px]"
                           value={sub.durationSec || 0}
                           onChange={e => updateSubtestConfig(idx, 'durationSec', parseInt(e.target.value) || 0)}
                         />
@@ -2036,17 +2124,17 @@ const ManageTryout = () => {
                 </div>
               </div>
 
-              <div className="mt-16 p-10 border-t border-[#c2c6d8]/20 flex justify-end gap-6 bg-[#faf8ff] -mx-10 -mb-10">
+              <div className="mt-8 sm:mt-12 p-4 sm:p-8 border-t border-[#c2c6d8]/20 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-6 bg-[#faf8ff] -mx-5 -mb-5 sm:-mx-8 sm:-mb-8 lg:-mx-10 lg:-mb-10">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-10 py-4 text-[#424656] font-bold hover:bg-[#f2f3ff] rounded-[24px] transition-all"
+                  className="w-full sm:w-auto px-8 py-3.5 text-[#424656] font-bold hover:bg-[#f2f3ff] rounded-xl sm:rounded-[24px] transition-all text-[14px]"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-12 py-4 bg-[#0050cb] text-white font-bold rounded-[24px] shadow-xl hover:shadow-2xl hover:bg-[#003fa4] transition-all active:scale-95"
+                  className="w-full sm:w-auto px-10 py-3.5 bg-[#0050cb] text-white font-bold rounded-xl sm:rounded-[24px] shadow-xl hover:shadow-2xl hover:bg-[#003fa4] transition-all active:scale-95 text-[14px]"
                 >
                   {editingPackage ? 'Simpan Perubahan' : 'Buat Tryout'}
                 </button>
@@ -2056,6 +2144,15 @@ const ManageTryout = () => {
         </div>
       )}
 
+      <ConfirmModal
+        isOpen={confirmModalState.isOpen}
+        title={confirmModalState.title}
+        message={confirmModalState.message}
+        confirmText={confirmModalState.confirmText}
+        type={confirmModalState.type}
+        onConfirm={confirmModalState.onConfirm}
+        onCancel={() => setConfirmModalState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

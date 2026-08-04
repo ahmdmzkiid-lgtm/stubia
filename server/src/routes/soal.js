@@ -699,6 +699,58 @@ router.patch("/:id", verifyToken, verifyAdmin, async (req, res, next) => {
   }
 });
 
+// Bulk Update Workflow Status (Admin / QA)
+router.post("/bulk-workflow", verifyToken, verifyAdmin, async (req, res, next) => {
+  try {
+    const { status, from_status = 'under_review', subject_id, question_ids, note } = req.body;
+    const userRole = req.user.role;
+
+    if (!['draft', 'under_review', 'approved'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Status target tidak valid.' });
+    }
+
+    const isAdmin = userRole === 'admin';
+    const isQA = userRole === 'quality_assurance';
+
+    if (status === 'approved' && !isAdmin && !isQA) {
+      return res.status(403).json({ success: false, error: 'Hanya Admin atau Quality Assurance yang dapat menyetujui soal.' });
+    }
+
+    let query = 'UPDATE questions SET workflow_status = $1, review_note = $2 WHERE 1=1';
+    const values = [status, note || null];
+
+    if (Array.isArray(question_ids) && question_ids.length > 0) {
+      values.push(question_ids);
+      query += ` AND id = ANY($${values.length})`;
+    } else {
+      if (from_status) {
+        values.push(from_status);
+        query += ` AND workflow_status = $${values.length}`;
+      }
+      if (subject_id) {
+        values.push(subject_id);
+        query += ` AND subject_id = $${values.length}`;
+      }
+    }
+
+    const result = await pool.query(query, values);
+    const updatedCount = result.rowCount || 0;
+
+    logAdminActivity(req, 'UPDATE', 'SOAL_BULK_WORKFLOW',
+      `Bulk Update Workflow`,
+      `${updatedCount} soal diubah statusnya menjadi ${status}`
+    );
+
+    return res.json({
+      success: true,
+      message: `Berhasil menyetujui ${updatedCount} soal.`,
+      updatedCount
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Update Workflow Status (Admin / QA / Question Writer — role-gated transitions)
 router.patch("/:id/workflow", verifyToken, verifyAdmin, async (req, res, next) => {
   try {

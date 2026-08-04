@@ -74,6 +74,7 @@ export const soalService = {
   shuffleChoices: (questionId) => api.post(`/soal/shuffle/${questionId}`),
   update: (id, data) => api.patch(`/soal/${id}`, data),
   updateWorkflow: (id, data) => api.patch(`/soal/${id}/workflow`, data),
+  bulkUpdateWorkflow: (data) => api.post('/soal/bulk-workflow', data),
   reorderQuestions: (questionIds) => api.patch('/soal/reorder/batch', { questionIds }),
   getBySubject: (subjectName, params) => api.get('/soal/by-subject', { params: { subject: subjectName, ...params } }),
 };

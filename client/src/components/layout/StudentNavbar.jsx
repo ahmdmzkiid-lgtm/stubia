@@ -1,12 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { getStreakData, updateDailyStreak } from '../../utils/streak';
+import StreakModal from '../StreakModal';
 
 export default function StudentNavbar({ user, isAdmin, onLogout, transparent = false }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [utbkDropdownOpen, setUtbkDropdownOpen] = useState(false);
+  const [mobileUtbkOpen, setMobileUtbkOpen] = useState(true);
   const [cartCount, setCartCount] = useState(0);
+  const [streakModalOpen, setStreakModalOpen] = useState(false);
+  const [streak, setStreak] = useState(() => getStreakData(user?.id));
+
+  useEffect(() => {
+    // Record daily streak on load
+    const updated = updateDailyStreak(user?.id);
+    setStreak(updated);
+
+    const handleStreakUpdate = (e) => {
+      if (e.detail) {
+        setStreak(e.detail);
+      } else {
+        setStreak(getStreakData(user?.id));
+      }
+    };
+
+    window.addEventListener('streak-update', handleStreakUpdate);
+    return () => window.removeEventListener('streak-update', handleStreakUpdate);
+  }, [user?.id]);
   const navigate = useNavigate();
   const location = useLocation();
   const activePath = location.pathname;
@@ -62,6 +84,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   // Determine active state for parent matching
   const isTryoutActive = activePath.startsWith('/tryout');
   const isUmActive = activePath.startsWith('/ujian-mandiri');
+  const isBattleActive = activePath.startsWith('/battle');
 
   // Desktop Main Nav Links
   const mainLinksBefore = [
@@ -71,6 +94,9 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   const utbkLinks = [
     { to: '/latihan', label: 'Latihan', active: activePath === '/latihan' },
     { to: '/tryout/packages', label: 'Tryout', active: isTryoutActive },
+    { to: '/battle', label: 'Battle', active: isBattleActive },
+    { to: '/prediksi-skor', label: 'Prediksi Skor', active: activePath === '/prediksi-skor' },
+    { to: '/rasionalisasi', label: 'Rasionalisasi', active: activePath === '/rasionalisasi' },
   ];
 
   const isUtbkActive = utbkLinks.some(l => l.active);
@@ -84,10 +110,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   ];
 
   const dropdownLinks = [
-    { to: '/battle', label: 'Battle', active: activePath === '/battle' },
     { to: '/riwayat', label: 'Riwayat', active: activePath === '/riwayat' },
-    { to: '/prediksi-skor', label: 'Prediksi Skor', active: activePath === '/prediksi-skor' },
-    { to: '/rasionalisasi', label: 'Rasionalisasi', active: activePath === '/rasionalisasi' },
     { to: '/profile', label: 'Profil Saya', active: activePath === '/profile' },
   ];
 
@@ -181,7 +204,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
                       : `${textPrimary} hover:text-[#0050cb]`
                   }`}
                 >
-                  UTBK
+                  UTBK/SNBT
                   <span 
                     className="material-symbols-outlined text-[16px] transition-transform duration-200" 
                     style={{ transform: utbkDropdownOpen ? 'rotate(180deg)' : 'none' }}
@@ -275,6 +298,17 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
 
           {/* Right Side Tools & Profile */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            {/* Streak Badge (Desktop & Mobile) */}
+            <button 
+              type="button"
+              onClick={() => setStreakModalOpen(true)}
+              className="flex items-center gap-1.5 bg-[#fef3c7] hover:bg-[#fde68a] border border-[#fde68a] px-3 py-1.5 rounded-full shadow-sm active:scale-95 transition-all cursor-pointer select-none shrink-0"
+              title="Streak Belajar Harian"
+            >
+              <span className="text-amber-500 text-[14px]">🔥</span>
+              <span className="text-xs font-black text-[#78350f]">{streak?.count || 1}</span>
+            </button>
+
             {location.pathname === '/paket-belajar' && (
               <Link
                 to="/cart"
@@ -360,21 +394,89 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
             className="absolute top-16 left-0 right-0 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-white border-b border-[#c2c6d8]/30 shadow-2xl rounded-b-[24px] animate-slide-down"
             onClick={e => e.stopPropagation()}
           >
-            <nav className="flex flex-col gap-1 p-4">
-              {[...mainLinksBefore, ...utbkLinks, ...mainLinksAfter, ...dropdownLinks].map(l => (
+            <nav className="flex flex-col gap-1 p-4 font-sans">
+              {/* Dashboard */}
+              {mainLinksBefore.map(l => (
                 <Link 
                   key={l.to} 
                   to={l.to} 
                   onClick={() => setMobileMenuOpen(false)} 
                   className={`px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors ${
-                    l.active 
-                      ? 'bg-[#dae1ff] text-[#0050cb]' 
-                      : 'text-[#424656] hover:bg-[#f2f3ff]'
+                    l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
                   }`}
                 >
                   {l.label}
                 </Link>
               ))}
+
+              {/* UTBK/SNBT Group Accordion */}
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => setMobileUtbkOpen(prev => !prev)}
+                  className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors w-full text-left cursor-pointer ${
+                    isUtbkActive ? 'bg-[#f2f3ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    UTBK/SNBT
+                    {isUtbkActive && <span className="w-2 h-2 rounded-full bg-[#0050cb]" />}
+                  </span>
+                  <span 
+                    className="material-symbols-outlined text-[20px] transition-transform duration-200"
+                    style={{ transform: mobileUtbkOpen ? 'rotate(180deg)' : 'none' }}
+                  >
+                    keyboard_arrow_down
+                  </span>
+                </button>
+
+                {/* Sub-links: Latihan, Tryout, Battle, Prediksi Skor, Rasionalisasi */}
+                {mobileUtbkOpen && (
+                  <div className="flex flex-col gap-1 pl-3 my-1 border-l-2 border-[#0050cb]/25 ml-4 animate-fade-in">
+                    {utbkLinks.map(l => (
+                      <Link
+                        key={l.to}
+                        to={l.to}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`px-4 py-2.5 rounded-xl text-[14px] transition-colors ${
+                          l.active ? 'bg-[#dae1ff] text-[#0050cb] font-bold' : 'text-[#424656] font-medium hover:bg-[#f2f3ff]'
+                        }`}
+                      >
+                        {l.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Main Links After: Ujian Mandiri, SKD CPNS, Paket Belajar */}
+              {mainLinksAfter.map(l => (
+                <Link 
+                  key={l.to} 
+                  to={l.to} 
+                  onClick={() => setMobileMenuOpen(false)} 
+                  className={`px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors ${
+                    l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              ))}
+
+              {/* Dropdown Links: Riwayat, Profil Saya */}
+              {dropdownLinks.map(l => (
+                <Link 
+                  key={l.to} 
+                  to={l.to} 
+                  onClick={() => setMobileMenuOpen(false)} 
+                  className={`px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors ${
+                    l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              ))}
+
               {isAdmin && (
                 <Link 
                   to="/admin" 
@@ -412,6 +514,13 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
           </div>
         </div>
       )}
+
+      {/* Streak Details Modal */}
+      <StreakModal 
+        isOpen={streakModalOpen}
+        onClose={() => setStreakModalOpen(false)}
+        streak={streak}
+      />
     </>
   );
 }

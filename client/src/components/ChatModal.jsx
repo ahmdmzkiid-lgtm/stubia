@@ -185,7 +185,7 @@ const ChatModal = ({ isOpen, onClose }) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 bg-transparent border-none focus:ring-0 text-[14px] text-[#191b24] placeholder:text-[#727687] py-1 outline-none" 
-            placeholder="Tanya soal UTBK ke Stu..." 
+            placeholder="Tanya soal UTBK/SNBT ke Stu..." 
             disabled={isLoading}
           />
           <button 

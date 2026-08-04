@@ -7,6 +7,8 @@ import ChatWidget from '../components/ChatWidget';
 import Footer from '../components/Footer';
 import StudentNavbar from '../components/layout/StudentNavbar';
 import UniversityLogo from '../components/UniversityLogo';
+import { getStreakData, updateDailyStreak } from '../utils/streak';
+import StreakModal from '../components/StreakModal';
 
 const DEFAULT_SCHEDULE = [
   { day: 'SEN', date: '12', title: 'Tryout Penalaran Umum', time: '09:00 - 11:30', active: true },
@@ -44,7 +46,51 @@ const Dashboard = () => {
   const [utbkCountdownDate, setUtbkCountdownDate] = useState('2027-04-18');
   const [activeSlide, setActiveSlide] = useState(0);
   const [showUtbkModal, setShowUtbkModal] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [streakModalOpen, setStreakModalOpen] = useState(false);
+  const [streak, setStreak] = useState(() => getStreakData(user?.id));
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const [isBannerPaused, setIsBannerPaused] = useState(false);
+
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      setActiveSlide(prev => (prev + 1) % (banners.length || 1));
+    } else if (isRightSwipe) {
+      setActiveSlide(prev => (prev - 1 + (banners.length || 1)) % (banners.length || 1));
+    }
+  };
+
+  useEffect(() => {
+    const updated = updateDailyStreak(user?.id);
+    setStreak(updated);
+
+    const handleStreakUpdate = (e) => {
+      if (e.detail) {
+        setStreak(e.detail);
+      } else {
+        setStreak(getStreakData(user?.id));
+      }
+    };
+
+    window.addEventListener('streak-update', handleStreakUpdate);
+    return () => window.removeEventListener('streak-update', handleStreakUpdate);
+  }, [user?.id]);
 
   const loadTransactions = () => {
     subscriptionService.getTransactions().then(r => {
@@ -54,12 +100,12 @@ const Dashboard = () => {
 
   // Carousel auto play
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (banners.length <= 1 || isBannerPaused) return;
     const interval = setInterval(() => {
       setActiveSlide(prev => (prev + 1) % banners.length);
     }, 4500);
     return () => clearInterval(interval);
-  }, [banners]);
+  }, [banners, isBannerPaused]);
 
   useEffect(() => {
     settingsService.get().then(r => {
@@ -312,7 +358,7 @@ const Dashboard = () => {
   };
 
   const quickActions = [
-    { label: 'UTBK', icon: 'school', bgIcon: 'bg-[#eff6ff] text-[#2563eb]', action: () => setShowUtbkModal(true) },
+    { label: 'UTBK/SNBT', icon: 'school', bgIcon: 'bg-[#eff6ff] text-[#2563eb]', action: () => setShowUtbkModal(true) },
     { label: 'Ujian Mandiri', icon: 'domain', bgIcon: 'bg-[#fffbeb] text-[#d97706]', path: '/ujian-mandiri' },
     { label: 'Paket Belajar', icon: 'card_membership', bgIcon: 'bg-[#fdf2f8] text-[#db2777]', path: '/paket-belajar' },
     { label: 'Prediksi Skor', icon: 'analytics', bgIcon: 'bg-[#faf5ff] text-[#7c3aed]', path: '/prediksi-skor' },
@@ -325,126 +371,121 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen text-[#191b24] font-sans bg-white" style={{ fontFamily: "'Inter', sans-serif" }}>
       
-      {/* ── MOBILE STATUS HEADER ── */}
-      <div className="md:hidden flex items-center justify-between px-5 py-3.5 bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
-        <div className="flex items-center gap-1.5 bg-[#fef3c7] border border-[#fde68a] px-3 py-1 rounded-full shadow-sm">
-          <span className="text-amber-500 text-[14px]">🔥</span>
-          <span className="text-xs font-black text-[#78350f]">1</span>
-        </div>
-        <div className="flex items-center justify-center">
-          <img src="/stubiabrandicon.png" alt="Stubia Logo" className="h-6 w-auto object-contain" />
-        </div>
-        <button 
-          onClick={() => setMobileMenuOpen(true)}
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-gray-50 border border-gray-150 text-gray-700 active:scale-95 transition-all cursor-pointer hover:bg-gray-100 outline-none"
-        >
-          <span className="material-symbols-outlined text-[20px]">menu</span>
-        </button>
-      </div>
-
-      {/* ── DESKTOP NAVBAR ── */}
-      <div className="hidden md:block">
-        <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} transparent={false} />
-      </div>
+      {/* ── NAVBAR ── */}
+      <StudentNavbar user={user} isAdmin={isAdmin} onLogout={handleLogout} transparent={false} />
 
       {/* ── MAIN CONTENT ── */}
       <main className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-10 bg-white">
 
         {/* ── BANNER CAROUSEL ── */}
-        <section className="w-full max-w-5xl mx-auto mb-6 relative rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 aspect-[2.3/1] sm:aspect-[2.4/1] bg-[#191b24]">
-          {banners.map((slide, index) => {
-            const isActive = index === activeSlide;
-            const slideLink = slide.link_url || '';
-            
-            const handleSlideClick = () => {
-              if (slideLink) {
-                if (slideLink.startsWith('http')) {
-                  window.open(slideLink, '_blank');
-                } else {
-                  navigate(slideLink);
+        <section 
+          className="w-full max-w-5xl mx-auto mb-6 relative rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 aspect-[2.3/1] sm:aspect-[2.4/1] bg-white group select-none"
+          onMouseEnter={() => setIsBannerPaused(true)}
+          onMouseLeave={() => setIsBannerPaused(false)}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Horizontal Track Container */}
+          <div 
+            className="w-full h-full flex transition-transform duration-500 ease-out"
+            style={{ transform: `translateX(-${activeSlide * 100}%)` }}
+          >
+            {banners.map((slide, index) => {
+              const slideLink = slide.link_url || '';
+              
+              const handleSlideClick = () => {
+                if (slideLink) {
+                  if (slideLink.startsWith('http')) {
+                    window.open(slideLink, '_blank');
+                  } else {
+                    navigate(slideLink);
+                  }
                 }
-              }
-            };
+              };
 
-            if (slide.type === 'image') {
+              if (slide.type === 'image') {
+                return (
+                  <div 
+                    key={slide.id || index}
+                    onClick={handleSlideClick}
+                    className="w-full h-full flex-shrink-0 relative overflow-hidden cursor-pointer"
+                  >
+                    <img src={slide.image_url} alt="Banner" className="w-full h-full object-cover" />
+                  </div>
+                );
+              }
+
+              // Template slide
               return (
                 <div 
                   key={slide.id || index}
                   onClick={handleSlideClick}
-                  className={`absolute inset-0 transition-all duration-500 ease-in-out cursor-pointer ${isActive ? 'opacity-100 z-10 scale-100 visible' : 'opacity-0 z-0 scale-95 invisible pointer-events-none'}`}
+                  className="w-full h-full flex-shrink-0 relative p-5 sm:p-10 flex items-center justify-between overflow-hidden cursor-pointer font-sans"
+                  style={{ backgroundColor: slide.bg_color || '#7a1a10' }}
                 >
-                  <img src={slide.image_url} alt="Banner" className="w-full h-full object-cover" />
+                  <div className="max-w-[70%] text-white z-10">
+                    <p className="text-[10px] sm:text-lg font-medium opacity-90 leading-tight">
+                      {slide.title}
+                    </p>
+                    <h2 className="text-lg sm:text-5xl font-black mt-2 uppercase tracking-tight drop-shadow-sm font-sans">
+                      {slide.brand_name}
+                    </h2>
+                    
+                    {/* Social media handles */}
+                    <div className="mt-3 sm:mt-6 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[8px] sm:text-sm font-semibold opacity-85">
+                      {slide.ig_handle && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[12px] sm:text-[18px]">photo_camera</span>
+                          <span>{slide.ig_handle}</span>
+                        </div>
+                      )}
+                      {slide.tiktok_handle && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[12px] sm:text-[18px]">music_note</span>
+                          <span>{slide.tiktok_handle}</span>
+                        </div>
+                      )}
+                      {slide.yt_handle && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[12px] sm:text-[18px]">play_circle</span>
+                          <span>{slide.yt_handle}</span>
+                        </div>
+                      )}
+                      {slide.web_handle && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[12px] sm:text-[18px]">language</span>
+                          <span>{slide.web_handle}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {slide.image_url && (
+                    <img 
+                      src={slide.image_url} 
+                      className="w-[28%] max-w-[280px] h-[95%] object-contain z-10 transform translate-y-3 sm:translate-y-6" 
+                      alt="Illustration" 
+                    />
+                  )}
+                  
+                  {/* Decorative pattern overlay */}
+                  <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-white/5 rounded-l-full transform translate-x-12 scale-125 pointer-events-none" />
                 </div>
               );
-            }
+            })}
+          </div>
 
-            // Template slide matching the screenshot!
-            return (
-              <div 
-                key={slide.id || index}
-                onClick={handleSlideClick}
-                className={`absolute inset-0 transition-all duration-500 ease-in-out p-5 sm:p-10 flex items-center justify-between overflow-hidden cursor-pointer ${isActive ? 'opacity-100 z-10 scale-100 visible font-sans' : 'opacity-0 z-0 scale-95 invisible pointer-events-none font-sans'}`}
-                style={{ backgroundColor: slide.bg_color || '#7a1a10' }}
-              >
-                <div className="max-w-[70%] text-white z-10">
-                  <p className="text-[10px] sm:text-lg font-medium opacity-90 leading-tight">
-                    {slide.title}
-                  </p>
-                  <h2 className="text-lg sm:text-5xl font-black mt-2 uppercase tracking-tight drop-shadow-sm font-sans">
-                    {slide.brand_name}
-                  </h2>
-                  
-                  {/* Social media handles */}
-                  <div className="mt-3 sm:mt-6 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[8px] sm:text-sm font-semibold opacity-85">
-                    {slide.ig_handle && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[18px]">photo_camera</span>
-                        <span>{slide.ig_handle}</span>
-                      </div>
-                    )}
-                    {slide.tiktok_handle && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[18px]">music_note</span>
-                        <span>{slide.tiktok_handle}</span>
-                      </div>
-                    )}
-                    {slide.yt_handle && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[18px]">play_circle</span>
-                        <span>{slide.yt_handle}</span>
-                      </div>
-                    )}
-                    {slide.web_handle && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[18px]">language</span>
-                        <span>{slide.web_handle}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {slide.image_url && (
-                  <img 
-                    src={slide.image_url} 
-                    className="w-[28%] max-w-[280px] h-[95%] object-contain z-10 transform translate-y-3 sm:translate-y-6" 
-                    alt="Illustration" 
-                  />
-                )}
-                
-                {/* Decorative pattern overlay */}
-                <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-white/5 rounded-l-full transform translate-x-12 scale-125 pointer-events-none" />
-              </div>
-            );
-          })}
- 
           {/* Dots Indicator */}
           {banners.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+            <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
               {banners.map((_, i) => (
                 <button
                   key={i}
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setActiveSlide(i); }}
-                  className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-300 ${activeSlide === i ? 'bg-white scale-125' : 'bg-white/40'}`}
+                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === i ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'}`}
+                  aria-label={`Slide ${i + 1}`}
                 />
               ))}
             </div>
@@ -494,7 +535,7 @@ const Dashboard = () => {
         <div className="flex justify-center my-6">
           <div className="inline-flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-150 rounded-full shadow-sm text-[#191b24] font-extrabold text-[13px]">
             <span className="material-symbols-outlined text-[16px] text-gray-700">calendar_month</span>
-            <span>H - {calculateCountdown()} UTBK</span>
+            <span>H - {calculateCountdown()} UTBK/SNBT</span>
           </div>
         </div>
 
@@ -651,7 +692,7 @@ const Dashboard = () => {
               </div>
               <div className="mb-4">
                 <h3 className="text-[20px] sm:text-[24px] leading-8 font-semibold text-[#0050cb] mb-2">Premium</h3>
-                <p className="text-[#424656] text-[14px] leading-5 font-medium">Tingkatkan persiapan UTBK-mu</p>
+                <p className="text-[#424656] text-[14px] leading-5 font-medium">Tingkatkan persiapan UTBK/SNBT-mu</p>
               </div>
               <div className="my-4 flex items-baseline">
                 <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#191b24]">Rp70.000</span>
@@ -661,11 +702,11 @@ const Dashboard = () => {
               <ul className="flex-grow space-y-4 mb-10">
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
-                  <span className="text-[16px] leading-6 text-[#191b24] font-semibold">Akses penuh latihan soal UTBK</span>
+                  <span className="text-[16px] leading-6 text-[#191b24] font-semibold">Akses penuh latihan soal UTBK/SNBT</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
-                  <span className="text-[16px] leading-6 text-[#191b24]">Akses penuh tryout UTBK</span>
+                  <span className="text-[16px] leading-6 text-[#191b24]">Akses penuh tryout UTBK/SNBT</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#0050cb]" style={{ fontVariationSettings: "'FILL' 0" }}>verified</span>
@@ -729,7 +770,7 @@ const Dashboard = () => {
                   <span className="material-symbols-outlined text-[#ffdbd0]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                   <h3 className="text-[20px] sm:text-[24px] leading-8 font-semibold text-[#ffdbd0]">Sultan</h3>
                 </div>
-                <p className="text-[#c2c6d8] text-[14px] leading-5 font-medium">Persiapan UTBK terlengkap</p>
+                <p className="text-[#c2c6d8] text-[14px] leading-5 font-medium">Persiapan UTBK/SNBT terlengkap</p>
               </div>
               <div className="my-4 flex items-baseline">
                 <span className="text-[32px] sm:text-[48px] leading-[40px] sm:leading-[56px] tracking-[-0.02em] font-bold text-[#faf8ff]">Rp160.000</span>
@@ -1025,8 +1066,8 @@ const Dashboard = () => {
               <div className="w-12 h-12 bg-[#eff6ff] text-[#2563eb] rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
                 <span className="material-symbols-outlined text-[24px]">school</span>
               </div>
-              <h3 className="text-lg font-black text-[#191b24]">Ujian Tulis Berbasis Komputer (UTBK)</h3>
-              <p className="text-xs text-gray-500 font-semibold mt-1">Pilih metode belajar untuk persiapan UTBK kamu.</p>
+              <h3 className="text-lg font-black text-[#191b24]">Ujian Tulis Berbasis Komputer (UTBK/SNBT)</h3>
+              <p className="text-xs text-gray-500 font-semibold mt-1">Pilih metode belajar untuk persiapan UTBK/SNBT kamu.</p>
             </div>
 
             <div className="space-y-4">
@@ -1039,7 +1080,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h4 className="font-extrabold text-sm text-[#191b24]">Latihan Soal</h4>
-                  <p className="text-[11px] text-gray-500 font-semibold mt-0.5">Asah pemahaman materi UTBK bab demi bab.</p>
+                  <p className="text-[11px] text-gray-500 font-semibold mt-0.5">Asah pemahaman materi UTBK/SNBT bab demi bab.</p>
                 </div>
                 <span className="material-symbols-outlined text-gray-400 group-hover:text-[#2563eb] ml-auto transition-colors text-[18px]">arrow_forward</span>
               </button>
@@ -1057,70 +1098,19 @@ const Dashboard = () => {
                 </div>
                 <span className="material-symbols-outlined text-gray-400 group-hover:text-[#db2777] ml-auto transition-colors text-[18px]">arrow_forward</span>
               </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* ── MOBILE MENU DRAWER ── */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[120] md:hidden">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 animate-[fadeIn_0.2s_ease-out]"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          
-          {/* Drawer Content */}
-          <div className="absolute right-0 top-0 bottom-0 w-[280px] bg-white shadow-2xl flex flex-col p-6 z-10 animate-[slideInRight_0.25s_ease-out] font-sans">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-6 border-b border-gray-100">
-              <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 w-auto object-contain" />
               <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-50 text-gray-400 hover:text-gray-600"
+                onClick={() => { setShowUtbkModal(false); navigate('/battle'); }}
+                className="w-full bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-4 text-left hover:border-blue-500 hover:bg-blue-50/30 transition-all duration-300 group"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            {/* Navigation Links */}
-            <nav className="flex-1 py-6 flex flex-col gap-1 overflow-y-auto">
-              {[
-                { to: '/dashboard', label: 'Dashboard', active: true },
-                { to: '/latihan', label: 'Latihan', active: false },
-                { to: '/tryout/packages', label: 'Tryout', active: false },
-                { to: '/ujian-mandiri', label: 'Ujian Mandiri', active: false },
-                { to: '/paket-belajar', label: 'Paket Belajar', active: false },
-                { to: '/battle', label: 'Battle', active: false },
-                { to: '/riwayat', label: 'Riwayat', active: false },
-                { to: '/prediksi-skor', label: 'Prediksi Skor', active: false },
-                { to: '/rasionalisasi', label: 'Rasionalisasi', active: false },
-                { to: '/profile', label: 'Profil Saya', active: false },
-              ].map((item, idx) => (
-                <Link
-                  key={idx}
-                  to={item.to}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-4 py-3 rounded-2xl text-[14px] font-bold tracking-tight transition-all ${
-                    item.active 
-                      ? 'bg-[#eff6ff] text-[#2563eb]' 
-                      : 'text-[#374151] hover:bg-gray-50'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            {/* Footer with Logout */}
-            <div className="pt-6 border-t border-gray-100">
-              <button 
-                onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
-                className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                <span className="material-symbols-outlined text-[16px]">logout</span>
-                <span>Logout</span>
+                <div className="w-12 h-12 rounded-xl bg-[#fff7ed] text-[#ea580c] flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                  <span className="material-symbols-outlined text-[22px]">swords</span>
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-[#191b24]">Battle</h4>
+                  <p className="text-[11px] text-gray-500 font-semibold mt-0.5">Adu kecepatan dan ketepatan jawab soal.</p>
+                </div>
+                <span className="material-symbols-outlined text-gray-400 group-hover:text-[#ea580c] ml-auto transition-colors text-[18px]">arrow_forward</span>
               </button>
             </div>
           </div>
@@ -1158,6 +1148,11 @@ const Dashboard = () => {
 
       <Footer />
       <ChatWidget />
+      <StreakModal 
+        isOpen={streakModalOpen}
+        onClose={() => setStreakModalOpen(false)}
+        streak={streak}
+      />
     </div>
   );
 };

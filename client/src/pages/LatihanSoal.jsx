@@ -80,9 +80,9 @@ export default function LatihanSoal() {
           <main className="pt-20 max-w-md mx-auto px-6 text-center">
             <div className="bg-white rounded-3xl p-8 border border-[#c2c6d8]/30 shadow-lg mt-10">
               <span className="material-symbols-outlined text-[64px] text-yellow-500 mb-4 animate-bounce">warning</span>
-              <h2 className="text-[24px] font-bold text-[#191b24] mb-3">Latihan UTBK Non-Aktif</h2>
+              <h2 className="text-[24px] font-bold text-[#191b24] mb-3">Latihan UTBK/SNBT Non-Aktif</h2>
               <p className="text-[15px] text-[#424656] leading-relaxed mb-6">
-                Fitur latihan soal UTBK saat ini sedang dinonaktifkan sementara oleh administrator. Silakan hubungi admin atau kembali lagi nanti.
+                Fitur latihan soal UTBK/SNBT saat ini sedang dinonaktifkan sementara oleh administrator. Silakan hubungi admin atau kembali lagi nanti.
               </p>
               <Link to="/" className="inline-block w-full bg-[#0050cb] text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all">
                 Kembali ke Dashboard
@@ -107,7 +107,7 @@ export default function LatihanSoal() {
             Eksplorasi Topik Belajar
           </h1>
           <p className="text-[16px] sm:text-[18px] text-[#424656] max-w-2xl leading-relaxed">
-            Pilih kategori belajar untuk memulai latihan soal mandiri. Setiap kategori disusun untuk persiapan UTBK.
+            Pilih kategori belajar untuk memulai latihan soal mandiri. Setiap kategori disusun untuk persiapan UTBK/SNBT.
           </p>
         </section>
 

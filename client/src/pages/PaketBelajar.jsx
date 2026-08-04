@@ -7,8 +7,8 @@ import StudentNavbar from '../components/layout/StudentNavbar';
 import toast from 'react-hot-toast';
 
 const CATEGORY_TABS = [
-  { id: 'utbk_sub', label: 'UTBK Langganan', icon: 'calendar_month' },
-  { id: 'utbk_quota', label: 'UTBK Eceran (Kuota)', icon: 'local_activity' },
+  { id: 'utbk_sub', label: 'UTBK/SNBT Langganan', icon: 'calendar_month' },
+  { id: 'utbk_quota', label: 'UTBK/SNBT Eceran (Kuota)', icon: 'local_activity' },
   { id: 'um', label: 'Ujian Mandiri (UM)', icon: 'account_balance' },
   { id: 'cpns', label: 'SKD CPNS', icon: 'verified_user' },
 ];

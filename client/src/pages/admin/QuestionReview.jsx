@@ -3,6 +3,7 @@ import { adminService, soalService, subjectService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import MathText from '../../components/MathText';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 const WORKFLOW_CONFIG = {
   draft: {
@@ -94,7 +95,34 @@ export default function QuestionReview() {
     toStatus: ''
   });
   const [updating, setUpdating] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [noteInput, setNoteInput] = useState('');
+
+  const targetCount = statusFilter === 'under_review' ? total : (summary.under_review || questions.filter(q => q.workflow_status === 'under_review').length);
+  const filterText = subjectFilter ? `pada subtes ini` : `secara keseluruhan`;
+
+  const executeApproveAll = async () => {
+    setBulkLoading(true);
+    try {
+      const res = await soalService.bulkUpdateWorkflow({
+        status: 'approved',
+        from_status: 'under_review',
+        subject_id: subjectFilter || undefined
+      });
+
+      if (res.data?.success) {
+        toast.success(res.data.message || `Berhasil menyetujui ${res.data.updatedCount || targetCount} soal!`);
+        setBulkConfirmOpen(false);
+        fetchQuestions();
+        fetchSummary();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal menyetujui semua soal');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -353,6 +381,19 @@ export default function QuestionReview() {
               </button>
             )}
           </div>
+
+          {(isAdmin || isQA) && (summary.under_review > 0 || questions.some(q => q.workflow_status === 'under_review')) && (
+            <button
+              onClick={() => setBulkConfirmOpen(true)}
+              disabled={bulkLoading}
+              className="px-5 py-2.5 rounded-2xl text-[13px] font-extrabold bg-[#0050cb] hover:bg-[#003da6] text-white flex items-center gap-2 shadow-md shadow-[#0050cb]/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              title="Setujui semua soal bertatus Under Review sekaligus"
+            >
+              <span className="material-symbols-outlined text-[18px]">done_all</span>
+              {bulkLoading ? 'Memproses...' : `Approve All (${statusFilter === 'under_review' ? total : summary.under_review || 0})`}
+            </button>
+          )}
+
           <div className="ml-auto text-[12px] font-extrabold text-[#727687] bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
             {total} soal ditemukan
           </div>
@@ -734,6 +775,18 @@ export default function QuestionReview() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={bulkConfirmOpen}
+        title="Approve All Soal"
+        message={`Apakah Anda yakin ingin menyetujui (Approve) seluruh ${targetCount} soal bertatus 'Under Review' ${filterText}?`}
+        confirmText="Ya, Approve Semua"
+        cancelText="Batal"
+        type="info"
+        isLoading={bulkLoading}
+        onConfirm={executeApproveAll}
+        onCancel={() => setBulkConfirmOpen(false)}
+      />
     </div>
   );
 }

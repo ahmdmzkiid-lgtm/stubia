@@ -457,16 +457,11 @@ const TryoutSession = () => {
       {/* Progress Info */}
       <div className="pt-[76px] sm:pt-[84px] pb-4 px-4 sm:px-6 bg-[#faf8ff] border-b border-[#e0e2f0]">
         <div className="max-w-[1440px] mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <h1 className="text-[17px] font-bold text-[#191b24]">{currentSubject?.name}</h1>
-              <p className="text-[13px] text-[#727687]">
-                Subtes {currentSubjectIndex + 1} dari {totalSubjects} • Soal {currentQuestionIndex + 1} dari {totalQuestionsInSubject}
-              </p>
-            </div>
-            <div className="text-[13px] font-medium text-[#727687] bg-[#ecedfa] px-3 py-1 rounded-lg">
-              {totalAnswered} / {totalQuestions} soal terjawab
-            </div>
+          <div>
+            <h1 className="text-[17px] font-bold text-[#191b24]">{currentSubject?.name}</h1>
+            <p className="text-[13px] text-[#727687]">
+              Subtes {currentSubjectIndex + 1}/{totalSubjects} • Soal {currentQuestionIndex + 1}/{totalQuestionsInSubject}
+            </p>
           </div>
         </div>
       </div>

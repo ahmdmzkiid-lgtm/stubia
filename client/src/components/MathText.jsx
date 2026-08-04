@@ -17,8 +17,8 @@ function findNextUnescaped(text, char, from) {
 }
 
 function tokenize(input) {
-  const segments = [];
-  if (!input) return segments;
+  const rawSegments = [];
+  if (!input) return rawSegments;
   let i = 0;
   while (i < input.length) {
     // Block math $$...$$
@@ -26,7 +26,7 @@ function tokenize(input) {
       const j = input.indexOf('$$', i + 2);
       if (j !== -1) {
         const latex = input.slice(i + 2, j).trim();
-        segments.push({ type: 'block', latex });
+        rawSegments.push({ type: 'block', latex });
         i = j + 2;
         continue;
       }
@@ -37,7 +37,7 @@ function tokenize(input) {
       const j = findNextUnescaped(input, '$', i + 1);
       if (j !== -1) {
         const latex = input.slice(i + 1, j).trim();
-        segments.push({ type: 'inline', latex });
+        rawSegments.push({ type: 'inline', latex });
         i = j + 1;
         continue;
       }
@@ -51,13 +51,37 @@ function tokenize(input) {
       nextIdx = nextInline;
     }
     if (nextIdx === -1) {
-      segments.push({ type: 'text', text: input.slice(i) });
+      rawSegments.push({ type: 'text', text: input.slice(i) });
       break;
     } else {
-      segments.push({ type: 'text', text: input.slice(i, nextIdx) });
+      rawSegments.push({ type: 'text', text: input.slice(i, nextIdx) });
       i = nextIdx;
     }
   }
+
+  // Normalize newlines around block math so spacing above and below is perfectly equal
+  const segments = [];
+  for (let idx = 0; idx < rawSegments.length; idx++) {
+    const curr = rawSegments[idx];
+    const prev = rawSegments[idx - 1];
+    const next = rawSegments[idx + 1];
+
+    if (curr.type === 'text') {
+      let txt = curr.text;
+      if (next && next.type === 'block') {
+        txt = txt.replace(/\n+$/, '');
+      }
+      if (prev && prev.type === 'block') {
+        txt = txt.replace(/^\n+/, '');
+      }
+      if (txt) {
+        segments.push({ type: 'text', text: txt });
+      }
+    } else {
+      segments.push(curr);
+    }
+  }
+
   return segments;
 }
 
@@ -155,7 +179,7 @@ const MathText = ({ text = '', as: As = 'div', className = '' }) => {
         }
         if (p.type === 'block') {
           try {
-            return <div key={idx} className="my-2 overflow-x-auto"><BlockMath math={p.latex} /></div>;
+            return <div key={idx} className="my-2 max-w-full overflow-x-auto text-center no-scrollbar"><BlockMath math={p.latex} /></div>;
           } catch (e) {
             return <pre key={idx}>$$\n{p.latex}\n$$</pre>;
           }

@@ -178,19 +178,7 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* Trust Bar */}
-        <section className="landing-trust">
-          <p className="trust-label">
-            DIPERCAYA OLEH RIBUAN SISWA DI SELURUH INDONESIA
-          </p>
-          <div className="trust-logos">
-            <div>UI</div>
-            <div>ITB</div>
-            <div>UGM</div>
-            <div>UNPAD</div>
-            <div>ITS</div>
-          </div>
-        </section>
+
 
         {/* Features — Bento Grid Style */}
         <section id="features" className="landing-features">
