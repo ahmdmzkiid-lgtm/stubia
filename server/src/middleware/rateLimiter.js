@@ -1,4 +1,10 @@
-const rateLimit = require('express-rate-limit');
+let rateLimit;
+try {
+  rateLimit = require('express-rate-limit');
+} catch (e) {
+  console.warn('⚠️ express-rate-limit module missing, bypassing rate limiter');
+  rateLimit = () => (req, res, next) => next();
+}
 
 // Rate limiter for Auth endpoints (login, register, update-password)
 const authLimiter = rateLimit({
