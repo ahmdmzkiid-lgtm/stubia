@@ -170,12 +170,12 @@ export default function CMSTeam() {
       {/* Top Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#191b24]">Manajemen Pekerjaan Tim</h1>
-          <p className="text-[#424656] text-sm">Delegasikan pekerjaan, pantau progres review, dan ACC pekerjaan staf.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#191b24]">Manajemen Pekerjaan Tim</h1>
+          <p className="text-[#424656] text-xs sm:text-sm">Delegasikan pekerjaan, pantau progres review, dan ACC pekerjaan staf.</p>
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0050cb] hover:bg-[#0050cb]/95 text-white font-semibold text-sm shadow-sm transition-all"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0050cb] hover:bg-[#0050cb]/95 text-white font-semibold text-sm shadow-sm transition-all"
         >
           <span className="material-symbols-outlined text-[20px]">add_task</span>
           <span>Buat Pekerjaan</span>
@@ -183,20 +183,20 @@ export default function CMSTeam() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: 'Semua Pekerjaan', count: totalCount, color: 'text-blue-600', bg: 'bg-blue-50/50' },
           { label: 'Sedang Berjalan', count: pendingCount, color: 'text-amber-600', bg: 'bg-amber-50/50' },
           { label: 'Butuh Review', count: reviewCount, color: 'text-blue-700', bg: 'bg-indigo-50/50' },
           { label: 'Selesai / ACC', count: completedCount, color: 'text-green-600', bg: 'bg-green-50/50' },
         ].map((card, idx) => (
-          <div key={idx} className="bg-white p-5 rounded-2xl border border-[#c2c6d8]/30 shadow-sm flex items-center justify-between">
+          <div key={idx} className="bg-white p-3.5 sm:p-5 rounded-2xl border border-[#c2c6d8]/30 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold text-[#727687] uppercase tracking-wider">{card.label}</p>
-              <h3 className="text-2xl font-extrabold text-[#191b24] mt-1">{loading ? '...' : card.count}</h3>
+              <p className="text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-wider">{card.label}</p>
+              <h3 className="text-xl sm:text-2xl font-extrabold text-[#191b24] mt-0.5 sm:mt-1">{loading ? '...' : card.count}</h3>
             </div>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${card.bg} ${card.color}`}>
-              <span className="material-symbols-outlined text-[20px]">
+            <div className={`w-8 sm:w-10 h-8 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${card.bg} ${card.color}`}>
+              <span className="material-symbols-outlined text-[18px] sm:text-[20px]">
                 {idx === 0 ? 'assignment' : idx === 1 ? 'hourglass_empty' : idx === 2 ? 'rate_review' : 'task_alt'}
               </span>
             </div>
@@ -205,7 +205,7 @@ export default function CMSTeam() {
       </div>
 
       {/* Filter and Search controls */}
-      <div className="bg-white rounded-3xl border border-[#c2c6d8]/40 p-4 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#c2c6d8]/40 p-3 sm:p-4 flex flex-col md:flex-row gap-3 sm:gap-4 items-center">
         
         {/* Search */}
         <div className="relative w-full md:flex-1">
@@ -215,7 +215,7 @@ export default function CMSTeam() {
             placeholder="Cari berdasarkan judul pekerjaan atau nama..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24] placeholder-slate-400"
+            className="w-full pl-12 pr-4 py-2.5 sm:py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px] sm:text-[14px] text-[#191b24] placeholder-slate-400"
           />
         </div>
 
@@ -223,7 +223,7 @@ export default function CMSTeam() {
         <select
           value={filterPerson}
           onChange={(e) => setFilterPerson(e.target.value)}
-          className="bg-white border border-[#c2c6d8] rounded-xl px-4 py-3 text-[13px] text-[#424656] font-semibold focus:outline-none focus:border-[#0050cb] w-full md:w-auto min-w-[180px]"
+          className="bg-white border border-[#c2c6d8] rounded-xl px-4 py-2.5 sm:py-3 text-[13px] text-[#424656] font-semibold focus:outline-none focus:border-[#0050cb] w-full md:w-auto min-w-[180px]"
         >
           <option value="">Semua Penerima</option>
           {admins.map(adm => (
@@ -232,7 +232,7 @@ export default function CMSTeam() {
         </select>
 
         {/* Tabs for Filter */}
-        <div className="flex gap-1.5 p-1 bg-[#f2f3ff] border border-[#c2c6d8]/30 rounded-xl w-full md:w-auto">
+        <div className="flex gap-1.5 p-1 bg-[#f2f3ff] border border-[#c2c6d8]/30 rounded-xl w-full md:w-auto overflow-x-auto">
           {[
             { id: 'all', label: 'Semua' },
             { id: 'pending', label: 'Berjalan' },
@@ -242,7 +242,7 @@ export default function CMSTeam() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 md:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex-1 md:flex-none px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all ${
                 activeTab === tab.id 
                   ? 'bg-white text-[#0050cb] border border-[#c2c6d8]/20 shadow-sm' 
                   : 'text-[#424656] hover:text-[#0050cb]'

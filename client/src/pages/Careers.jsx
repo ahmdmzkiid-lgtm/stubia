@@ -597,8 +597,13 @@ export default function Careers() {
                 {[
                   { label: 'Nama Penerima', value: verifyResult.recipient_name },
                   { label: 'Posisi / Jabatan', value: verifyResult.position },
-                  { label: 'Program', value: verifyResult.program_type === 'internship' ? 'Magang (Internship)' : 'Relawan (Volunteer)' },
-                  { label: 'Periode', value: `${new Date(verifyResult.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} – ${new Date(verifyResult.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` },
+                  { label: 'Program', value: verifyResult.program_type === 'internship' ? 'Magang (Internship)' : verifyResult.program_type === 'fellowship' ? 'Academic Fellowship' : verifyResult.program_type === 'bug_hunter' ? 'Bug Bounty / Security Research' : 'Relawan (Volunteer)' },
+                  { 
+                    label: verifyResult.program_type === 'bug_hunter' ? 'Tanggal Penerimaan' : 'Periode', 
+                    value: verifyResult.program_type === 'bug_hunter' 
+                      ? new Date(verifyResult.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                      : `${new Date(verifyResult.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} – ${new Date(verifyResult.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` 
+                  },
                   { label: 'Kode Sertifikat', value: verifyResult.certificate_code, mono: true },
                 ].map((row) => (
                   <div key={row.label} className="flex justify-between items-start gap-4 text-sm">

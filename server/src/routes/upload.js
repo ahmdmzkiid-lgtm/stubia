@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { publicUploadLimiter } = require('../middleware/rateLimiter');
 
 const path = require('path');
 
@@ -166,7 +167,7 @@ router.post('/document', verifyToken, (req, res, next) => {
 });
 
 // Public Upload single image (No token required)
-router.post('/public/image', (req, res, next) => {
+router.post('/public/image', publicUploadLimiter, (req, res, next) => {
   upload.single('image')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -221,7 +222,7 @@ router.post('/public/image', (req, res, next) => {
 });
 
 // Public Upload document (No token required)
-router.post('/public/document', (req, res, next) => {
+router.post('/public/document', publicUploadLimiter, (req, res, next) => {
   documentUpload.single('document')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {

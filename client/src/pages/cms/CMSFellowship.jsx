@@ -113,14 +113,14 @@ export default function CMSFellowship() {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-[#c2c6d8]/30 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#c2c6d8]/30 shadow-sm">
         <div>
-          <h1 className="text-[20px] font-bold text-[#191b24]">Fellowship Buddy & Alumni Profile</h1>
-          <p className="text-[12px] text-[#727687] mt-0.5">Kelola data profil para fellow dan alumni untuk ditampilkan di Landing Page.</p>
+          <h1 className="text-lg sm:text-[20px] font-bold text-[#191b24]">Fellowship Buddy & Alumni Profile</h1>
+          <p className="text-[11px] sm:text-[12px] text-[#727687] mt-0.5">Kelola data profil para fellow dan alumni untuk ditampilkan di Landing Page.</p>
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="bg-[#0050cb] hover:bg-[#003fa4] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+          className="w-full sm:w-auto justify-center bg-[#0050cb] hover:bg-[#003fa4] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
         >
           <span className="material-symbols-outlined text-[16px]">add</span> Tambah Buddy / Alumni
         </button>

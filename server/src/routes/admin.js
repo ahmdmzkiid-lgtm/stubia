@@ -632,11 +632,18 @@ router.get('/questions/duplicates', verifyToken, verifyAdmin, async (req, res, n
                  'id', q.id,
                  'content', q.content,
                  'difficulty', q.difficulty,
-                 'subject_name', s.name
+                 'subject_id', q.subject_id,
+                 'subject_name', s.name,
+                 'tryout_package_id', q.tryout_package_id,
+                 'package_title', tp.title,
+                 'topic_id', q.topic_id,
+                 'topic_title', t.title
                )
              ) as questions_list
       FROM questions q
       LEFT JOIN subjects s ON q.subject_id = s.id
+      LEFT JOIN tryout_packages tp ON q.tryout_package_id = tp.id
+      LEFT JOIN topics t ON q.topic_id = t.id
       WHERE q.content_hash IS NOT NULL
       GROUP BY q.content_hash
       HAVING COUNT(*) > 1
@@ -650,6 +657,8 @@ router.get('/questions/duplicates', verifyToken, verifyAdmin, async (req, res, n
                  'id', q.id,
                  'content', q.content,
                  'difficulty', q.difficulty,
+                 'tryout_package_id', q.tryout_package_id,
+                 'latihan_id', q.latihan_id,
                  'package_title', tp.title,
                  'latihan_title', ls.title
                )

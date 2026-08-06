@@ -10,6 +10,7 @@ async function generateCertificateCode(programType) {
   let codePrefix = 'VOL';
   if (programType === 'internship') codePrefix = 'INT';
   else if (programType === 'fellowship') codePrefix = 'FLW';
+  else if (programType === 'bug_hunter') codePrefix = 'BUG';
   
   // Find latest number for this type and year
   const result = await pool.query(

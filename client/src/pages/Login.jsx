@@ -48,7 +48,7 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await login({ email, password });
+      const res = await login({ email: email.trim().toLowerCase(), password });
       toast.success('Selamat datang kembali!');
       const userRole = res?.data?.user?.role;
       const isStaff = ['admin', 'question_writer', 'quality_assurance', 'article_writer'].includes(userRole);

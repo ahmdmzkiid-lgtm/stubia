@@ -172,12 +172,18 @@ export default function CMSCareers() {
       toast.error('Tanda tangan wajib diunggah');
       return;
     }
+    const payload = { ...certFormData };
+    if (payload.program_type === 'bug_hunter') {
+      const today = new Date().toISOString().split('T')[0];
+      payload.start_date = payload.start_date || today;
+      payload.end_date = payload.end_date || today;
+    }
     try {
       if (currentCertId) {
-        await certificateService.update(currentCertId, certFormData);
+        await certificateService.update(currentCertId, payload);
         toast.success('Sertifikat berhasil diupdate');
       } else {
-        await certificateService.create(certFormData);
+        await certificateService.create(payload);
         toast.success('Sertifikat berhasil dibuat');
       }
       setIsCertModalOpen(false);
@@ -1021,6 +1027,8 @@ export default function CMSCareers() {
                 <option value="all">Semua Program</option>
                 <option value="internship">Magang (Internship)</option>
                 <option value="volunteer">Relawan (Volunteer)</option>
+                <option value="fellowship">Academic Fellowship</option>
+                <option value="bug_hunter">Bug Hunter (Security & Bounty)</option>
               </select>
             </div>
           </div>
@@ -1034,7 +1042,7 @@ export default function CMSCareers() {
             <div className="bg-white border border-[#c2c6d8]/40 rounded-3xl p-12 text-center shadow-sm">
               <span className="material-symbols-outlined text-[48px] text-[#0050cb]/60 mb-3">verified</span>
               <h3 className="text-[#191b24] font-bold text-lg">Belum Ada Sertifikat</h3>
-              <p className="text-[#727687] text-sm mt-1 mb-6">Buat sertifikat kelulusan magang atau relawan di sini.</p>
+              <p className="text-[#727687] text-sm mt-1 mb-6">Buat sertifikat kelulusan magang, relawan, fellowship, atau apresiasi bug hunter di sini.</p>
               <button
                 onClick={() => handleOpenCertModal()}
                 className="px-5 py-2.5 rounded-xl bg-[#0050cb] text-white font-bold text-sm hover:bg-[#003fa4]"
@@ -1073,14 +1081,19 @@ export default function CMSCareers() {
                                 ? 'bg-blue-50 text-blue-700' 
                                 : c.program_type === 'fellowship'
                                 ? 'bg-purple-50 text-purple-700'
+                                : c.program_type === 'bug_hunter'
+                                ? 'bg-rose-50 text-rose-700'
                                 : 'bg-emerald-50 text-emerald-700'
                             }`}>
-                              {c.program_type === 'internship' ? 'Magang' : c.program_type === 'fellowship' ? 'Fellowship' : 'Volunteer'}
+                              {c.program_type === 'internship' ? 'Magang' : c.program_type === 'fellowship' ? 'Fellowship' : c.program_type === 'bug_hunter' ? 'Bug Hunter' : 'Volunteer'}
                             </span>
                             <span>{c.position}</span>
                           </td>
                           <td className="px-6 py-4 text-slate-500">
-                            {new Date(c.start_date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })} – {new Date(c.end_date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}
+                            {c.program_type === 'bug_hunter' 
+                              ? new Date(c.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                              : `${new Date(c.start_date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })} – ${new Date(c.end_date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}`
+                            }
                           </td>
                           <td className="px-6 py-4 text-right flex justify-end gap-2">
                             <button
@@ -1139,7 +1152,7 @@ export default function CMSCareers() {
                 <input
                   type="text"
                   required
-                  placeholder="Masukkan nama lengkap lulusan"
+                  placeholder="Masukkan nama lengkap lulusan / penerima"
                   value={certFormData.recipient_name}
                   onChange={(e) => setCertFormData(p => ({ ...p, recipient_name: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px]"
@@ -1156,6 +1169,7 @@ export default function CMSCareers() {
                       setCertFormData(p => ({
                         ...p,
                         program_type: type,
+                        position: type === 'bug_hunter' && (!p.position || p.position === 'Security Researcher') ? 'Vulnerability Report' : p.position,
                         location: type === 'fellowship' ? 'Depok' : 'Jakarta'
                       }));
                     }}
@@ -1164,14 +1178,17 @@ export default function CMSCareers() {
                     <option value="internship">Magang (Internship)</option>
                     <option value="volunteer">Relawan (Volunteer)</option>
                     <option value="fellowship">Academic Fellowship</option>
+                    <option value="bug_hunter">Bug Hunter (Bounty & Security)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">Posisi / Peran *</label>
+                  <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">
+                    {certFormData.program_type === 'bug_hunter' ? 'Kategori Bug / Celah Keamanan *' : 'Posisi / Peran *'}
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Content Writer, UI/UX Designer"
+                    placeholder={certFormData.program_type === 'bug_hunter' ? 'Contoh: Vulnerability Report, SQL Injection, IDOR' : 'Contoh: Content Writer, UI/UX Designer'}
                     value={certFormData.position}
                     onChange={(e) => setCertFormData(p => ({ ...p, position: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px]"
@@ -1179,28 +1196,30 @@ export default function CMSCareers() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">Tanggal Mulai *</label>
-                  <input
-                    type="date"
-                    required
-                    value={certFormData.start_date}
-                    onChange={(e) => setCertFormData(p => ({ ...p, start_date: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px]"
-                  />
+              {certFormData.program_type !== 'bug_hunter' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">Tanggal Mulai *</label>
+                    <input
+                      type="date"
+                      required
+                      value={certFormData.start_date}
+                      onChange={(e) => setCertFormData(p => ({ ...p, start_date: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">Tanggal Selesai *</label>
+                    <input
+                      type="date"
+                      required
+                      value={certFormData.end_date}
+                      onChange={(e) => setCertFormData(p => ({ ...p, end_date: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#727687] uppercase tracking-wider mb-1.5">Tanggal Selesai *</label>
-                  <input
-                    type="date"
-                    required
-                    value={certFormData.end_date}
-                    onChange={(e) => setCertFormData(p => ({ ...p, end_date: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px]"
-                  />
-                </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[#c2c6d8]/20 pt-4">
                 <div>
@@ -1340,150 +1359,167 @@ export default function CMSCareers() {
           </div>
 
           {/* ── Premium Certificate (A4 Landscape Ratio) ── */}
-          <div
-            ref={certPrintRef}
-            style={{
-              width: '100%',
-              maxWidth: '900px',
-              aspectRatio: '1.414 / 1',
-              background: 'linear-gradient(145deg, #FFFEF7 0%, #FFF9E6 50%, #FFFEF7 100%)',
-              border: '10px double #B8860B',
-              position: 'relative',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              padding: '44px 48px 36px',
-              boxSizing: 'border-box',
-              fontFamily: "'Inter', sans-serif",
-              color: '#1A1A2E',
-              userSelect: 'none',
-              flexShrink: 0,
-            }}
-          >
-            {/* Watermark logo */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.04, pointerEvents: 'none', zIndex: 0, width: '280px' }}>
-              <img src="/stubiabrandicon.png" alt="" style={{ width: '100%', height: 'auto' }} />
-            </div>
-            {/* Corner ornaments */}
-            <div style={{ position: 'absolute', top: 12, left: 12, width: 50, height: 50, borderTop: '2.5px solid #B8860B', borderLeft: '2.5px solid #B8860B' }} />
-            <div style={{ position: 'absolute', top: 12, right: 12, width: 50, height: 50, borderTop: '2.5px solid #B8860B', borderRight: '2.5px solid #B8860B' }} />
-            <div style={{ position: 'absolute', bottom: 12, left: 12, width: 50, height: 50, borderBottom: '2.5px solid #B8860B', borderLeft: '2.5px solid #B8860B' }} />
-            <div style={{ position: 'absolute', bottom: 12, right: 12, width: 50, height: 50, borderBottom: '2.5px solid #B8860B', borderRight: '2.5px solid #B8860B' }} />
+          <div className="w-full max-w-5xl overflow-x-auto flex justify-start sm:justify-center py-2 px-1">
+            <div
+              ref={certPrintRef}
+              style={{
+                width: '850px',
+                minWidth: '850px',
+                aspectRatio: '1.414 / 1',
+                background: 'linear-gradient(145deg, #FFFEF7 0%, #FFF9E6 50%, #FFFEF7 100%)',
+                border: '10px double #B8860B',
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '36px 44px 44px',
+                boxSizing: 'border-box',
+                fontFamily: "'Inter', sans-serif",
+                color: '#1A1A2E',
+                userSelect: 'none',
+                flexShrink: 0,
+              }}
+            >
+              {/* Watermark logo */}
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.04, pointerEvents: 'none', zIndex: 0, width: '280px' }}>
+                <img src="/stubiabrandicon.png" alt="" style={{ width: '100%', height: 'auto' }} />
+              </div>
+              {/* Corner ornaments */}
+              <div style={{ position: 'absolute', top: 12, left: 12, width: 50, height: 50, borderTop: '2.5px solid #B8860B', borderLeft: '2.5px solid #B8860B' }} />
+              <div style={{ position: 'absolute', top: 12, right: 12, width: 50, height: 50, borderTop: '2.5px solid #B8860B', borderRight: '2.5px solid #B8860B' }} />
+              <div style={{ position: 'absolute', bottom: 12, left: 12, width: 50, height: 50, borderBottom: '2.5px solid #B8860B', borderLeft: '2.5px solid #B8860B' }} />
+              <div style={{ position: 'absolute', bottom: 12, right: 12, width: 50, height: 50, borderBottom: '2.5px solid #B8860B', borderRight: '2.5px solid #B8860B' }} />
 
-            {/* Main content column */}
-            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+              {/* Main content column */}
+              <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-              {/* Header Row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                <img src="/stubiabrandicon.png" alt="Stubia" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#8A7340', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Nomor Sertifikat</div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: '#1E40AF', fontFamily: 'monospace', marginTop: 2, letterSpacing: '0.05em' }}>
-                    {selectedCertForPrint.certificate_code}
+                {/* Header Row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                  <img src="/stubiabrandicon.png" alt="Stubia" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#8A7340', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Nomor Sertifikat</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#1E40AF', fontFamily: 'monospace', marginTop: 2, letterSpacing: '0.05em' }}>
+                      {selectedCertForPrint.certificate_code}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Gold divider */}
-              <div style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, #B8860B 30%, #E8C96B 50%, #B8860B 70%, transparent 100%)', marginBottom: 18 }} />
+                {/* Gold divider */}
+                <div style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, #B8860B 30%, #E8C96B 50%, #B8860B 70%, transparent 100%)', marginBottom: 16 }} />
 
-              {/* Title */}
-              <div style={{ textAlign: 'center', marginBottom: 18 }}>
-                <p style={{ fontSize: 9, fontWeight: 700, color: '#8A7340', letterSpacing: '0.28em', textTransform: 'uppercase', margin: '0 0 7px' }}>✦ &nbsp; Stubia.id &nbsp; ✦</p>
-                <h2 style={{ fontSize: 28, fontWeight: 900, color: '#1A2E5A', fontFamily: "'Playfair Display', Georgia, 'Times New Roman', serif", letterSpacing: '0.06em', margin: '0 0 4px', lineHeight: 1.15 }}>
-                  SERTIFIKAT PENGHARGAAN
-                </h2>
-                <p style={{ fontSize: 10, fontWeight: 600, color: '#8A7340', letterSpacing: '0.22em', textTransform: 'uppercase', margin: '4px 0 10px' }}>
-                  Certificate of Appreciation
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #C9A84C)' }} />
-                  <span style={{ fontSize: 14, color: '#B8860B' }}>✦</span>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #C9A84C, transparent)' }} />
+                {/* Title */}
+                <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: '#8A7340', letterSpacing: '0.28em', textTransform: 'uppercase', margin: '0 0 6px' }}>✦ &nbsp; Stubia.id &nbsp; ✦</p>
+                  <h2 style={{ fontSize: 28, fontWeight: 900, color: '#1A2E5A', fontFamily: "'Playfair Display', Georgia, 'Times New Roman', serif", letterSpacing: '0.06em', margin: '0 0 4px', lineHeight: 1.15 }}>
+                    SERTIFIKAT PENGHARGAAN
+                  </h2>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: '#8A7340', letterSpacing: '0.22em', textTransform: 'uppercase', margin: '4px 0 8px' }}>
+                    Certificate of Appreciation
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #C9A84C)' }} />
+                    <span style={{ fontSize: 14, color: '#B8860B' }}>✦</span>
+                    <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #C9A84C, transparent)' }} />
+                  </div>
                 </div>
-              </div>
 
-              {/* Recipient Block */}
-              <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
-                <p style={{ fontSize: 11.5, color: '#5A5A6E', margin: 0 }}>Dengan bangga diberikan kepada:</p>
-                <div>
-                  <h1 style={{ fontSize: 34, fontWeight: 900, color: '#1A2E5A', fontFamily: "'Playfair Display', Georgia, 'Times New Roman', serif", margin: '4px 0 16px', lineHeight: 1.3 }}>
-                    {selectedCertForPrint.recipient_name}
-                  </h1>
-                  <div style={{ width: 240, height: 1.5, background: 'linear-gradient(90deg, transparent, #B8860B, transparent)', margin: '0 auto 12px' }} />
-                </div>
-                 <div style={{ margin: '4px 0' }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A2E5A', margin: '0 0 4px', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                    {selectedCertForPrint.program_type === 'internship' 
-                      ? 'Internship' 
-                      : selectedCertForPrint.program_type === 'fellowship'
-                      ? 'Academic Fellow:'
-                      : 'Volunteer'} {selectedCertForPrint.position}
-                  </h3>
+                {/* Recipient Block */}
+                <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
+                  <p style={{ fontSize: 11.5, color: '#5A5A6E', margin: 0 }}>Dengan bangga diberikan kepada:</p>
                   <div>
-                    <p style={{ fontSize: 12, color: '#8A7340', margin: 0, fontWeight: 500 }}>
-                      Periode{' '}
-                      <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                        {new Date(selectedCertForPrint.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </strong>
-                      {' '} - {' '}
-                      <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                        {new Date(selectedCertForPrint.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </strong>
-                    </p>
+                    <h1 style={{ fontSize: 34, fontWeight: 900, color: '#1A2E5A', fontFamily: "'Playfair Display', Georgia, 'Times New Roman', serif", margin: '4px 0 14px', lineHeight: 1.3 }}>
+                      {selectedCertForPrint.recipient_name}
+                    </h1>
+                    <div style={{ width: 240, height: 1.5, background: 'linear-gradient(90deg, transparent, #B8860B, transparent)', margin: '0 auto 10px' }} />
                   </div>
+                   <div style={{ margin: '2px 0' }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A2E5A', margin: '0 0 4px', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                      {selectedCertForPrint.program_type === 'internship' 
+                        ? `Internship ${selectedCertForPrint.position}` 
+                        : selectedCertForPrint.program_type === 'fellowship'
+                        ? `Academic Fellow: ${selectedCertForPrint.position}`
+                        : selectedCertForPrint.program_type === 'bug_hunter'
+                        ? 'Cyber Security Researcher'
+                        : `Volunteer ${selectedCertForPrint.position}`}
+                    </h3>
+                    <div>
+                      <p style={{ fontSize: 12, color: '#8A7340', margin: 0, fontWeight: 500 }}>
+                        {selectedCertForPrint.program_type === 'bug_hunter' ? (
+                          <>
+                            Kategori Vulnerability:{' '}
+                            <strong style={{ fontWeight: 700, color: '#1A2E5A', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                              {selectedCertForPrint.position}
+                            </strong>
+                          </>
+                        ) : (
+                          <>
+                            Periode{' '}
+                            <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                              {new Date(selectedCertForPrint.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </strong>
+                            {' '} - {' '}
+                            <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                              {new Date(selectedCertForPrint.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </strong>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <p style={{ 
+                    fontSize: ['fellowship', 'bug_hunter'].includes(selectedCertForPrint.program_type) ? 11.5 : 12.5, 
+                    color: '#3A3A4E', 
+                    maxWidth: ['fellowship', 'bug_hunter'].includes(selectedCertForPrint.program_type) ? 580 : 540, 
+                    margin: '4px auto 0', 
+                    lineHeight: ['fellowship', 'bug_hunter'].includes(selectedCertForPrint.program_type) ? 1.5 : 1.7 
+                  }}>
+                    {selectedCertForPrint.program_type === 'bug_hunter'
+                      ? 'Sebagai bentuk penghargaan tinggi atas keahlian, dedikasi, dan kontribusi berharga dalam menemukan serta melaporkan celah keamanan (vulnerability) secara etis untuk menjaga keandalan dan integritas ekosistem Stubia.id.'
+                      : selectedCertForPrint.program_type === 'fellowship'
+                      ? 'Selama program berlangsung, yang bersangkutan telah menunjukkan kompetensi profesional, kerja sama tim yang baik, serta komitmen tinggi dalam memperluas akses pendidikan digital di Indonesia.'
+                      : 'Sebagai bentuk penghargaan atas dedikasi, komitmen, dan kontribusi berharga yang telah diberikan dalam menyukseskan program kerja serta pengembangan ekosistem Stubia.id.'}
+                  </p>
                 </div>
-                <p style={{ 
-                  fontSize: selectedCertForPrint.program_type === 'fellowship' ? 11.5 : 12.5, 
-                  color: '#3A3A4E', 
-                  maxWidth: selectedCertForPrint.program_type === 'fellowship' ? 580 : 540, 
-                  margin: '4px auto 0', 
-                  lineHeight: selectedCertForPrint.program_type === 'fellowship' ? 1.5 : 1.7 
-                }}>
-                  {selectedCertForPrint.program_type === 'fellowship'
-                    ? 'Selama program berlangsung, yang bersangkutan telah menunjukkan kompetensi profesional, kerja sama tim yang baik, serta komitmen tinggi dalam memperluas akses pendidikan digital di Indonesia.'
-                    : 'Sebagai bentuk penghargaan atas dedikasi, komitmen, dan kontribusi berharga yang telah diberikan dalam menyukseskan program kerja serta pengembangan ekosistem Stubia.id.'}
-                </p>
-              </div>
 
-              {/* Footer row */}
-              <div>
-                <div style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, #B8860B 30%, #E8C96B 50%, #B8860B 70%, transparent 100%)', margin: '14px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                {/* Footer row */}
+                <div>
+                  <div style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, #B8860B 30%, #E8C96B 50%, #B8860B 70%, transparent 100%)', margin: '8px 0 10px' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 4 }}>
 
-                  {/* QR Code */}
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
-                    <div style={{ padding: 5, border: '1.5px solid #C9A84C', borderRadius: 8, background: '#fff' }}>
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`${window.location.origin}/careers/verify/${selectedCertForPrint.id}`)}`}
-                        alt="QR Verifikasi"
-                        crossOrigin="anonymous"
-                        style={{ width: 64, height: 64, display: 'block' }}
-                      />
+                    {/* QR Code */}
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+                      <div style={{ padding: 4, border: '1.5px solid #C9A84C', borderRadius: 8, background: '#fff' }}>
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`${window.location.origin}/careers/verify/${selectedCertForPrint.id}`)}`}
+                          alt="QR Verifikasi"
+                          crossOrigin="anonymous"
+                          style={{ width: 56, height: 56, display: 'block' }}
+                        />
+                      </div>
+                      <div style={{ paddingBottom: 2 }}>
+                        <div style={{ fontSize: 8, fontWeight: 700, color: '#8A7340', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 2 }}>Scan untuk Verifikasi</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: '#555', marginBottom: 1 }}>Google Lens / QR Scanner</div>
+                        <div style={{ fontSize: 7.5, color: '#888', fontFamily: 'monospace' }}>stubia.id/careers/verify</div>
+                      </div>
                     </div>
-                    <div style={{ paddingBottom: 2 }}>
-                      <div style={{ fontSize: 8, fontWeight: 700, color: '#8A7340', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 2 }}>Scan untuk Verifikasi</div>
-                      <div style={{ fontSize: 9, fontWeight: 600, color: '#555', marginBottom: 1 }}>Google Lens / QR Scanner</div>
-                      <div style={{ fontSize: 7.5, color: '#888', fontFamily: 'monospace' }}>stubia.id/careers/verify</div>
-                    </div>
-                  </div>
 
-                  {/* Signature */}
-                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ fontSize: 9.5, color: '#5A5A6E', marginBottom: 5 }}>
-                      {selectedCertForPrint.location || 'Jakarta'}, {new Date(selectedCertForPrint.issue_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {/* Signature */}
+                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ fontSize: 9.5, color: '#5A5A6E', marginBottom: 3 }}>
+                        {selectedCertForPrint.location || 'Jakarta'}, {new Date(selectedCertForPrint.issue_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </div>
+                      <div style={{ height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 3 }}>
+                        <img
+                          src={selectedCertForPrint.signature_url}
+                          alt="Tanda Tangan"
+                          crossOrigin="anonymous"
+                          style={{ maxHeight: '100%', maxWidth: 130, objectFit: 'contain' }}
+                        />
+                      </div>
+                      <div style={{ width: 140, height: 1, background: '#888', marginBottom: 3 }} />
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#1A1A2E' }}>{selectedCertForPrint.signer_name}</div>
+                      <div style={{ fontSize: 9.5, color: '#5A5A6E', marginTop: 1 }}>{selectedCertForPrint.signer_role}</div>
                     </div>
-                    <div style={{ height: 58, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
-                      <img
-                        src={selectedCertForPrint.signature_url}
-                        alt="Tanda Tangan"
-                        crossOrigin="anonymous"
-                        style={{ maxHeight: '100%', maxWidth: 130, objectFit: 'contain' }}
-                      />
-                    </div>
-                    <div style={{ width: 140, height: 1, background: '#888', marginBottom: 4 }} />
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#1A1A2E' }}>{selectedCertForPrint.signer_name}</div>
-                    <div style={{ fontSize: 9.5, color: '#5A5A6E', marginTop: 1 }}>{selectedCertForPrint.signer_role}</div>
                   </div>
                 </div>
               </div>

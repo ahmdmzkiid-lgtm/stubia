@@ -62,8 +62,8 @@ const Register = () => {
     setLoading(true);
     try {
       const res = await register({
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
         password: formData.password
       });
       toast.success('Akun berhasil dibuat!');

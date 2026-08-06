@@ -76,6 +76,7 @@ export default function CMSLayout() {
               <Link
                 key={link.path}
                 to={link.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-[14px] font-bold transition-all duration-200 group group-hover:text-[#0050cb] ${
                   isActive 
                     ? 'bg-[#f2f3ff] text-[#0050cb]' 
@@ -101,6 +102,7 @@ export default function CMSLayout() {
           {showBackToAdmin && (
             <Link
               to="/admin"
+              onClick={() => setIsSidebarOpen(false)}
               className="flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#424656] hover:bg-[#f2f3ff]/50 hover:text-[#0050cb] mb-2 transition-all"
             >
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -119,24 +121,24 @@ export default function CMSLayout() {
       </nav>
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
+      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen w-full overflow-x-hidden">
         
         {/* Top Navbar */}
-        <header className="h-16 border-b border-[#c2c6d8]/40 bg-white/80 backdrop-blur-md sticky top-0 z-[100] px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <header className="h-16 border-b border-[#c2c6d8]/40 bg-white/80 backdrop-blur-md sticky top-0 z-[100] px-4 sm:px-6 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[#f2f3ff] text-[#424656] transition-all"
             >
               <span className="material-symbols-outlined">menu</span>
             </button>
-            <h2 className="text-[16px] font-bold text-[#191b24]">
+            <h2 className="text-[15px] sm:text-[16px] font-bold text-[#191b24] truncate">
               {navLinks.find(link => link.path === currentPath)?.label || 'Overview'}
             </h2>
           </div>
           
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200/50">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold bg-green-50 text-green-700 border border-green-200/50">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
               Admin Mode
             </span>
@@ -144,7 +146,7 @@ export default function CMSLayout() {
         </header>
 
         {/* Content Outlet */}
-        <main className="flex-1 p-6 md:p-8 max-w-[1440px] w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-[1440px] w-full mx-auto overflow-x-hidden">
           {!isAllowedPath() ? (
             <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-[#c2c6d8]/30 text-center min-h-[50vh] shadow-sm">
               <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center text-[#ba1a1a] mb-6">

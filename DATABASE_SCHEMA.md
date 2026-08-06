@@ -48,7 +48,7 @@ Dokumen ini berisi detail dari seluruh tabel yang ada di dalam database PostgreS
 ### 1. `users`
 Menyimpan data otentikasi dan profil pengguna.
 *   `id` (`UUID`, PK, Default: `uuid_generate_v4()`)
-*   `email` (`VARCHAR(255)`, Unique, Not Null)
+*   `email` (`VARCHAR(255)`, Unique Case-Insensitive, Not Null, Unique Index: `users_email_lower_idx` on `LOWER(email)`)
 *   `password_hash` (`VARCHAR(255)`, Not Null)
 *   `name` (`VARCHAR(255)`, Not Null)
 *   `role` (`VARCHAR(20)`, Default: `'student'`, Check: `student`, `admin`)

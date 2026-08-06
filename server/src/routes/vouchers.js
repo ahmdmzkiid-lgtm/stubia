@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { voucherLimiter } = require('../middleware/rateLimiter');
 const { logAdminActivity } = require('../utils/activityLogger');
 
 // ─── POST /validate ─── Student endpoint to check coupon validity
-router.post('/validate', verifyToken, async (req, res, next) => {
+router.post('/validate', verifyToken, voucherLimiter, async (req, res, next) => {
   try {
     const { code, planIds } = req.body;
     if (!code || !planIds || !Array.isArray(planIds) || planIds.length === 0) {

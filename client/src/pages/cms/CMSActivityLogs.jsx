@@ -106,17 +106,17 @@ export default function CMSActivityLogs() {
   };
 
   return (
-    <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
+    <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[26px] font-extrabold text-[#191b24] tracking-tight">Aktivitas Admin</h1>
-          <p className="text-[14px] text-[#727687] font-semibold mt-1">Pantau seluruh riwayat aksi CRUD, pengelolaan paket, soal, tryout, dan artikel</p>
+          <h1 className="text-xl sm:text-[26px] font-extrabold text-[#191b24] tracking-tight">Aktivitas Admin</h1>
+          <p className="text-xs sm:text-[14px] text-[#727687] font-semibold mt-1">Pantau seluruh riwayat aksi CRUD, pengelolaan paket, soal, tryout, dan artikel</p>
         </div>
         {totalItems > 0 && (
           <button
             onClick={() => setShowConfirmClear(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100/80 text-red-600 font-bold text-[13px] transition-all"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100/80 text-red-600 font-bold text-[13px] transition-all"
           >
             <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
             <span>Hapus Semua Log</span>
@@ -125,7 +125,7 @@ export default function CMSActivityLogs() {
       </div>
 
       {/* Filter Options */}
-      <div className="bg-white rounded-2xl border border-[#c2c6d8]/40 p-5 space-y-4 shadow-sm">
+      <div className="bg-white rounded-2xl border border-[#c2c6d8]/40 p-4 sm:p-5 space-y-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-6">
           {/* Action Filter */}
           <div className="space-y-2">

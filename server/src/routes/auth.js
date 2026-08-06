@@ -4,19 +4,38 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
 const { verifyToken } = require('../middleware/auth');
+const { authLimiter } = require('../middleware/rateLimiter');
 const { OAuth2Client } = require('google-auth-library');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET environment variable is missing in production!');
+    }
+    console.warn('⚠️ WARNING: JWT_SECRET is not set. Using fallback secret for development.');
+    return 'fallback_dev_secret_change_me';
+  }
+  return secret;
+};
+
 // Register
-router.post('/register', async (req, res, next) => {
+router.post('/register', authLimiter, async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, error: 'All fields are required.' });
     }
 
-    const checkUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ success: false, error: 'Format email tidak valid.' });
+    }
+
+    const checkUser = await pool.query('SELECT id FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     if (checkUser.rows.length > 0) {
       return res.status(400).json({ success: false, error: 'Email already registered.' });
     }
@@ -26,7 +45,7 @@ router.post('/register', async (req, res, next) => {
 
     const result = await pool.query(
       'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, role',
-      [name, email, passwordHash]
+      [name.trim(), normalizedEmail, passwordHash]
     );
 
     const user = result.rows[0];
@@ -35,7 +54,7 @@ router.post('/register', async (req, res, next) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'secret',
+      getJwtSecret(),
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
@@ -46,14 +65,15 @@ router.post('/register', async (req, res, next) => {
 });
 
 // Login
-router.post('/login', async (req, res, next) => {
+router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email dan password harus diisi.' });
     }
 
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     if (result.rows.length === 0) {
       return res.status(401).json({ success: false, error: 'Email atau password salah.' });
     }
@@ -91,7 +111,7 @@ router.post('/login', async (req, res, next) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'secret',
+      getJwtSecret(),
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
@@ -143,16 +163,17 @@ router.post('/google-code', async (req, res, next) => {
 
     const payload = ticket.getPayload();
     const { email, sub: googleId } = payload;
+    const normalizedEmail = String(email).trim().toLowerCase();
     const safeName = getSafeNameFromPayload(payload);
 
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     let user;
 
     if (result.rows.length === 0) {
       // User baru: buat akun
       const insertResult = await pool.query(
         'INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING id, name, email, role',
-        [safeName, email, googleId]
+        [safeName, normalizedEmail, googleId]
       );
       user = insertResult.rows[0];
       const { sendWelcomeEmail } = require('../services/emailService');
@@ -168,7 +189,7 @@ router.post('/google-code', async (req, res, next) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'secret',
+      getJwtSecret(),
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
@@ -195,16 +216,17 @@ router.post('/google', async (req, res, next) => {
     
     const payload = ticket.getPayload();
     const { email, sub: googleId } = payload;
+    const normalizedEmail = String(email).trim().toLowerCase();
     const safeName = getSafeNameFromPayload(payload);
 
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     let user;
     
     if (result.rows.length === 0) {
       // User baru: buat akun, tandai sebagai akun Google
       const insertResult = await pool.query(
         'INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING id, name, email, role',
-        [safeName, email, googleId]
+        [safeName, normalizedEmail, googleId]
       );
       user = insertResult.rows[0];
       const { sendWelcomeEmail } = require('../services/emailService');
@@ -220,7 +242,7 @@ router.post('/google', async (req, res, next) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'secret',
+      getJwtSecret(),
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
@@ -286,7 +308,7 @@ router.put('/update-profile', verifyToken, async (req, res, next) => {
 });
 
 // Update Password
-router.put('/update-password', verifyToken, async (req, res, next) => {
+router.put('/update-password', verifyToken, authLimiter, async (req, res, next) => {
   try {
     const { oldPassword, newPassword } = req.body;
     if (!oldPassword || !newPassword) {

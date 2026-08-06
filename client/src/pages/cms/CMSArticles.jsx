@@ -236,12 +236,12 @@ export default function CMSArticles() {
       {/* Top Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#191b24]">Artikel & Blog</h1>
-          <p className="text-[#424656] text-sm">Kelola postingan, panduan, dan pengumuman untuk siswa.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#191b24]">Artikel & Blog</h1>
+          <p className="text-[#424656] text-xs sm:text-sm">Kelola postingan, panduan, dan pengumuman untuk siswa.</p>
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0050cb] hover:bg-[#0050cb]/95 text-white font-semibold text-sm shadow-sm transition-all"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0050cb] hover:bg-[#0050cb]/95 text-white font-semibold text-sm shadow-sm transition-all"
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           <span>Tulis Artikel</span>
@@ -249,7 +249,7 @@ export default function CMSArticles() {
       </div>
 
       {/* Filter and Search controls */}
-      <div className="bg-white rounded-3xl border border-[#c2c6d8]/40 p-4 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#c2c6d8]/40 p-3 sm:p-4 flex flex-col md:flex-row gap-3 sm:gap-4 items-center">
         
         {/* Search */}
         <div className="relative w-full md:flex-1">
@@ -259,7 +259,7 @@ export default function CMSArticles() {
             placeholder="Cari berdasarkan judul atau cuplikan..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[14px] text-[#191b24] placeholder-slate-400 transition-colors"
+            className="w-full pl-12 pr-4 py-2.5 sm:py-3 rounded-xl bg-white border border-[#c2c6d8] focus:border-[#0050cb] focus:outline-none text-[13px] sm:text-[14px] text-[#191b24] placeholder-slate-400 transition-colors"
           />
         </div>
 
@@ -273,7 +273,7 @@ export default function CMSArticles() {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`flex-1 md:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex-1 md:flex-none px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
                 statusFilter === tab.id 
                   ? 'bg-white text-[#0050cb] border border-[#c2c6d8]/20 shadow-sm' 
                   : 'text-[#424656] hover:text-[#0050cb]'
@@ -311,11 +311,11 @@ export default function CMSArticles() {
           <p className="text-[#727687] text-sm max-w-sm mx-auto mt-1">Tidak ditemukan artikel yang cocok dengan filter atau kata kunci Anda.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredArticles.map(article => (
             <div 
               key={article.id} 
-              className="bg-white border border-[#c2c6d8]/40 rounded-3xl overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group"
+              className="bg-white border border-[#c2c6d8]/40 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group"
             >
               <div>
                 {/* Cover Image */}
@@ -343,63 +343,61 @@ export default function CMSArticles() {
                 </div>
 
                 {/* Article Info */}
-                <div className="p-5 space-y-2">
+                <div className="p-4 sm:p-5 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-semibold text-[#727687] flex items-center gap-1">
                       <span className="material-symbols-outlined text-[14px]">person</span>
                       {article.author_name}
                     </span>
-                    {article.category && (
-                      <span className="px-2 py-0.5 rounded-md bg-[#f2f3ff] text-[#0050cb] text-[10px] font-bold border border-[#c2c6d8]/20">
-                        {article.category}
-                      </span>
-                    )}
-                    {article.is_pinned && (
-                      <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200/50 flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-[12px]">push_pin</span>
-                        Pinned
-                      </span>
-                    )}
+                    <span className="text-gray-300">•</span>
+                    <span className="text-[11px] font-semibold text-[#727687]">
+                      {new Date(article.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
                   </div>
-                  <h3 className="text-[16px] font-bold text-[#191b24] leading-snug line-clamp-2 group-hover:text-[#0050cb] transition-colors">
+
+                  <h3 className="font-bold text-[#191b24] text-[15px] sm:text-[16px] line-clamp-2 group-hover:text-[#0050cb] transition-colors leading-snug">
                     {article.title}
                   </h3>
-                  <p className="text-[#424656] text-[13px] leading-relaxed line-clamp-3">
+                  
+                  <p className="text-[13px] text-[#424656] line-clamp-2 leading-relaxed">
                     {article.excerpt}
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="px-5 pb-5 pt-3 border-t border-[#c2c6d8]/20 flex items-center justify-between">
-                <button
-                  onClick={() => handleTogglePublish(article)}
-                  className={`text-[12px] font-bold flex items-center gap-1.5 transition-colors ${
-                    article.is_published ? 'text-amber-600 hover:text-amber-500' : 'text-green-600 hover:text-green-500'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[16px]">
-                    {article.is_published ? 'unpublished' : 'publish'}
-                  </span>
-                  <span>{article.is_published ? 'Jadikan Draft' : 'Terbitkan'}</span>
-                </button>
-
-                <div className="flex gap-1.5">
+              {/* Actions Footer */}
+              <div className="p-4 sm:p-5 pt-0 flex items-center justify-between gap-2 border-t border-slate-100 mt-2">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleOpenModal(article)}
-                    className="w-8 h-8 rounded-lg bg-[#f2f3ff] hover:bg-[#0050cb] text-[#0050cb] hover:text-white flex items-center justify-center transition-colors"
-                    title="Edit Artikel"
+                    className="flex items-center gap-1 text-xs font-bold text-[#0050cb] hover:bg-[#f2f3ff] px-2.5 py-1.5 rounded-lg transition-colors"
                   >
-                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    <span>Edit</span>
                   </button>
+                  
                   <button
-                    onClick={() => handleDelete(article.id, article.title)}
-                    className="w-8 h-8 rounded-lg bg-red-50 hover:bg-[#ba1a1a] text-[#ba1a1a] hover:text-white flex items-center justify-center transition-colors"
-                    title="Hapus Artikel"
+                    onClick={() => handleTogglePublish(article)}
+                    className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg transition-colors ${
+                      article.is_published 
+                        ? 'text-amber-700 hover:bg-amber-50' 
+                        : 'text-green-700 hover:bg-green-50'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                    <span className="material-symbols-outlined text-[16px]">
+                      {article.is_published ? 'unpublished' : 'publish'}
+                    </span>
+                    <span>{article.is_published ? 'Tarik' : 'Terbitkan'}</span>
                   </button>
                 </div>
+
+                <button
+                  onClick={() => handleDelete(article.id, article.title)}
+                  className="p-1.5 text-slate-400 hover:text-[#ba1a1a] hover:bg-red-50 rounded-lg transition-colors"
+                  title="Hapus Artikel"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                </button>
               </div>
             </div>
           ))}
@@ -408,10 +406,10 @@ export default function CMSArticles() {
 
       {/* CRUD Form Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseModal}></div>
           
-          <div className="bg-white border border-[#c2c6d8] rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative z-10 animate-zoomIn shadow-2xl">
+          <div className="bg-white border border-[#c2c6d8] rounded-2xl sm:rounded-3xl w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col relative z-10 animate-zoomIn shadow-2xl">
             
             {/* Modal Header */}
             <div className="px-4 sm:px-6 py-4 border-b border-[#c2c6d8]/40 flex justify-between items-center bg-[#f2f3ff]/40">

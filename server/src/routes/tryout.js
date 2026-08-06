@@ -1068,7 +1068,7 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
       console.error("[GET RESULT] Database query error:", dbError);
       return res
         .status(500)
-        .json({ success: false, error: "Database error: " + dbError.message });
+        .json({ success: false, error: "Gagal mengambil data hasil tryout." });
     }
 
     if (!session.submitted_at) {
@@ -1965,6 +1965,24 @@ router.post("/submit", verifyToken, async (req, res, next) => {
   try {
     const { session_id } = req.body;
     console.log("[SUBMIT] Starting submit for session:", session_id);
+
+    if (!session_id) {
+      return res.status(400).json({ success: false, error: 'Session ID diperlukan.' });
+    }
+
+    // Verify session ownership and check if already submitted
+    const sessionCheck = await pool.query(
+      'SELECT id, submitted_at FROM tryout_sessions WHERE id = $1 AND user_id = $2',
+      [session_id, req.user.id]
+    );
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Sesi tryout tidak ditemukan atau tidak diizinkan.' });
+    }
+
+    if (sessionCheck.rows[0].submitted_at) {
+      return res.status(400).json({ success: false, error: 'Sesi tryout ini sudah disubmit sebelumnya.' });
+    }
 
     // Get answers with correctness and difficulty info
     let answersRes;

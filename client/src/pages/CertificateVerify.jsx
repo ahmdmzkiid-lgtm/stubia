@@ -240,23 +240,44 @@ export default function CertificateVerify() {
                     </div>
                     <div style={{ margin: '0.44cqw 0' }}>
                       <h3 style={{ fontSize: '1.77cqw', fontWeight: 700, color: '#1A2E5A', margin: '0 0 0.44cqw', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                        {cert.program_type === 'internship' ? 'Internship' : cert.program_type === 'fellowship' ? 'Academic Fellow:' : 'Volunteer'} {cert.position}
+                        {cert.program_type === 'internship' 
+                          ? `Internship ${cert.position}` 
+                          : cert.program_type === 'fellowship' 
+                          ? `Academic Fellow: ${cert.position}` 
+                          : cert.program_type === 'bug_hunter' 
+                          ? 'Cyber Security Researcher' 
+                          : `Volunteer ${cert.position}`}
                       </h3>
                       <div>
                         <p style={{ fontSize: '1.33cqw', color: '#8A7340', margin: 0, fontWeight: 500 }}>
-                          Periode{' '}
-                          <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                            {formatDate(cert.start_date)}
-                          </strong>
-                          {' '} - {' '}
-                          <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
-                            {formatDate(cert.end_date)}
-                          </strong>
+                          {cert.program_type === 'bug_hunter' ? (
+                            <>
+                              Kategori Vulnerability:{' '}
+                              <strong style={{ fontWeight: 700, color: '#1A2E5A', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                {cert.position}
+                              </strong>
+                            </>
+                          ) : (
+                            <>
+                              Periode{' '}
+                              <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                {formatDate(cert.start_date)}
+                              </strong>
+                              {' '} - {' '}
+                              <strong style={{ fontWeight: 700, color: '#8A7340', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                {formatDate(cert.end_date)}
+                              </strong>
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>
                     <p style={{ fontSize: '1.38cqw', color: '#3A3A4E', maxWidth: '60cqw', margin: '0.44cqw auto 0', lineHeight: 1.7 }}>
-                      Sebagai bentuk penghargaan atas dedikasi, komitmen, dan kontribusi berharga yang telah diberikan dalam menyukseskan program kerja serta pengembangan ekosistem Stubia.id.
+                      {cert.program_type === 'bug_hunter'
+                        ? 'Sebagai bentuk penghargaan tinggi atas keahlian, dedikasi, dan kontribusi berharga dalam menemukan serta melaporkan celah keamanan (vulnerability) secara etis untuk menjaga keandalan dan integritas ekosistem Stubia.id.'
+                        : cert.program_type === 'fellowship'
+                        ? 'Selama program berlangsung, yang bersangkutan telah menunjukkan kompetensi profesional, kerja sama tim yang baik, serta komitmen tinggi dalam memperluas akses pendidikan digital di Indonesia.'
+                        : 'Sebagai bentuk penghargaan atas dedikasi, komitmen, dan kontribusi berharga yang telah diberikan dalam menyukseskan program kerja serta pengembangan ekosistem Stubia.id.'}
                     </p>
                   </div>
 
@@ -331,7 +352,7 @@ export default function CertificateVerify() {
                       <div>
                         <span className="text-[10px] font-bold text-[#9ba3bb] uppercase tracking-wider">Program</span>
                         <p className="text-[13px] font-bold text-[#0f1729] mt-0.5 capitalize">
-                          {cert.program_type === 'internship' ? 'Magang (Internship)' : cert.program_type === 'fellowship' ? 'Academic Fellowship' : 'Relawan (Volunteer)'}
+                          {cert.program_type === 'internship' ? 'Magang (Internship)' : cert.program_type === 'fellowship' ? 'Academic Fellowship' : cert.program_type === 'bug_hunter' ? 'Bug Bounty / Security Research' : 'Relawan (Volunteer)'}
                         </p>
                       </div>
                       <div>
@@ -340,9 +361,14 @@ export default function CertificateVerify() {
                       </div>
                     </div>
                     <div className="p-4">
-                      <span className="text-[10px] font-bold text-[#9ba3bb] uppercase tracking-wider">Periode Kontribusi</span>
+                      <span className="text-[10px] font-bold text-[#9ba3bb] uppercase tracking-wider">
+                        {cert.program_type === 'bug_hunter' ? 'Tanggal Penerimaan' : 'Periode Kontribusi'}
+                      </span>
                       <p className="text-[13px] font-bold text-[#434654] mt-0.5">
-                        {formatDate(cert.start_date)} – {formatDate(cert.end_date)}
+                        {cert.program_type === 'bug_hunter' 
+                          ? formatDate(cert.start_date)
+                          : `${formatDate(cert.start_date)} – ${formatDate(cert.end_date)}`
+                        }
                       </p>
                     </div>
                     <div className="p-4 grid grid-cols-2 gap-4">

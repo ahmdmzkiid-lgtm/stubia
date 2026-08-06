@@ -111,46 +111,46 @@ export default function CMSDashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0050cb] to-[#0050cb]/80 p-8 text-white border border-[#0050cb]/10 shadow-sm">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#0050cb] to-[#0050cb]/80 p-5 sm:p-8 text-white border border-[#0050cb]/10 shadow-sm">
         <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 rounded-full blur-3xl -ml-20 -mb-20"></div>
         
         <div className="relative z-10 max-w-2xl">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight mb-2 sm:mb-3">
             Portal Korporasi & HR
           </h1>
-          <p className="text-white/80 text-[15px] leading-relaxed">
+          <p className="text-white/80 text-xs sm:text-[15px] leading-relaxed">
             Selamat datang di hub pengelolaan konten eksternal Stubia. Di sini Anda dapat memperbarui info karir, mempublikasikan artikel blog, dan mengelola konten publik lainnya.
           </p>
         </div>
       </div>
 
       {/* Grid Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {cards.map((card) => (
           <div 
             key={card.path} 
-            className="group bg-white rounded-3xl border border-[#c2c6d8]/40 p-6 flex flex-col justify-between hover:border-[#0050cb]/40 transition-all duration-300 hover:shadow-md"
+            className="group bg-white rounded-2xl sm:rounded-3xl border border-[#c2c6d8]/40 p-5 sm:p-6 flex flex-col justify-between hover:border-[#0050cb]/40 transition-all duration-300 hover:shadow-md"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 rounded-2xl ${card.bgColor} flex items-center justify-center`}>
-                  <span className="material-symbols-outlined text-[24px]">{card.icon}</span>
+                <div className={`w-10 sm:w-12 h-10 sm:h-12 rounded-xl sm:rounded-2xl ${card.bgColor} flex items-center justify-center`}>
+                  <span className="material-symbols-outlined text-[20px] sm:text-[24px]">{card.icon}</span>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-extrabold text-[#191b24]">{card.count}</div>
-                  <div className="text-[11px] text-[#727687] font-bold uppercase tracking-wider">{card.subCountText}</div>
+                  <div className="text-xl sm:text-2xl font-extrabold text-[#191b24]">{card.count}</div>
+                  <div className="text-[10px] sm:text-[11px] text-[#727687] font-bold uppercase tracking-wider">{card.subCountText}</div>
                 </div>
               </div>
-              <h3 className="text-lg font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors mb-2">{card.title}</h3>
-              <p className="text-[#424656] text-sm leading-relaxed mb-6">{card.description}</p>
+              <h3 className="text-base sm:text-lg font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors mb-1.5 sm:mb-2">{card.title}</h3>
+              <p className="text-[#424656] text-xs sm:text-sm leading-relaxed mb-4 sm:mb-6">{card.description}</p>
             </div>
             
             <Link 
               to={card.path}
-              className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#f2f3ff] hover:bg-[#0050cb] text-[13px] font-bold text-[#0050cb] hover:text-white transition-all"
+              className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#f2f3ff] hover:bg-[#0050cb] text-xs sm:text-[13px] font-bold text-[#0050cb] hover:text-white transition-all"
             >
               <span>Buka Pengelola</span>
               <span className="material-symbols-outlined text-[16px]">chevron_right</span>
@@ -160,26 +160,26 @@ export default function CMSDashboard() {
       </div>
 
       {/* System Settings & Feature Update Toggle */}
-      <div className="bg-white rounded-3xl border border-[#c2c6d8]/40 p-6 flex flex-col sm:flex-row items-center justify-between gap-6 hover:shadow-md transition-all duration-300">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[24px]">construction</span>
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#c2c6d8]/40 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6 hover:shadow-md transition-all duration-300">
+        <div className="flex items-start gap-3.5 sm:gap-4">
+          <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[20px] sm:text-[24px]">construction</span>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-[#191b24] mb-1">Feature Update SKD CPNS</h3>
-            <p className="text-[#424656] text-sm leading-relaxed max-w-xl">
+            <h3 className="text-base sm:text-lg font-bold text-[#191b24] mb-1">Feature Update SKD CPNS</h3>
+            <p className="text-[#424656] text-xs sm:text-sm leading-relaxed max-w-xl">
               Gunakan sakelar ini untuk mengaktifkan mode pemeliharaan modul SKD CPNS. Jika diaktifkan, seluruh rute siswa SKD akan ditutup dengan layar loading update premium.
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 bg-[#faf8ff] px-6 py-4 rounded-2xl border border-[#c2c6d8]/30 shrink-0 w-full sm:w-auto justify-between">
-          <div className="text-right">
+        <div className="flex items-center gap-3 bg-[#faf8ff] px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border border-[#c2c6d8]/30 shrink-0 w-full sm:w-auto justify-between">
+          <div className="text-left sm:text-right">
             <div className="text-[10px] text-[#727687] font-bold uppercase tracking-wider">Status Mode Update</div>
-            <div className="text-[13px] font-extrabold text-[#191b24]">
+            <div className="text-xs sm:text-[13px] font-extrabold text-[#191b24]">
               {skdFeatureUpdate ? 'AKTIF (Terblokir)' : 'NON-AKTIF (Terbuka)'}
             </div>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
             <input
               type="checkbox"
               checked={skdFeatureUpdate}
@@ -193,12 +193,12 @@ export default function CMSDashboard() {
       </div>
 
       {/* Info/Guide Section */}
-      <div className="bg-white rounded-3xl border border-[#c2c6d8]/40 p-6">
-        <h3 className="text-[16px] font-bold text-[#191b24] mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[20px] text-[#0050cb]">info</span>
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#c2c6d8]/40 p-5 sm:p-6">
+        <h3 className="text-sm sm:text-[16px] font-bold text-[#191b24] mb-3 sm:mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-[18px] sm:text-[20px] text-[#0050cb]">info</span>
           Panduan Penggunaan
         </h3>
-        <ul className="space-y-3.5 text-[13.5px] text-[#424656] leading-relaxed">
+        <ul className="space-y-3 text-xs sm:text-[13.5px] text-[#424656] leading-relaxed">
           <li className="flex items-start gap-2.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#0050cb] mt-2 shrink-0"></span>
             <span>Semua data yang Anda buat atau edit di sini akan langsung direfleksikan ke halaman publik, seperti halaman <strong>Karir (/careers)</strong> dan halaman <strong>Blog</strong>.</span>

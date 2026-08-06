@@ -81,7 +81,10 @@ export default function QuestionReview() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('q') || params.get('search') || '';
+  });
   const [statusFilter, setStatusFilter] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [subjects, setSubjects] = useState([]);
@@ -147,9 +150,13 @@ export default function QuestionReview() {
       };
       const res = await adminService.getQuestionReview(params);
       if (res.data?.success) {
-        setQuestions(res.data.data || []);
+        const fetched = res.data.data || [];
+        setQuestions(fetched);
         setTotal(res.data.pagination?.total || 0);
         setTotalPages(res.data.pagination?.totalPages || 1);
+        if (search && fetched.length > 0) {
+          setSelectedQuestion(fetched[0]);
+        }
       }
     } catch (err) {
       toast.error('Gagal memuat daftar soal review');
