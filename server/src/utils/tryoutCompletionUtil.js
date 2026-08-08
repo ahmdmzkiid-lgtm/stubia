@@ -8,9 +8,10 @@ async function isPackageCompleted(db, userId, packageType, packageId) {
 
 async function markPackageCompleted(db, userId, packageType, packageId) {
   await db.query(
-    `INSERT INTO tryout_package_completions (user_id, package_type, package_id)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, package_type, package_id) DO NOTHING`,
+    `INSERT INTO tryout_package_completions (user_id, package_type, package_id, completed_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (user_id, package_type, package_id)
+     DO UPDATE SET completed_at = NOW()`,
     [userId, packageType, packageId]
   );
 }

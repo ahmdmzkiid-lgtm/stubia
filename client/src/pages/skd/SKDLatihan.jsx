@@ -4,7 +4,6 @@ import { skdService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import StudentNavbar from '../../components/layout/StudentNavbar';
-import Footer from '../../components/Footer';
 
 const SUBJECT_COLOR = {
   TWK: { primary: '#e65100', light: '#fff3e0', badge: 'bg-orange-100 text-orange-700' },
@@ -204,8 +203,6 @@ export default function SKDLatihan() {
           </div>
         )}
       </main>
-
-      <Footer />
     </div>
   );
 }

@@ -31,6 +31,8 @@ const TryoutSession = () => {
   const [showExitModal, setShowExitModal] = useState(false);
   const [pendingExitPath, setPendingExitPath] = useState(null);
   const timerRef = useRef(null);
+  const questionStartTimeRef = useRef(Date.now());
+  const questionTimesRef = useRef({});
 
   // Refs to avoid stale closures in handleSubmit
   const answersRef = useRef(answers);
@@ -56,6 +58,17 @@ const TryoutSession = () => {
   const LS_FLAGGED = `tryout_flagged_${sessionId}`;
   const LS_TIMER = `tryout_timer_${sessionId}`;
   const LS_NAV = `tryout_nav_${sessionId}`;
+
+  // Track active time spent on each question
+  useEffect(() => {
+    const now = Date.now();
+    const elapsed = Math.max(1, Math.round((now - questionStartTimeRef.current) / 1000));
+    questionStartTimeRef.current = now;
+    return () => {
+      const prevKey = `${currentSubjectIndex}:${currentQuestionIndex}`;
+      questionTimesRef.current[prevKey] = (questionTimesRef.current[prevKey] || 0) + elapsed;
+    };
+  }, [currentSubjectIndex, currentQuestionIndex]);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -153,21 +166,37 @@ const TryoutSession = () => {
     setSubmitting(true);
     clearInterval(timerRef.current);
     try {
+      // Flush active question time
+      const finalNow = Date.now();
+      const activeElapsed = Math.max(1, Math.round((finalNow - questionStartTimeRef.current) / 1000));
+      const currentKey = `${currentSubjectIndex}:${currentQuestionIndex}`;
+      questionTimesRef.current[currentKey] = (questionTimesRef.current[currentKey] || 0) + activeElapsed;
+
       // Build batch payload from latest state via refs (avoids stale closure)
       const currentAnswers = answersRef.current;
       const currentFlagged = flaggedRef.current;
       const currentSubjectsData = subjectsDataRef.current;
+      const currentSub = currentSubjectsData[0];
+      const dur = currentSub?.duration || 30;
+      const durSec = currentSub?.durationSec || 0;
+      const totalAllocatedSec = dur * 60 + durSec;
+      const totalElapsed = Math.max(1, totalAllocatedSec - timeLeft);
+
       const answerPayload = [];
       currentSubjectsData.forEach((subject, subjectIdx) => {
+        const numQuestions = (subject.questions || []).length || 1;
         (subject.questions || []).forEach((q, qIdx) => {
           const key = `${subjectIdx}:${qIdx}`;
           const choiceId = currentAnswers[key];
+          const measuredTime = questionTimesRef.current[key] || 0;
+          const qTime = measuredTime > 0 ? measuredTime : Math.max(1, Math.round(totalElapsed / numQuestions));
+
           answerPayload.push({
             question_id: q.id,
             chosen_choice_id: (choiceId === '__short_answer__' || choiceId === '__complex_mc_tf__') ? null : (choiceId || null),
             answer_text: currentAnswers[`${key}_text`] || null,
             is_flagged: currentFlagged[key] || false,
-            time_spent_sec: 0,
+            time_spent_sec: qTime,
           });
         });
       });
@@ -199,6 +228,19 @@ const TryoutSession = () => {
           completed.push(currentSubtestName);
           localStorage.setItem(key, JSON.stringify(completed));
         }
+
+        // Save answered count
+        let totalAnswered = 0;
+        currentSubjectsData.forEach((subject, subjectIdx) => {
+          (subject.questions || []).forEach((q, qIdx) => {
+            const k = `${subjectIdx}:${qIdx}`;
+            if (currentAnswers[k]) totalAnswered++;
+          });
+        });
+        const ansKey = `tryout_answered_${returnPackageId}`;
+        const answeredStats = JSON.parse(localStorage.getItem(ansKey) || '{}');
+        answeredStats[currentSubtestName] = totalAnswered;
+        localStorage.setItem(ansKey, JSON.stringify(answeredStats));
         // Store session ID for this subtest so we can retrieve results later
         const sessionsKey = `tryout_sessions_${returnPackageId}`;
         const sessions = JSON.parse(localStorage.getItem(sessionsKey) || '{}');
@@ -430,7 +472,6 @@ const TryoutSession = () => {
               <img src="/stubiabrandicon.png" alt="Stubia" className="h-8 sm:h-9 cursor-pointer" />
             </button>
             <div className="hidden sm:flex items-center gap-1.5 text-[13px] font-semibold text-[#0050cb] bg-[#e8eeff] px-3 py-1 rounded-lg">
-              <span className="material-symbols-outlined text-[16px]">edit_note</span>
               Tryout
             </div>
           </div>

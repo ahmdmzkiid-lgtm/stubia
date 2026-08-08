@@ -4,7 +4,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { skdService, subscriptionService } from '../../services/api';
 import toast from 'react-hot-toast';
 import StudentNavbar from '../../components/layout/StudentNavbar';
-import Footer from '../../components/Footer';
 import ChatWidget from '../../components/ChatWidget';
 
 const CPNS_PLAN_RANK = {
@@ -502,7 +501,6 @@ export default function SKDHome() {
 
       </main>
 
-      <Footer />
       <ChatWidget />
     </div>
   );

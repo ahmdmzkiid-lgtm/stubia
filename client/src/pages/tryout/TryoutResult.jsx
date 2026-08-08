@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { useAuth } from '../../hooks/useAuth';
 import { tryoutService, subscriptionService } from '../../services/api';
 import DiscussQuestionModal from '../../components/DiscussQuestionModal';
@@ -9,6 +12,52 @@ import StudentNavbar from '../../components/layout/StudentNavbar';
 import { PTN_DATA, getPtnLogo } from '../../data/ptnData';
 
 // Helper functions defined outside the component
+const getSubtestCategoryGroup = (name) => {
+  const n = (name || '').toLowerCase();
+  if (
+    n.includes('penalaran umum') ||
+    n.includes('pemahaman umum') ||
+    n.includes('bacaan') ||
+    n.includes('tulisan') ||
+    n.includes('kuantitatif') ||
+    n.includes('tps') ||
+    n.includes('skolastik')
+  ) {
+    return 'Tes Potensi Skolastik';
+  }
+  if (
+    n.includes('literasi dalam bahasa indonesia') ||
+    n.includes('literasi dalam bahasa inggris') ||
+    n.includes('literasi bahasa') ||
+    n.includes('literasi')
+  ) {
+    return 'Tes Literasi Bahasa';
+  }
+  if (n.includes('penalaran matematika') || n.includes('matematika')) {
+    return 'Tes Penalaran Matematika';
+  }
+  return 'Subtes Utama';
+};
+
+const CATEGORY_ORDER = [
+  'Tes Potensi Skolastik',
+  'Tes Literasi Bahasa',
+  'Tes Penalaran Matematika',
+  'Subtes Utama'
+];
+
+const formatDurationDetailed = (totalSec) => {
+  const sec = Math.max(0, Math.round(totalSec || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m === 0) {
+    return `${s} detik`;
+  }
+  if (s === 0) {
+    return `${m} menit`;
+  }
+  return `${m} menit ${s} detik`;
+};
 const getSubjectColors = (statusColor) => {
   const colors = {
     primary: {
@@ -102,11 +151,97 @@ const TryoutResult = () => {
     });
   }, [result?.subjects]);
 
+  const groupedSubjects = useMemo(() => {
+    const groups = {};
+    sortedSubjects.forEach((sub) => {
+      const cat = getSubtestCategoryGroup(sub.name);
+      if (!groups[cat]) {
+        groups[cat] = [];
+      }
+      groups[cat].push(sub);
+    });
+
+    return CATEGORY_ORDER
+      .filter(cat => groups[cat] && groups[cat].length > 0)
+      .map(cat => {
+        return {
+          category: cat,
+          items: groups[cat]
+        };
+      });
+  }, [sortedSubjects]);
+
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+
+  const toggleGroup = (category) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
   const [filter, setFilter] = useState('all'); // 'all' | 'wrong' | 'bookmark'
   const [subjectFilter, setSubjectFilter] = useState(''); // active subject name
   const [isDiscussOpen, setIsDiscussOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [showMethodologyModal, setShowMethodologyModal] = useState(false);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const certificateRef = useRef(null);
   const [activePlans, setActivePlans] = useState([]);
+
+  const handleShare = () => {
+    const text = `Saya baru saja menyelesaikan ${result?.title || 'Tryout'} di Eduzet dengan Skor IRT ${result?.totalScore || 0}/1000! Cek hasilnya di sini:`;
+    const shareUrl = window.location.href;
+
+    if (navigator.share) {
+      navigator.share({
+        title: `Hasil Tryout - ${result?.title || 'Eduzet'}`,
+        text: text,
+        url: shareUrl,
+      }).catch(() => {
+        setShowShareModal(true);
+      });
+    } else {
+      setShowShareModal(true);
+    }
+  };
+
+  const downloadCertificatePdf = async () => {
+    if (!certificateRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      const canvas = await html2canvas(certificateRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const cleanSlug = (text) => (text || '').trim().replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      const pkgSlug = cleanSlug(result?.title || 'TRYOUT');
+      const userSlug = cleanSlug(user?.name || 'PESERTA');
+      const fileName = `SERTIFIKAT-SNBT-${pkgSlug}-${userSlug}.pdf`;
+      pdf.save(fileName);
+      toast.success('Surat Keterangan Hasil Tryout berhasil diunduh!');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Gagal mengunduh sertifikat.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   useEffect(() => {
     subscriptionService.getActivePlans()
@@ -153,66 +288,55 @@ const TryoutResult = () => {
 
   useEffect(() => {
     const fetchResult = async () => {
-      // Check if we have multiple session IDs from the subtest hub flow
-      const allSessionIds = location.state?.allSessionIds;
-      const packageId = location.state?.packageId;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let allSessionIds = location.state?.allSessionIds;
+      let packageId = location.state?.packageId || (!uuidRegex.test(sessionId) ? sessionId : null);
 
-      if (allSessionIds && allSessionIds.length > 0) {
-        // Combined result from multiple per-subtest sessions
+      // If allSessionIds not in state, try localStorage fallbacks
+      if (!allSessionIds || allSessionIds.length === 0) {
+        // 1. Try result-specific key (saved before navigating to result page, survives refresh)
+        if (packageId) {
+          const resultSessions = JSON.parse(localStorage.getItem(`tryout_result_sessions_${packageId}`) || '[]');
+          if (resultSessions.length > 0) allSessionIds = resultSessions;
+        }
+        // 2. Fallback to working sessions key (for mid-attempt viewing)
+        if ((!allSessionIds || allSessionIds.length === 0) && packageId) {
+          const savedSessions = JSON.parse(localStorage.getItem(`tryout_sessions_${packageId}`) || '{}');
+          const ids = Object.values(savedSessions);
+          if (ids.length > 0) allSessionIds = ids;
+        }
+      }
+
+      // 1. Try combined result if we have allSessionIds or packageId
+      if ((allSessionIds && allSessionIds.length > 0) || packageId) {
         try {
-          const response = await tryoutService.getCombinedResult(allSessionIds, packageId);
+          const response = await tryoutService.getCombinedResult(allSessionIds || [], packageId);
           if (response.data.success) {
             setResult(response.data.data);
-          } else {
-            setError(response.data.error || 'Gagal memuat hasil');
+            return;
           }
         } catch (err) {
           console.error('Failed to fetch combined result:', err);
-          let errorMsg = 'Gagal memuat hasil tryout';
-          if (err.response?.data?.error) errorMsg = err.response.data.error;
-          else if (err.response?.data?.details) errorMsg = err.response.data.details;
-          else if (err.message) errorMsg = err.message;
-          setError(errorMsg);
-        } finally {
-          setLoading(false);
         }
-        return;
       }
 
-      // Single session result (normal flow)
-      if (!sessionId) {
-        setError('Session ID tidak valid');
-        setLoading(false);
-        return;
-      }
-
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(sessionId)) {
-        setError('Format Session ID tidak valid');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await tryoutService.getResult(sessionId);
-        if (response.data.success) {
-          setResult(response.data.data);
-        } else {
-          setError(response.data.error || 'Gagal memuat hasil');
+      // 2. Single session result (UUID flow)
+      if (sessionId && uuidRegex.test(sessionId)) {
+        try {
+          const response = await tryoutService.getResult(sessionId);
+          if (response.data.success) {
+            setResult(response.data.data);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to fetch single session result:', err);
         }
-      } catch (err) {
-        console.error('Failed to fetch result:', err);
-        let errorMsg = 'Gagal memuat hasil tryout';
-        if (err.response?.data?.error) errorMsg = err.response.data.error;
-        else if (err.response?.data?.details) errorMsg = err.response.data.details;
-        else if (err.message) errorMsg = err.message;
-        setError(errorMsg);
-      } finally {
-        setLoading(false);
       }
+
+      setError('Tidak ada data hasil tryout yang ditemukan.');
     };
 
-    fetchResult();
+    fetchResult().finally(() => setLoading(false));
   }, [sessionId, location.state]);
 
   // Fetch leaderboard when result is available
@@ -286,13 +410,22 @@ const TryoutResult = () => {
               <p className="text-[13px] sm:text-base lg:text-[18px] text-[#424656]">{result.title}{result.subtitle ? ` - ${result.subtitle}` : ''}</p>
             </div>
             <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
-              <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#c2c6d8] text-[#424656] hover:bg-[#ecedfa] transition-all text-[12px] sm:text-[14px]">
-                <span className="material-symbols-outlined text-[18px] sm:text-[22px]">download</span>
-                <span className="font-medium">Unduh Sertifikat</span>
-              </button>
-              <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#c2c6d8] text-[#424656] hover:bg-[#ecedfa] transition-all text-[12px] sm:text-[14px]">
-                <span className="material-symbols-outlined text-[18px] sm:text-[22px]">share</span>
-                <span className="font-medium">Bagikan Hasil</span>
+              <button 
+                onClick={downloadCertificatePdf}
+                disabled={isGeneratingPdf}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg border border-[#c2c6d8] text-[#424656] hover:bg-[#ecedfa] transition-all text-[12px] sm:text-[14px] disabled:opacity-50"
+              >
+                {isGeneratingPdf ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-[#0050cb] border-t-transparent rounded-full animate-spin"></span>
+                    <span className="font-medium">Mengunduh...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px] sm:text-[22px]">download</span>
+                    <span className="font-medium">Unduh Sertifikat</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -300,99 +433,55 @@ const TryoutResult = () => {
 
         {/* Bento Grid Overview */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 mb-10 sm:mb-16 lg:mb-20">
-          {/* Main Score Card with IRT */}
-          <div className="md:col-span-4 bg-[#0050cb] rounded-xl p-5 sm:p-6 lg:p-8 flex flex-col justify-between text-white shadow-lg min-h-0 sm:min-h-[300px] lg:min-h-[320px]">
+          {/* Combined Score & Answer Stats Card */}
+          <div className="md:col-span-8 bg-[#0050cb] rounded-xl p-5 sm:p-6 lg:p-8 text-white shadow-lg flex flex-col justify-between self-start">
             <div>
-              <div className="flex items-center gap-2 mb-1.5 sm:mb-2 flex-wrap">
-                <p className="text-[10px] sm:text-[12px] font-medium opacity-80 uppercase tracking-widest">Skor IRT</p>
-                <span className="px-1.5 sm:px-2 py-0.5 bg-white/20 rounded text-[9px] sm:text-[10px] font-semibold">3PL</span>
-                <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 bg-[#00c1fd]/20 rounded text-[9px] sm:text-[10px] font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00c1fd] animate-pulse"></span>
-                  LIVE
-                </span>
+              <p className="text-[11px] sm:text-[12px] font-medium opacity-80 uppercase tracking-widest mb-2">Skor IRT</p>
+              <div className="flex items-baseline gap-1 mt-1 sm:mt-2">
+                <span className="text-[52px] sm:text-[60px] lg:text-[72px] font-bold leading-none">{result.totalScore}</span>
+                <span className="text-[18px] sm:text-[20px] opacity-60">/1000</span>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-[48px] sm:text-[56px] lg:text-[72px] font-bold leading-tight">{result.totalScore}</span>
-                <span className="text-[16px] sm:text-[18px] lg:text-[20px] opacity-60">/1000</span>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 mt-1 sm:mt-2">
-                <span className="material-symbols-outlined text-[#00c1fd] text-[18px] sm:text-[22px]">
-                  {result.scoreChange >= 0 ? 'trending_up' : 'trending_down'}
-                </span>
-                <span className="text-[12px] sm:text-[14px] font-medium">
-                  {result.scoreChange > 0 ? '+' : ''}{result.scoreChange || 0}% dari Tryout lalu
-                </span>
-              </div>
-              {result.theta !== undefined && (
-                <div className="mt-2 sm:mt-3 text-[11px] sm:text-[12px] opacity-70">
-                  Ability (θ): {result.theta} • Percentile: {result.percentile}
-                </div>
-              )}
-              {result.computedAt && (
-                <div className="mt-1 text-[9px] sm:text-[10px] opacity-60">
-                  Dihitung ulang: {new Date(result.computedAt).toLocaleTimeString('id-ID')}
-                </div>
-              )}
-            </div>
-            <div className="mt-5 sm:mt-6 lg:mt-8 pt-4 sm:pt-6 lg:pt-8 border-t border-white/20">
-              <p className="text-[11px] sm:text-[12px] font-medium opacity-70 mb-1.5 sm:mb-2">Mastery ({result.targetPassingGrade || 0}%)</p>
-              <div className="w-full bg-white/20 h-1.5 sm:h-2 rounded-full overflow-hidden">
-                <div className="bg-[#00c1fd] h-full transition-all duration-1000" style={{ width: `${result.targetPassingGrade || 0}%` }}></div>
-              </div>
-              <p className="text-[11px] sm:text-[12px] font-medium mt-1.5 sm:mt-2">
-                {result.percentile ? `Top ${100 - result.percentile}% nasional` : 'Berdasarkan hasil pengerjaan'}
+              <p className="text-[11px] sm:text-[12px] opacity-75 mt-2 sm:mt-3 leading-snug">
+                Skor bersifat dinamis (IRT) & dapat menyesuaikan seiring bertambahnya peserta
               </p>
             </div>
-          </div>
 
-          {/* Stats Card */}
-          <div className="md:col-span-4 bg-[#f2f3ff] rounded-xl p-5 sm:p-6 lg:p-8 border border-[#c2c6d8]/30 flex flex-col justify-between">
-            <div>
-              <p className="text-[11px] sm:text-[13px] lg:text-[14px] font-medium text-[#424656] uppercase tracking-widest mb-3 sm:mb-4">Statistik Jawaban</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[36px] sm:text-[42px] lg:text-[48px] font-bold text-[#191b24]">{stats.correct}</span>
-                <span className="text-[14px] sm:text-[16px] lg:text-[18px] text-[#424656]">/{stats.total} Benar</span>
-              </div>
-            </div>
-            <div className="mt-4 sm:mt-6 mb-3 sm:mb-4">
-              <div className="w-full bg-[#ecedfa] h-2.5 sm:h-3 rounded-full overflow-hidden flex">
+            {/* Statistik Jawaban Underneath */}
+            <div className="mt-6 pt-5 border-t border-white/20 space-y-3">
+              <p className="text-[11px] sm:text-[12px] font-medium opacity-80 uppercase tracking-widest mb-1">Statistik Jawaban</p>
+              
+              {/* Segmented Bar */}
+              <div className="w-full bg-white/20 h-2.5 rounded-full overflow-hidden flex mb-3">
                 {stats.total > 0 && (
                   <>
-                    <div className="bg-[#00c1fd] h-full transition-all duration-1000" style={{ width: `${(stats.correct / stats.total) * 100}%` }}></div>
-                    <div className="bg-[#ba1a1a] h-full transition-all duration-1000" style={{ width: `${(stats.incorrect / stats.total) * 100}%` }}></div>
+                    <div className="bg-[#10b981] h-full transition-all duration-1000" style={{ width: `${(stats.correct / stats.total) * 100}%` }}></div>
+                    <div className="bg-[#ef4444] h-full transition-all duration-1000" style={{ width: `${(stats.incorrect / stats.total) * 100}%` }}></div>
                     <div className="bg-[#c2c6d8] h-full transition-all duration-1000" style={{ width: `${(stats.unanswered / stats.total) * 100}%` }}></div>
                   </>
                 )}
               </div>
-            </div>
-            <div className="mt-auto space-y-2.5 sm:space-y-3">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#00c1fd]"></span>
-                  <span className="text-[13px] sm:text-[14px] text-[#424656]">Benar</span>
+
+              {/* Legend List */}
+              <div className="grid grid-cols-3 gap-2 text-[12px] sm:text-[14px]">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shrink-0"></span>
+                  <span className="opacity-90 truncate">Benar: <strong className="ml-0.5">{stats.correct}</strong></span>
                 </div>
-                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-bold text-[#191b24]">{stats.correct}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#ba1a1a]"></span>
-                  <span className="text-[13px] sm:text-[14px] text-[#424656]">Salah</span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shrink-0"></span>
+                  <span className="opacity-90 truncate">Salah: <strong className="ml-0.5">{stats.incorrect}</strong></span>
                 </div>
-                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-bold text-[#191b24]">{stats.incorrect}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#c2c6d8]"></span>
-                  <span className="text-[13px] sm:text-[14px] text-[#424656]">Kosong</span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#c2c6d8] shrink-0"></span>
+                  <span className="opacity-90 truncate">Kosong: <strong className="ml-0.5">{stats.unanswered}</strong></span>
                 </div>
-                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-bold text-[#191b24]">{stats.unanswered}</span>
               </div>
             </div>
           </div>
 
           {/* Peringkat Tryout - Tabbed Leaderboard */}
           <div className="md:col-span-4">
-            <div className="bg-white rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-[#c2c6d8]/20 max-h-[380px] sm:max-h-[calc(100vh-140px)] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
+            <div className="bg-white rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-[#c2c6d8]/20 md:max-h-[520px] md:overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c2c6d8 transparent' }}>
               {/* Tab Toggle */}
               {leaderboard?.targetPtn && leaderboard?.targetMajor ? (
                 <div className="flex gap-1 p-1 bg-[#f0f1f7] rounded-xl mb-4">
@@ -450,6 +539,7 @@ const TryoutResult = () => {
                     <div className="space-y-2">
                       {leaderboard.leaderboard.slice(0, 5).map((entry) => {
                         const isCurrentUser = entry.user_id === user?.id;
+                        const displayScore = isCurrentUser ? (result?.totalScore ?? entry.score) : entry.score;
                         const medalColors = { 1: 'bg-[#FFD700] text-[#7A6200]', 2: 'bg-[#C0C0C0] text-[#555]', 3: 'bg-[#CD7F32] text-white' };
                         return (
                           <div key={entry.rank} className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${isCurrentUser ? 'bg-[#e8eeff] border border-[#0050cb]/30' : 'hover:bg-[#f8f9ff]'}`}>
@@ -459,7 +549,7 @@ const TryoutResult = () => {
                                 {isCurrentUser ? `${entry.name} (Kamu)` : entry.name}
                               </p>
                             </div>
-                            <span className="text-[14px] font-bold text-[#191b24] shrink-0">{entry.score}</span>
+                            <span className="text-[14px] font-bold text-[#191b24] shrink-0">{displayScore}</span>
                           </div>
                         );
                       })}
@@ -535,6 +625,7 @@ const TryoutResult = () => {
                     <div className="space-y-2">
                       {leaderboard.majorLeaderboard.slice(0, 5).map((entry) => {
                         const isCurrentUser = entry.user_id === user?.id;
+                        const displayScore = isCurrentUser ? (result?.totalScore ?? entry.score) : entry.score;
                         const medalColors = { 1: 'bg-[#FFD700] text-[#7A6200]', 2: 'bg-[#C0C0C0] text-[#555]', 3: 'bg-[#CD7F32] text-white' };
                         return (
                           <div key={entry.rank} className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${isCurrentUser ? 'bg-[#ede9fe] border border-[#6d28d9]/30' : 'hover:bg-[#f8f9ff]'}`}>
@@ -544,7 +635,7 @@ const TryoutResult = () => {
                                 {isCurrentUser ? `${entry.name} (Kamu)` : entry.name}
                               </p>
                             </div>
-                            <span className="text-[14px] font-bold text-[#191b24] shrink-0">{entry.score}</span>
+                            <span className="text-[14px] font-bold text-[#191b24] shrink-0">{displayScore}</span>
                           </div>
                         );
                       })}
@@ -574,88 +665,107 @@ const TryoutResult = () => {
 
         {/* Subtest Analysis */}
         <section className="mb-16">
-          <div className="flex justify-between items-baseline mb-6">
+          <div className="mb-6">
             <h2 className="text-[24px] font-bold text-[#191b24]">Analisis PerSubtes</h2>
-            <p className="text-[13px] font-medium text-[#0050cb] hover:underline cursor-pointer">Lihat Metodologi Penilaian</p>
           </div>
-          <div className="space-y-2 sm:space-y-3">
-            {(sortedSubjects || []).map((subject, idx) => {
-              const colors = getSubjectColors(subject.statusColor);
-              const isGood = subject.statusColor === 'primary' || subject.statusColor === 'secondary';
-              const subjectQuestions = result.questions?.filter(q => q.subject === subject.name) || [];
-              const unansweredCount = subjectQuestions.filter(q => q.userAnswer === null).length;
-              const incorrectCount = subjectQuestions.length - subject.correct - unansweredCount;
-
+          <div className="space-y-4 sm:space-y-6">
+            {groupedSubjects.map((group, groupIdx) => {
+              const isCollapsed = collapsedGroups[group.category];
               return (
-                <section
-                  key={idx}
-                  className="bg-white rounded-xl px-3.5 py-3 sm:px-5 sm:py-4 border border-[#c2c6d8]/30 hover:border-[#0050cb]/20 transition-all duration-300"
-                  style={{ boxShadow: '0 2px 12px -2px rgba(0, 80, 203, 0.04)' }}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 lg:gap-6">
-                    {/* Left: Subject & Status */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
-                        <span className="bg-[#dae1ff] text-[#0050cb] px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold">
-                          SUBTEST {String(idx + 1).padStart(2, '0')}
-                        </span>
-                        <div className={`flex items-center gap-1 ${colors.icon}`}>
-                          <span className="material-symbols-outlined text-[11px] sm:text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                            {isGood ? 'check_circle' : 'circle'}
-                          </span>
-                          <span className="text-[11px] sm:text-[12px] font-medium">{subject.status || 'Perlu Fokus'}</span>
-                        </div>
-                      </div>
-                      <h3 className="text-[13px] sm:text-[15px] md:text-[16px] font-bold text-[#191b24] leading-snug truncate">
-                        {getShortName(subject.name)}
-                      </h3>
+                <div key={groupIdx} className="bg-transparent">
+                  {/* Category Header */}
+                  <div
+                    onClick={() => toggleGroup(group.category)}
+                    className="flex items-center justify-between py-2 sm:py-3 border-b border-[#c2c6d8]/30 mb-3 sm:mb-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[14px] sm:text-[16px] font-bold text-[#191b24]">{group.category} <span className="font-semibold text-[#0050cb] text-[13px] sm:text-[15px] ml-1">{group.items.length}/{group.items.length}</span></h3>
                     </div>
-
-                    {/* Right: Metrics Grid */}
-                    <div className="grid grid-cols-4 gap-2 sm:gap-4 lg:min-w-[400px]">
-                      <div>
-                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Akurasi</span>
-                        <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#191b24] leading-tight">{subject.correct || 0}/{subject.total || 0}</span>
-                        <div className="text-[8px] sm:text-[9px] text-[#727687] mt-0.5 leading-tight">
-                          <span>Kosong: {unansweredCount}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Durasi</span>
-                        <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#191b24] leading-tight">
-                          {(() => {
-                            const totalSec = subject.totalTimeSpent !== undefined && subject.totalTimeSpent !== null
-                              ? subject.totalTimeSpent
-                              : (subject.avgSpeed || 0) * (subject.total || 0);
-                            const m = Math.floor(totalSec / 60);
-                            const s = totalSec % 60;
-                            return m > 0 ? `${m}m ${s}s` : `${s}s`;
-                          })()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-0.5">Skor</span>
-                        <div className="flex items-baseline">
-                          <span className="text-[14px] sm:text-[16px] lg:text-[18px] font-bold text-[#0050cb] leading-tight">{subject.score || 0}</span>
-                          <span className="text-[9px] sm:text-[10px] text-[#727687] ml-0.5">/1000</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col justify-center">
-                        <span className="block text-[#424656] text-[9px] sm:text-[10px] font-semibold mb-1 sm:mb-1.5">Mastery</span>
-                        <div className="w-full bg-[#f1f5f9] h-1 sm:h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${colors.bgSolid || 'bg-[#0050cb]'}`}
-                            style={{ width: `${subject.percentage || 0}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
+                    <span className={`material-symbols-outlined text-[20px] text-[#727687] transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}>
+                      expand_more
+                    </span>
                   </div>
-                </section>
+
+                  {/* Subtests Grid */}
+                  {!isCollapsed && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mt-1">
+                    {group.items.map((subject, idx) => {
+                      const subjectQuestions = result.questions?.filter(q => q.subject === subject.name) || [];
+                      const unansweredCount = subjectQuestions.filter(q => q.userAnswer === null).length;
+                      const correctCount = subject.correct || 0;
+                      const totalCount = subject.total || 0;
+                      const incorrectCount = totalCount - correctCount - unansweredCount;
+
+                      const questionsSecSum = subjectQuestions.reduce((sum, q) => sum + (q.timeSpentSec || 0), 0);
+                      const rawSec = (subject.totalTimeSpent !== undefined && subject.totalTimeSpent !== null && subject.totalTimeSpent > 0)
+                        ? subject.totalTimeSpent
+                        : (questionsSecSum > 0
+                            ? questionsSecSum
+                            : (subject.avgSpeed && subject.avgSpeed > 0
+                                ? subject.avgSpeed * totalCount
+                                : (totalCount > 0 ? totalCount * 75 : 0)));
+                      const m = rawSec > 0 ? (rawSec / 60).toFixed(1).replace('.0', '') : '0';
+
+                      const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+                      return (
+                        <div key={idx} className="bg-white rounded-xl p-3.5 sm:p-5 border border-[#c2c6d8]/30 hover:border-[#0050cb]/20 hover:shadow-md transition-all duration-300">
+                          <div className="flex items-start justify-between gap-3 mb-1.5 sm:mb-1">
+                            <h4 className="text-[14px] sm:text-[16px] font-bold text-[#191b24] line-clamp-2 leading-snug sm:leading-tight mt-0.5 sm:mt-1 flex-1">{getShortName(subject.name)}</h4>
+                            <div className="flex flex-col items-end shrink-0 bg-[#f2f3ff] px-2 py-1 rounded-lg">
+                              <span className="text-[9px] font-semibold text-[#0050cb] uppercase tracking-wider mb-0.5">Skor</span>
+                              <span className="text-[14px] sm:text-[15px] font-bold text-[#0050cb] leading-none">{subject.score || 0}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mb-3 text-[12px] sm:text-[13px] font-medium text-[#727687]">
+                            <div className="flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[14px] sm:text-[16px] text-[#0050cb]">timer</span>
+                              <span>{formatDurationDetailed(rawSec)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[14px] sm:text-[16px] text-[#0050cb]">my_location</span>
+                              <span>akurasi <span className="font-bold text-[#0050cb]">{accuracy}%</span></span>
+                            </div>
+                          </div>
+
+                          {/* Segmented Progress Bar */}
+                          <div className="w-full h-2 rounded-full flex overflow-hidden mb-3 bg-[#e6e7f4]">
+                            {totalCount > 0 && (
+                              <>
+                                <div style={{ width: `${(correctCount / totalCount) * 100}%` }} className="bg-[#10b981]"></div>
+                                <div style={{ width: `${(incorrectCount / totalCount) * 100}%` }} className="bg-[#ef4444]"></div>
+                                <div style={{ width: `${(unansweredCount / totalCount) * 100}%` }} className="bg-[#c2c6d8]"></div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Legend */}
+                          <div className="flex flex-wrap items-center gap-y-1.5 gap-x-3 sm:gap-4 text-[11px] sm:text-[13px] text-[#727687]">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></div>
+                              <span><span className="font-bold text-[#10b981]">{correctCount}</span> benar</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></div>
+                              <span><span className="font-bold text-[#ef4444]">{incorrectCount}</span> salah</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#c2c6d8]"></div>
+                              <span><span className="font-bold text-[#a0a4b8]">{unansweredCount}</span> kosong</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  )}
+                </div>
               );
             })}
           </div>
         </section>
+
 
         {isPremium ? (
           /* Pembahasan Section */
@@ -949,7 +1059,7 @@ const TryoutResult = () => {
                 </div>
 
                 <h2 className="text-[26px] md:text-[32px] font-bold text-[#191b24] mb-4 tracking-tight">
-                  Pembahasan Khusus Pengguna Premium 🌟
+                  Pembahasan Khusus Pengguna Premium
                 </h2>
                 
                 <p className="text-[#424656] text-[15px] md:text-[16px] leading-relaxed mb-8">
@@ -986,6 +1096,181 @@ const TryoutResult = () => {
           />
         )}
 
+        {/* Methodology Modal */}
+        {showMethodologyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#c2c6d8]/30 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-[#c2c6d8]/30 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#0050cb]">analytics</span>
+                  <h3 className="text-[18px] font-bold text-[#191b24]">Metodologi Penilaian IRT 3PL</h3>
+                </div>
+                <button 
+                  onClick={() => setShowMethodologyModal(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#727687] hover:bg-gray-100 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <div className="space-y-3.5 text-[13px] text-[#424656] leading-relaxed">
+                <div className="bg-[#f2f3ff] p-3.5 rounded-xl border border-[#dae1ff]">
+                  <p className="font-semibold text-[#0050cb] mb-1">Standar Penilaian Resmi SNPMB UTBK</p>
+                  <p className="text-[12px] text-[#424656]">Sistem penilaian Eduzet menggunakan model <strong>Item Response Theory (IRT) 3-Parameter Logistic (3PL)</strong> yang secara akurat mengukur bobot setiap soal secara ilmiah.</p>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#0050cb]/10 text-[#0050cb] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <div>
+                      <p className="font-bold text-[#191b24]">Tingkat Kesulitan (*Difficulty*)</p>
+                      <p className="text-[12px] text-[#727687]">Soal yang sedikit dijawab benar oleh peserta lain dianggap sulit dan bernilai poin lebih tinggi.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#0050cb]/10 text-[#0050cb] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <div>
+                      <p className="font-bold text-[#191b24]">Daya Pembeda (*Discrimination*)</p>
+                      <p className="text-[12px] text-[#727687]">Mengukur seberapa efektif suatu soal dalam membedakan peserta berkemampuan tinggi dan rendah.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#0050cb]/10 text-[#0050cb] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <div>
+                      <p className="font-bold text-[#191b24]">Faktor Tebakan (*Pseudo-guessing*)</p>
+                      <p className="text-[12px] text-[#727687]">Memperhitungkan kemungkinan peserta menjawab benar hanya karena menebak pada pilihan ganda.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-[#faf8ff] rounded-xl border border-[#c2c6d8]/30 text-[12px] text-[#424656] flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-[#0050cb] shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
+                  <div>
+                    <strong>Catatan:</strong> Tidak ada sistem minus untuk jawaban salah. Namun, konsistensi pengerjaan dan akurasi pada soal berbobot tinggi akan menaikkan estimasi skor (*theta*) secara signifikan.
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={() => setShowMethodologyModal(false)}
+                  className="px-5 py-2 bg-[#0050cb] text-white font-bold text-[13px] rounded-xl hover:bg-[#003da6] transition-colors"
+                >
+                  Paham
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+
+        {/* Hidden Printable Certificate Element */}
+        <div className="fixed left-[-9999px] top-[-9999px] pointer-events-none opacity-0">
+          <div
+            ref={certificateRef}
+            className="bg-white text-[#191b24] p-8 sm:p-12 w-[794px] min-h-[1123px] relative flex flex-col justify-between border-[12px] border-[#0050cb]/10"
+            style={{ fontFamily: "'Times New Roman', Times, serif" }}
+          >
+            {/* Outer Frame Border */}
+            <div className="absolute top-3 left-3 right-3 bottom-3 border-2 border-[#0050cb]/30 pointer-events-none"></div>
+
+            <div>
+              {/* Center Logo Header */}
+              <div className="flex flex-col items-center justify-center border-b-2 border-[#191b24] pb-5 mb-6">
+                <img src="/stubiabrandicon.png" alt="Stubia Logo" className="h-12 object-contain mb-3" />
+                <h1 className="text-[22px] font-bold uppercase tracking-wider text-[#191b24] font-sans text-center">
+                  SERTIFIKAT SIMULASI TRYOUT SNBT
+                </h1>
+                <p className="text-[15px] font-bold text-[#0050cb] font-sans mt-1 text-center uppercase tracking-wide">
+                  {result?.title || 'TRYOUT UTBK'}
+                </p>
+                <p className="text-[11px] text-[#727687] font-sans mt-1 text-center">
+                  Nomor: STB/SKH/{result?.packageId ? String(result.packageId).slice(0, 8).toUpperCase() : 'TRYOUT'}/{new Date().getFullYear()}
+                </p>
+              </div>
+
+              {/* Student Info */}
+              <div className="my-6 text-[14px] leading-relaxed font-sans text-[#2c3e50] space-y-2">
+                <p>Menerangkan secara resmi bahwa peserta di bawah ini:</p>
+                <div className="grid grid-cols-12 gap-2 bg-[#f8fafc] p-4 rounded-xl border border-gray-200 my-3">
+                  <div className="col-span-4 font-semibold text-[#424656]">Nama Peserta</div>
+                  <div className="col-span-8 font-bold text-[#191b24]">: {user?.name || 'Peserta Stubia'}</div>
+                  <div className="col-span-4 font-semibold text-[#424656]">Paket Ujian</div>
+                  <div className="col-span-8 font-bold text-[#191b24]">: {result?.title || 'Tryout UTBK'}</div>
+                  <div className="col-span-4 font-semibold text-[#424656]">Tanggal Pengerjaan</div>
+                  <div className="col-span-8 font-bold text-[#191b24]">: {new Date(result?.computedAt || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                </div>
+                <p>Telah menyelesaikan rangkaian simulasi ujian UTBK-SNBT dengan perolehan nilai kalkulasi IRT (Item Response Theory 3PL) sebagai berikut:</p>
+              </div>
+
+              {/* Total Score Box */}
+              <div className="my-6 p-5 bg-[#f0f4ff] rounded-xl border-2 border-[#0050cb]/30 flex items-center justify-between font-sans">
+                <div className="flex flex-col justify-center">
+                  <p className="text-[12px] font-bold uppercase text-[#0050cb] tracking-wider leading-snug">SKOR IRT TOTAL</p>
+                  <p className="text-[11px] text-[#424656] mt-0.5 leading-snug">Dihitung berdasarkan pembobotan Item Response Theory (3PL)</p>
+                </div>
+                <div className="flex items-baseline gap-1.5 shrink-0">
+                  <span className="text-[38px] font-black text-[#0050cb] leading-none">{result?.totalScore || 0}</span>
+                  <span className="text-[15px] font-bold text-[#424656] leading-none">/ 1000</span>
+                </div>
+              </div>
+
+              {/* Subtests Table */}
+              <div className="my-6 font-sans">
+                <p className="text-[13px] font-bold text-[#191b24] mb-2">Rincian Hasil Subtes:</p>
+                <table className="w-full text-left text-[12px] border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-[#0050cb] text-white">
+                      <th className="p-2 border border-gray-300 w-10 text-center">No</th>
+                      <th className="p-2 border border-gray-300">Materi Subtes</th>
+                      <th className="p-2 border border-gray-300 text-center">Benar</th>
+                      <th className="p-2 border border-gray-300 text-center">Salah</th>
+                      <th className="p-2 border border-gray-300 text-center">Kosong</th>
+                      <th className="p-2 border border-gray-300 text-right">Skor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(sortedSubjects || []).map((sub, i) => {
+                      const subjectQuestions = result?.questions?.filter(q => q.subject === sub.name) || [];
+                      const unansweredCount = subjectQuestions.filter(q => q.userAnswer === null).length;
+                      const correctCount = sub.correct || 0;
+                      const totalCount = sub.total || 0;
+                      const incorrectCount = totalCount - correctCount - unansweredCount;
+
+                      return (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="p-2 border border-gray-300 text-center font-semibold">{i + 1}</td>
+                          <td className="p-2 border border-gray-300 font-semibold">{sub.name}</td>
+                          <td className="p-2 border border-gray-300 text-center text-[#10b981] font-bold">{correctCount}</td>
+                          <td className="p-2 border border-gray-300 text-center text-[#ef4444] font-bold">{incorrectCount}</td>
+                          <td className="p-2 border border-gray-300 text-center text-gray-400 font-bold">{unansweredCount}</td>
+                          <td className="p-2 border border-gray-300 text-right font-bold text-[#0050cb]">{sub.score || 0}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Signature Section */}
+            <div className="mt-8 pt-4 font-sans text-[12px] flex items-end justify-end border-t border-gray-200">
+              <div className="text-center min-w-[200px]">
+                <p className="text-[11px] text-[#424656] mb-1">Jakarta, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                <p className="font-bold text-[#191b24] mb-10">Tim Akademik Stubia</p>
+                <div className="border-b border-gray-800 font-bold text-[#191b24] pb-1">
+                  STUBIA ACADEMIC SYSTEM
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">Official Verified Document</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         {/* Bottom CTA */}
         <div className="flex flex-col md:flex-row justify-center gap-4 mb-12">
           <button
@@ -1008,36 +1293,6 @@ const TryoutResult = () => {
           </button>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-[#f2f3ff] border-t border-[#c2c6d8]">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-6 lg:px-10 py-12 max-w-[1440px] mx-auto">
-          <div className="space-y-6">
-            <div className="text-[24px] font-bold text-[#0050cb]">Stubia</div>
-            <p className="text-[16px] text-[#424656] max-w-md">
-              Empowering learners worldwide with data-driven education tools and professional resources.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <h5 className="text-[14px] font-semibold text-[#191b24] mb-6 uppercase tracking-widest">Platform</h5>
-              <ul className="space-y-4">
-                <li><Link className="text-[16px] text-[#424656] hover:underline" to="/latihan">Courses</Link></li>
-                <li><Link className="text-[16px] text-[#424656] hover:underline" to="/tryout/packages">Tryout</Link></li>
-                <li><Link className="text-[16px] text-[#424656] hover:underline" to="/riwayat">Riwayat</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="text-[14px] font-semibold text-[#191b24] mb-6 uppercase tracking-widest">Support</h5>
-              <ul className="space-y-4">
-                <li><Link className="text-[16px] text-[#424656] hover:underline" to="#">Privacy Policy</Link></li>
-                <li><Link className="text-[16px] text-[#424656] hover:underline" to="#">Terms of Service</Link></li>
-                <li><Link className="text-[16px] text-[#424656] hover:underline" to="#">Help Center</Link></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

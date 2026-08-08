@@ -150,7 +150,7 @@ export default function Cart() {
           restoreScroll();
           localStorage.removeItem('stubia_cart');
           setCart([]);
-          toast('Pembayaran tertunda. Cek status di riwayat belanja.', { icon: '⏳' });
+          toast('Pembayaran tertunda. Cek status di riwayat belanja.');
           navigate('/dashboard');
         },
         onError: () => {

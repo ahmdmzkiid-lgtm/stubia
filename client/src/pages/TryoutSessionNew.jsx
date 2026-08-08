@@ -89,12 +89,19 @@ const TryoutSessionNew = () => {
         <h2 className="text-2xl font-bold text-gray-800 mt-4">
           Memuat Soal Tryout...
         </h2>
-        <p className="text-gray-600 mt-2">
-          📤 Mengambil 160 soal dari server (5-10 detik)
+        <p className="text-gray-600 mt-2 flex items-center justify-center gap-1.5">
+          <span className="material-symbols-outlined text-[18px] text-[#0050cb]">cloud_download</span>
+          <span>Mengambil soal simulasi dari server</span>
         </p>
-        <div className="mt-4 text-sm text-gray-500 space-y-1">
-          <p>💡 Pastikan koneksi internet stabil</p>
-          <p>⏳ Jangan refresh halaman selama loading</p>
+        <div className="mt-4 text-sm text-gray-500 space-y-1.5 text-center">
+          <p className="flex items-center justify-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px] text-amber-500">wifi</span>
+            <span>Pastikan koneksi internet stabil</span>
+          </p>
+          <p className="flex items-center justify-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px] text-blue-500">sync</span>
+            <span>Mohon tidak menutup atau merefresh halaman</span>
+          </p>
         </div>
       </div>
     );
@@ -103,17 +110,21 @@ const TryoutSessionNew = () => {
   // ===== RENDER: ERROR =====
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-red-50">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-2">
-            ❌ Gagal Memuat Soal
+      <div className="flex flex-col items-center justify-center min-h-screen bg-red-50 p-4">
+        <div className="text-center max-w-md bg-white p-8 rounded-3xl shadow-xl border border-red-100">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="material-symbols-outlined text-[32px]">error</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Gagal Memuat Soal
           </h2>
-          <p className="text-red-600 mb-6">{error}</p>
+          <p className="text-gray-600 mb-6 text-sm leading-relaxed">{error}</p>
           <Button
             onClick={() => fetchAllQuestions(sessionId)}
-            className="bg-red-600 hover:bg-red-700"
+            className="bg-[#0050cb] hover:bg-[#003fa4] text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 mx-auto"
           >
-            🔄 Coba Lagi
+            <span className="material-symbols-outlined text-[18px]">refresh</span>
+            <span>Coba Lagi</span>
           </Button>
         </div>
       </div>

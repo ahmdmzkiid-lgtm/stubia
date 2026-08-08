@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { activityService } from '../services/api';
 import ChatWidget from '../components/ChatWidget';
-import Footer from '../components/Footer';
 import StudentNavbar from '../components/layout/StudentNavbar';
 
 const Riwayat = () => {
@@ -701,7 +700,6 @@ const Riwayat = () => {
         </section>
       </main>
 
-      <Footer />
       <ChatWidget />
     </div>
   );

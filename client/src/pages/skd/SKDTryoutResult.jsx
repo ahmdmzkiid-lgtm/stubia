@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { skdService } from '../../services/api';
 import toast from 'react-hot-toast';
 import StudentNavbar from '../../components/layout/StudentNavbar';
-import Footer from '../../components/Footer';
 import { useAuth } from '../../hooks/useAuth';
 
 const SUBJECT_COLOR = {
@@ -340,8 +339,6 @@ export default function SKDTryoutResult() {
           </Link>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

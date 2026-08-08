@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Footer from '../components/Footer';
 import { useAuth } from '../hooks/useAuth';
 import { PTN_DATA, SUBTES_SHORT, getPtnLogo } from '../data/ptnData';
 import StudentNavbar from '../components/layout/StudentNavbar';
@@ -348,8 +347,6 @@ export default function PrediksiSkor() {
           </div>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

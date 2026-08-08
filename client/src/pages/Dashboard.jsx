@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { BookOpen, Landmark, Crown, Target, MessageCircleHeart, Clock4 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { settingsService, subscriptionService, activityService, articleService } from '../services/api';
 import toast from 'react-hot-toast';
 import ChatWidget from '../components/ChatWidget';
-import Footer from '../components/Footer';
 import StudentNavbar from '../components/layout/StudentNavbar';
 import UniversityLogo from '../components/UniversityLogo';
 import { getStreakData, updateDailyStreak } from '../utils/streak';
@@ -280,7 +280,7 @@ const Dashboard = () => {
       return;
     }
     if (plan.name === 'gratis') {
-      toast('Kamu sudah menggunakan paket Gratis', { icon: 'ℹ️' });
+      toast('Kamu sudah menggunakan paket Gratis');
       return;
     }
 
@@ -358,12 +358,12 @@ const Dashboard = () => {
   };
 
   const quickActions = [
-    { label: 'UTBK/SNBT', icon: 'school', bgIcon: 'bg-[#eff6ff] text-[#2563eb]', action: () => setShowUtbkModal(true) },
-    { label: 'Ujian Mandiri', icon: 'domain', bgIcon: 'bg-[#fffbeb] text-[#d97706]', path: '/ujian-mandiri' },
-    { label: 'Paket Belajar', icon: 'card_membership', bgIcon: 'bg-[#fdf2f8] text-[#db2777]', path: '/paket-belajar' },
-    { label: 'Prediksi Skor', icon: 'analytics', bgIcon: 'bg-[#faf5ff] text-[#7c3aed]', path: '/prediksi-skor' },
-    { label: 'Konsultasi dengan Bia', icon: 'forum', bgIcon: 'bg-[#fff1f2] text-[#e11d48]', path: '/konsultasi' },
-    { label: 'Riwayat', icon: 'history', bgIcon: 'bg-[#f0fdf4] text-[#16a34a]', path: '/riwayat' },
+    { label: 'UTBK/SNBT', Icon: BookOpen, iconColor: '#2563eb', bgIcon: 'bg-[#eff6ff]', action: () => setShowUtbkModal(true) },
+    { label: 'Ujian Mandiri', Icon: Landmark, iconColor: '#d97706', bgIcon: 'bg-[#fffbeb]', path: '/ujian-mandiri' },
+    { label: 'Paket Belajar', Icon: Crown, iconColor: '#db2777', bgIcon: 'bg-[#fdf2f8]', path: '/paket-belajar' },
+    { label: 'Prediksi Skor', Icon: Target, iconColor: '#7c3aed', bgIcon: 'bg-[#f5f3ff]', path: '/prediksi-skor' },
+    { label: 'Konsultasi dengan Bia', Icon: MessageCircleHeart, iconColor: '#0891b2', bgIcon: 'bg-[#ecfeff]', path: '/konsultasi' },
+    { label: 'Riwayat', Icon: Clock4, iconColor: '#16a34a', bgIcon: 'bg-[#f0fdf4]', path: '/riwayat' },
   ];
 
   const pendingTxs = transactions.filter(t => t.status === 'pending');
@@ -546,10 +546,8 @@ const Dashboard = () => {
             {quickActions.map((action, idx) => {
               const cardContent = (
                 <>
-                  <div className={`w-12 h-12 rounded-2xl ${action.bgIcon} flex items-center justify-center mb-3 shadow-inner`}>
-                    <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 0" }}>
-                      {action.icon}
-                    </span>
+                  <div className={`w-12 h-12 rounded-2xl ${action.bgIcon} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                    <action.Icon size={24} strokeWidth={1.8} color={action.iconColor} />
                   </div>
                   <span className="text-[11px] font-extrabold text-[#191b24] leading-tight font-sans">
                     {action.label}
@@ -557,7 +555,7 @@ const Dashboard = () => {
                 </>
               );
 
-              const btnClass = "bg-white border border-gray-150 rounded-3xl p-4 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 w-full cursor-pointer outline-none";
+              const btnClass = "bg-white border border-gray-150 rounded-3xl p-4 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 w-full cursor-pointer group outline-none";
 
               if (action.action) {
                 return (
@@ -1146,7 +1144,6 @@ const Dashboard = () => {
         }
       `}</style>
 
-      <Footer />
       <ChatWidget />
       <StreakModal 
         isOpen={streakModalOpen}

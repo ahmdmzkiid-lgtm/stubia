@@ -4,11 +4,34 @@ import { useAuth } from '../../hooks/useAuth';
 import { settingsService, subjectService, tryoutService, activityService, subscriptionService } from '../../services/api';
 import toast from 'react-hot-toast';
 import ChatWidget from '../../components/ChatWidget';
-import Footer from '../../components/Footer';
 import StudentNavbar from '../../components/layout/StudentNavbar';
+import { Lock, Clock, Info } from 'lucide-react';
+import TryoutAccessModal from '../../components/tryout/TryoutAccessModal';
 
 const PLAN_RANK = { gratis: 0, premium_um: 0, premium: 1, sultan: 2, utbk_3m: 1, utbk_6m: 1, utbk_9m: 1, utbk_12m: 1, utbk_to_5x: 1, utbk_to_8x: 1, utbk_to_10x: 1 };
 
+const parseLocalDate = (dateVal) => {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) return dateVal;
+  let str = String(dateVal).trim();
+  if (str.includes('T')) {
+    str = str.split('.')[0].replace('Z', '');
+  }
+  str = str.replace(' ', 'T');
+  const parts = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (parts) {
+    return new Date(
+      parseInt(parts[1], 10),
+      parseInt(parts[2], 10) - 1,
+      parseInt(parts[3], 10),
+      parseInt(parts[4] || '0', 10),
+      parseInt(parts[5] || '0', 10),
+      parseInt(parts[6] || '0', 10)
+    );
+  }
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? null : d;
+};
 
 
 const PusatTryout = () => {
@@ -18,6 +41,8 @@ const PusatTryout = () => {
   const [packages, setPackages] = useState([]);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [selectedFilter, setSelectedFilter] = useState('semua');
+  const [accessModal, setAccessModal] = useState({ open: false, type: 'not_started', pkg: null });
   const [searchQuery, setSearchQuery] = useState('');
   const [riwayatData, setRiwayatData] = useState(null);
   const [activePlans, setActivePlans] = useState([]);
@@ -62,13 +87,24 @@ const PusatTryout = () => {
     }).catch(() => {});
   }, []);
 
-  const hasActiveUtbkPlan = () => activePlans.some(p => {
-    const name = p.name || p.plan_name;
-    if (name === 'gratis' || !name) return false;
-    if (p.target_type === 'utbk' && (p.plan_type === 'subscription' || p.plan_type === 'access')) return true;
-    if (p.target_type === 'utbk' && p.plan_type === 'quota' && (p.quota_remaining || 0) > 0) return true;
+  const hasActiveUtbkPlan = () => {
+    const hasActiveSub = activePlans.some(p => {
+      const name = p.name || p.plan_name;
+      if (name === 'gratis' || !name) return false;
+      if (name === 'sultan') return true;
+      if (p.target_type === 'utbk' && (p.plan_type === 'subscription' || p.plan_type === 'access')) return true;
+      if (p.target_type === 'utbk' && p.plan_type === 'quota' && (p.quota_remaining === null || p.quota_remaining > 0)) return true;
+      return false;
+    });
+    if (hasActiveSub) return true;
+
+    const userPlan = user?.current_plan;
+    if (userPlan && userPlan !== 'gratis') {
+      const isUtbkPlan = userPlan.startsWith('utbk') || userPlan === 'premium' || userPlan === 'sultan';
+      if (isUtbkPlan) return true;
+    }
     return false;
-  });
+  };
 
   useEffect(() => {
     if (packages.length === 0 || hasActiveUtbkPlan()) return;
@@ -86,6 +122,8 @@ const PusatTryout = () => {
 
   const hasPlanAccess = (requiredPlan) => {
     if (!requiredPlan || requiredPlan === 'gratis') return true;
+    // Users with active UTBK subscription, access, or remaining quota have access to all UTBK tryout packages
+    if (hasActiveUtbkPlan()) return true;
     for (const plan of activePlans) {
       const pName = plan.name || plan.plan_name;
       const pRank = PLAN_RANK[pName] ?? 0;
@@ -98,20 +136,73 @@ const PusatTryout = () => {
     return userRank >= reqRank;
   };
 
-  const handleStartTryout = (pkg) => {
+  const handleStartTryout = (pkg, isRestart = false) => {
     const reqPlan = pkg.required_plan || 'gratis';
     if (!hasPlanAccess(reqPlan)) {
-      toast.error(`Tryout ini khusus paket ${reqPlan === 'sultan' ? 'Sultan' : 'Premium'}.`);
+      setAccessModal({
+        open: true,
+        type: 'plan_required',
+        requiredPlan: reqPlan,
+        pkg
+      });
       return;
     }
     if (pkg.is_active === false) {
-      toast.error('Tryout sedang non-aktif.');
+      setAccessModal({
+        open: true,
+        type: 'inactive',
+        pkg
+      });
       return;
     }
-    if (!hasActiveUtbkPlan() && completedPackages[pkg.id]) {
-      toast.error('Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali.');
-      return;
+
+    const isPremiumUser = hasActiveUtbkPlan();
+    const now = new Date();
+
+    if (!isPremiumUser) {
+      const startDate = parseLocalDate(pkg.scheduled_at);
+      const endDate = parseLocalDate(pkg.end_date);
+      
+      if (startDate && startDate > now) {
+        setAccessModal({
+          open: true,
+          type: 'not_started',
+          startDate,
+          endDate,
+          pkg
+        });
+        return;
+      }
+      if (endDate && endDate < now) {
+        if (completedPackages[pkg.id] || (riwayatData?.history || []).some(h => h.packageId === pkg.id)) {
+          navigate(`/tryout/select/${pkg.id}`);
+          return;
+        }
+        setAccessModal({
+          open: true,
+          type: 'expired',
+          startDate,
+          endDate,
+          pkg
+        });
+        return;
+      }
+      if (completedPackages[pkg.id]) {
+        setAccessModal({
+          open: true,
+          type: 'limit_reached',
+          pkg
+        });
+        return;
+      }
     }
+
+    if (isRestart) {
+      localStorage.removeItem(`tryout_completed_${pkg.id}`);
+      localStorage.removeItem(`tryout_sessions_${pkg.id}`);
+      localStorage.removeItem(`tryout_answered_${pkg.id}`);
+    }
+
     navigate(`/tryout/select/${pkg.id}`);
   };
 
@@ -141,7 +232,7 @@ const PusatTryout = () => {
   const upcomingSchedules = useMemo(() => {
     const now = new Date();
     return packages
-      .filter(p => p.scheduled_at && new Date(p.scheduled_at) > now)
+      .filter(p => (p.scheduled_at) && new Date(p.scheduled_at) > now)
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
       .slice(0, 3);
   }, [packages]);
@@ -195,32 +286,61 @@ const PusatTryout = () => {
                   ? pkg.subject_config
                   : (typeof pkg.subject_config === 'string' ? JSON.parse(pkg.subject_config) : []);
                 const totalSoal = config.reduce((acc, s) => acc + (s.questionCount || 0), 0);
-                const reqPlan = pkg.required_plan || 'gratis';
-                const reqRank = PLAN_RANK[reqPlan] ?? 0;
-                const isLocked = reqRank > userRank;
+
+                const now = new Date();
+                const startDate = parseLocalDate(pkg.scheduled_at);
+                const endDate = parseLocalDate(pkg.end_date);
+                const hasSchedule = Boolean(startDate || endDate);
+
+                let isWithinFreeWindow = false;
+                let isBeforeFreeWindow = false;
+                let isAfterFreeWindow = false;
+
+                if (hasSchedule) {
+                  if (startDate && now < startDate) {
+                    isBeforeFreeWindow = true;
+                  } else if (endDate && now > endDate) {
+                    isAfterFreeWindow = true;
+                  } else {
+                    isWithinFreeWindow = true;
+                  }
+                }
+
+                const reqPlan = hasSchedule ? (isWithinFreeWindow ? 'gratis' : 'premium') : (pkg.required_plan || 'premium');
+                const isLocked = !hasPlanAccess(reqPlan);
                 const isFreeCompleted = !hasActiveUtbkPlan() && completedPackages[pkg.id];
-                const packageNumber = filteredPackages.length - idx;
+                const packageNumber = pkg.package_number || (filteredPackages.length - idx);
 
                 const planLabel = reqPlan === 'sultan' ? 'Sultan' : reqPlan === 'premium' ? 'Premium' : 'Gratis';
                 const planBadgeBg = 'bg-[#0050cb]';
                 const planBadgeText = 'text-white';
 
+                const totalSubtests = config.length;
                 const pkgHistory = history.find(h => h.packageId === pkg.id);
                 const lastScore = pkgHistory ? pkgHistory.score : null;
+
+                let completedSubtestsCount = 0;
+                try {
+                  const saved = JSON.parse(localStorage.getItem(`tryout_completed_${pkg.id}`) || '[]');
+                  completedSubtestsCount = saved.length;
+                } catch (e) {}
+
+                const progressPercent = config.length > 0 ? Math.round((completedSubtestsCount / config.length) * 100) : 0;
+                const isInProgress = completedSubtestsCount > 0 && completedSubtestsCount < config.length;
 
                 return (
                   <div
                     key={pkg.id}
                     onClick={() => {
                       if (isLocked) {
-                        toast.error(`Tryout ini khusus paket ${planLabel}. Upgrade paketmu untuk akses.`);
+                        navigate('/paket-belajar');
                       } else {
                         handleStartTryout(pkg);
                       }
                     }}
                     className={`relative bg-white border rounded-2xl overflow-hidden transition-all ${
                       isLocked
-                        ? 'border-[#c2c6d8]/40 opacity-60 cursor-not-allowed'
+                        ? 'border-[#c2c6d8]/40 opacity-70 cursor-not-allowed'
                         : 'border-[#c2c6d8]/50 hover:shadow-lg hover:border-[#0050cb]/30 cursor-pointer group'
                     }`}
                   >
@@ -248,11 +368,22 @@ const PusatTryout = () => {
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                           {/* Info */}
                           <div className="flex flex-col flex-1">
-                            <span className={`text-[12px] font-semibold mb-1.5 ${
-                              reqPlan === 'sultan' ? 'text-yellow-700' : reqPlan === 'premium' ? 'text-[#0050cb]' : 'text-[#2e7d32]'
-                            }`}>
-                              {reqPlan === 'gratis' ? 'Gratis' : reqPlan === 'premium' ? 'Premium' : 'Sultan'}
-                            </span>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              {isWithinFreeWindow ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#e8f5e9] text-[#2e7d32] text-[11px] font-extrabold border border-[#a5d6a7]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#2e7d32] animate-pulse"></span>
+                                  Gratis
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-extrabold border ${
+                                  (pkg.required_plan === 'sultan')
+                                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                    : 'bg-blue-50 text-[#0050cb] border-blue-200'
+                                }`}>
+                                  {pkg.required_plan === 'sultan' ? 'Sultan' : 'Premium'}
+                                </span>
+                              )}
+                            </div>
 
                             <h3 className={`text-[16px] sm:text-[18px] font-bold leading-snug mb-3 ${
                               isLocked ? 'text-gray-400' : 'text-[#191b24] group-hover:text-[#0050cb] transition-colors'
@@ -261,26 +392,51 @@ const PusatTryout = () => {
                             </h3>
 
                             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                              {isFreeCompleted ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-[12px] font-semibold rounded-full">
-                                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                                  Sudah Dikerjakan
-                                </span>
-                              ) : isLocked ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-500 text-[12px] font-semibold rounded-full">
-                                  <span className="material-symbols-outlined text-[14px]">lock</span>
-                                  Terkunci
-                                </span>
-                              ) : (
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[12px] font-semibold rounded-full ${
-                                  reqPlan === 'sultan' ? 'bg-yellow-50 text-yellow-700' :
-                                  reqPlan === 'premium' ? 'bg-blue-50 text-[#0050cb]' :
-                                  'bg-[#e8f5e9] text-[#2e7d32]'
-                                }`}>
-                                  <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                                  {reqPlan === 'gratis' ? 'Gratis' : 'Mulai Tryout'}
-                                </span>
-                              )}
+                              {(() => {
+                                const isPremiumUser = hasActiveUtbkPlan();
+                                const isNotOpenedYet = !isPremiumUser && isBeforeFreeWindow;
+                                const isExpiredFree = !isPremiumUser && isAfterFreeWindow;
+
+                                if (isNotOpenedYet) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 text-purple-700 text-[12px] font-semibold rounded-full">
+                                      <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                      Belum Dibuka (Gratis)
+                                    </span>
+                                  );
+                                }
+                                if (isExpiredFree) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 text-[12px] font-semibold rounded-full">
+                                      <span className="material-symbols-outlined text-[14px]">event_busy</span>
+                                      Akses Gratis Ditutup
+                                    </span>
+                                  );
+                                }
+                                if (isFreeCompleted) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-[12px] font-semibold rounded-full">
+                                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                      Sudah Dikerjakan
+                                    </span>
+                                  );
+                                }
+                                if (isLocked) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-500 text-[12px] font-semibold rounded-full">
+                                      <span className="material-symbols-outlined text-[14px]">lock</span>
+                                      Terkunci
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[12px] font-semibold rounded-full ${
+                                    isWithinFreeWindow ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-blue-50 text-[#0050cb]'
+                                  }`}>
+                                    {isWithinFreeWindow ? 'Pendaftaran Dibuka' : 'Mulai Tryout'}
+                                  </span>
+                                );
+                              })()}
                               {totalSoal > 0 && (
                                 <span className="text-[12px] text-[#727687]">{totalSoal} soal • {config.length} subtes</span>
                               )}
@@ -299,23 +455,53 @@ const PusatTryout = () => {
                         {/* Bottom: Action Buttons */}
                         <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#c2c6d8]/20 mt-1" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
-                            {isLocked ? (
-                              <button
-                                onClick={() => toast.error(`Tryout ini khusus paket ${planLabel}. Upgrade paketmu untuk akses.`)}
-                                className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all flex items-center gap-1.5 border border-gray-200"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">lock</span>
-                                Buka Akses
-                              </button>
-                            ) : !isFreeCompleted || hasActiveUtbkPlan() ? (
-                              <button
-                                onClick={() => handleStartTryout(pkg)}
-                                className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-white bg-[#0050cb] hover:bg-[#003da1] rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-blue-500/10"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">play_arrow</span>
-                                {lastScore !== null ? 'Kerjakan Lagi' : 'Mulai'}
-                              </button>
-                            ) : null}
+                             {(() => {
+                               const isPremiumUser = hasActiveUtbkPlan();
+
+                               if (isLocked) {
+                                 return (
+                                   <button
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       navigate('/paket-belajar');
+                                     }}
+                                     className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all flex items-center gap-1.5 border border-gray-300 shadow-sm"
+                                   >
+                                     <span className="material-symbols-outlined text-[16px]">lock</span>
+                                     Buka Akses
+                                   </button>
+                                 );
+                               }
+                               if (!isFreeCompleted || isPremiumUser) {
+                                 return (
+                                   <div className="flex items-center gap-3">
+                                     <button
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         const isRestart = lastScore !== null && !isInProgress;
+                                         if (isRestart) {
+                                           localStorage.removeItem(`tryout_completed_${pkg.id}`);
+                                         }
+                                         handleStartTryout(pkg, isRestart);
+                                       }}
+                                       className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-white bg-[#0050cb] hover:bg-[#003da1] rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-blue-500/10"
+                                     >
+                                       <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                       {isInProgress ? 'Lanjutkan' : (lastScore !== null ? 'Kerjakan Lagi' : 'Mulai')}
+                                     </button>
+                                     {isInProgress && (
+                                       <div className="flex items-center gap-2">
+                                         <div className="w-16 sm:w-20 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                           <div className={`h-full rounded-full transition-all duration-300 ${progressPercent === 0 ? 'bg-transparent' : progressPercent <= 30 ? 'bg-red-500' : progressPercent <= 75 ? 'bg-amber-500' : 'bg-[#0050cb]'}`} style={{ width: `${progressPercent}%` }}></div>
+                                         </div>
+                                         <span className="text-[11px] font-bold text-gray-500">{progressPercent}%</span>
+                                       </div>
+                                     )}
+                                   </div>
+                                 );
+                               }
+                               return null;
+                             })()}
 
                             {lastScore !== null && (
                               <button
@@ -504,8 +690,17 @@ const PusatTryout = () => {
         </div>
       </main>
 
-      <Footer />
       <ChatWidget />
+
+      {/* Professional Access & Restriction Notice Modal */}
+      <TryoutAccessModal
+        open={accessModal.open}
+        type={accessModal.type}
+        startDate={accessModal.startDate}
+        endDate={accessModal.endDate}
+        requiredPlan={accessModal.requiredPlan}
+        onClose={() => setAccessModal(prev => ({ ...prev, open: false }))}
+      />
     </div>
   );
 };

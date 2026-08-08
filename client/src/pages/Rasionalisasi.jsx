@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { activityService } from '../services/api';
 import StudentNavbar from '../components/layout/StudentNavbar';
-import Footer from '../components/Footer';
 import ChatWidget from '../components/ChatWidget';
 import { PTN_DATA, getPtnLogo, SUBTES_SHORT } from '../data/ptnData';
 import { getKeketatan } from '../data/peminatData';
@@ -413,8 +412,6 @@ const Rasionalisasi = () => {
             Kembali ke Dashboard
           </Link>
         </main>
-
-        <Footer />
       </div>
     );
   }
@@ -829,7 +826,6 @@ const Rasionalisasi = () => {
         )}
       </main>
 
-      <Footer />
       <ChatWidget />
     </div>
   );

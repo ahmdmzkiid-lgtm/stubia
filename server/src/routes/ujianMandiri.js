@@ -701,6 +701,7 @@ router.patch(
         points_unanswered,
         is_active,
         required_plan,
+        package_number,
       } = req.body;
       const result = await pool.query(
         `UPDATE um_tryout_packages SET title = COALESCE($1, title), description = COALESCE($2, description),
@@ -708,8 +709,9 @@ router.patch(
        peserta = COALESCE($6, peserta),
        points_correct = COALESCE($7, points_correct), points_incorrect = COALESCE($8, points_incorrect),
        points_unanswered = COALESCE($9, points_unanswered),
-       is_active = COALESCE($10, is_active), required_plan = COALESCE($11, required_plan)
-       WHERE id = $12 RETURNING *`,
+       is_active = COALESCE($10, is_active), required_plan = COALESCE($11, required_plan),
+       package_number = COALESCE($12, package_number)
+       WHERE id = $13 RETURNING *`,
         [
           title,
           description,
@@ -722,6 +724,7 @@ router.patch(
           points_unanswered,
           is_active,
           required_plan,
+          package_number,
           req.params.id,
         ],
       );
@@ -999,8 +1002,8 @@ router.post(
         peserta,
       });
       const result = await pool.query(
-        `INSERT INTO um_tryout_packages (ujian_id, title, description, icon, icon_color, duration, peserta, points_correct, points_incorrect, points_unanswered, is_active, required_plan)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11, TRUE), COALESCE($12, 'gratis')) RETURNING *`,
+        `INSERT INTO um_tryout_packages (ujian_id, title, description, icon, icon_color, duration, peserta, points_correct, points_incorrect, points_unanswered, is_active, required_plan, package_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11, TRUE), COALESCE($12, 'gratis'), $13) RETURNING *`,
         [
           req.params.ujianId,
           title,
@@ -1014,6 +1017,7 @@ router.post(
           points_unanswered !== undefined ? points_unanswered : 0,
           is_active,
           required_plan,
+          package_number || null,
         ],
       );
       logAdminActivity(req, 'CREATE', 'PAKET_TRYOUT', result.rows[0].title, `Membuat paket Ujian Mandiri Tryout: ${result.rows[0].title}`);

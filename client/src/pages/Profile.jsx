@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { subscriptionService, authService } from '../services/api';
 import { PTN_DATA, getPtnLogo } from '../data/ptnData';
-import Footer from '../components/Footer';
 import toast from 'react-hot-toast';
 
 export default function Profile() {
@@ -784,8 +783,6 @@ export default function Profile() {
           </div>
         </div>
       )}
-
-      <Footer />
     </div>
   );
 }

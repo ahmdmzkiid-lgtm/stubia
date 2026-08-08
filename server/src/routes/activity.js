@@ -455,16 +455,20 @@ router.get("/riwayat", verifyToken, async (req, res, next) => {
         }
       });
 
-      // Total = average of all subtest scores from aggregated subjects (real-time)
+      // Find the latest valid score from sessions in this group (consistent with Result and Leaderboard)
+      const sessionWithScore = group.sessions
+        .filter((s) => s.score !== null && s.score !== undefined && Number(s.score) > 0)
+        .sort((a, b) => new Date(b.submitted_at || b.started_at) - new Date(a.submitted_at || a.started_at))[0];
+
+      // Total = latest session score, or average of subtest scores, or breakdown totalScore
       const subjScores = Object.values(aggregatedSubjects).map(
         (s) => s.score || 0,
       );
       const aggregatedScore =
-        subjScores.length > 0
-          ? Math.round(
-              subjScores.reduce((a, b) => a + b, 0) / subjScores.length,
-            )
-          : breakdowns[0]?.totalScore || group.sessions[0]?.score || 0;
+        sessionWithScore
+          ? Math.round(Number(sessionWithScore.score))
+          : (breakdowns[0]?.totalScore ||
+             (subjScores.length > 0 ? Math.round(subjScores.reduce((a, b) => a + b, 0) / subjScores.length) : (group.sessions[0]?.score || 0)));
 
       // Average theta + percentile across sessions
       const thetas = breakdowns

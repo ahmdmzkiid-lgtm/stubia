@@ -15,11 +15,187 @@ const {
   markPackageCompleted,
 } = require("../utils/tryoutCompletionUtil");
 
+function parseLocalDate(dateVal) {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) {
+    // pg driver returns timestamp-without-timezone values as Date objects
+    // interpreting the raw digits as UTC. But admin entered them as local time (WIB).
+    // Extract the UTC components and create a new Date treating them as local time.
+    return new Date(
+      dateVal.getUTCFullYear(),
+      dateVal.getUTCMonth(),
+      dateVal.getUTCDate(),
+      dateVal.getUTCHours(),
+      dateVal.getUTCMinutes(),
+      dateVal.getUTCSeconds()
+    );
+  }
+  let str = String(dateVal).trim();
+  if (str.includes('T')) {
+    str = str.split('.')[0].replace('Z', '');
+  }
+  str = str.replace(' ', 'T');
+  const parts = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (parts) {
+    return new Date(
+      parseInt(parts[1], 10),
+      parseInt(parts[2], 10) - 1,
+      parseInt(parts[3], 10),
+      parseInt(parts[4] || '0', 10),
+      parseInt(parts[5] || '0', 10),
+      parseInt(parts[6] || '0', 10)
+    );
+  }
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// --- Auto Submit Expired Tryout Sessions Helper ---
+async function autoSubmitSession(dbOrPool, sessionId, userId) {
+  try {
+    const sessionRes = await dbOrPool.query(
+      `SELECT ts.id, ts.package_id, ts.user_id, ts.submitted_at, tp.end_date 
+       FROM tryout_sessions ts 
+       JOIN tryout_packages tp ON tp.id = ts.package_id 
+       WHERE ts.id = $1 AND ts.submitted_at IS NULL`,
+      [sessionId]
+    );
+    if (sessionRes.rows.length === 0) return null;
+    const session = sessionRes.rows[0];
+
+    const answersRes = await dbOrPool.query(
+      `SELECT
+        ua.chosen_choice_id,
+        ua.answer_text,
+        COALESCE(ac.is_correct, false) as is_correct,
+        ua.question_id,
+        COALESCE(ua.time_spent_sec, 0) as time_spent_sec,
+        COALESCE(q.difficulty, 'medium') as difficulty,
+        COALESCE(q.question_type, 'multiple_choice') as question_type,
+        COALESCE(s.name, 'Unknown') as subject_name
+      FROM user_answers ua
+      LEFT JOIN answer_choices ac ON ua.chosen_choice_id = ac.id
+      LEFT JOIN questions q ON ua.question_id = q.id
+      LEFT JOIN subjects s ON q.subject_id = s.id
+      WHERE ua.session_id = $1`,
+      [sessionId]
+    );
+
+    for (const ans of answersRes.rows) {
+      if (ans.question_type === "short_answer" && ans.answer_text) {
+        const correctRes = await dbOrPool.query(
+          `SELECT content FROM answer_choices WHERE question_id = $1 AND is_correct = true LIMIT 1`,
+          [ans.question_id]
+        );
+        if (correctRes.rows.length > 0) {
+          ans.is_correct =
+            correctRes.rows[0].content.trim().toLowerCase() ===
+            ans.answer_text.trim().toLowerCase();
+        }
+      } else if (ans.question_type === "complex_mc_tf") {
+        const choicesRes = await dbOrPool.query(
+          `SELECT label, is_correct FROM answer_choices WHERE question_id = $1`,
+          [ans.question_id]
+        );
+        let userAnswersObj = {};
+        try {
+          userAnswersObj = ans.answer_text ? JSON.parse(ans.answer_text) : {};
+        } catch (e) {}
+        ans.is_correct = choicesRes.rows.length > 0 && choicesRes.rows.every((c) => {
+          const studentAns = userAnswersObj[c.label];
+          return studentAns !== undefined && studentAns === c.is_correct;
+        });
+      }
+    }
+
+    const questionIds = answersRes.rows.map(a => a.question_id).filter(Boolean);
+    const itemStatsMap = await getItemStatsForQuestions(dbOrPool, questionIds);
+
+    const formattedAnswers = answersRes.rows.map((ans) => ({
+      chosen_choice_id: ans.chosen_choice_id,
+      is_correct: ans.is_correct === true,
+      question_id: ans.question_id,
+      difficulty: ans.difficulty || "medium",
+      subject_name: ans.subject_name,
+      time_spent_sec: ans.time_spent_sec || 0,
+      question_type: ans.question_type,
+      answer_text: ans.answer_text,
+      irtParams: itemStatsMap[ans.question_id] || undefined,
+    }));
+
+    const irtResults = calculateIRTScore(formattedAnswers);
+    const classicalResults = calculateScore(
+      answersRes.rows.map((ans) => ({
+        chosen_choice_id: ans.chosen_choice_id,
+        is_correct: ans.is_correct,
+        question_id: ans.question_id,
+      }))
+    );
+
+    const finalResults = {
+      ...irtResults,
+      classical_score: classicalResults.total_score,
+      scoringMethod: "IRT-3PL",
+      autoSubmitted: true,
+    };
+
+    const submitTime = session.end_date || new Date();
+    await dbOrPool.query(
+      `UPDATE tryout_sessions SET submitted_at = $1, total_score = $2, score_breakdown = $3 WHERE id = $4`,
+      [submitTime, finalResults.totalScore, JSON.stringify(finalResults), sessionId]
+    );
+
+    await markPackageCompleted(dbOrPool, session.user_id, "utbk", session.package_id);
+    return finalResults;
+  } catch (err) {
+    console.error(`[AUTO-SUBMIT] Error auto submitting session ${sessionId}:`, err.message);
+    return null;
+  }
+}
+
+async function autoSubmitExpiredSessionsForUser(dbOrPool, userId) {
+  if (!userId) return;
+  try {
+    const activeUtbkRes = await dbOrPool.query(
+      `SELECT 1 FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+         AND (p.target_type = 'utbk' OR p.name = 'sultan') AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+       LIMIT 1`,
+      [userId]
+    );
+    if (activeUtbkRes.rows.length > 0) {
+      return; // Premium/Sultan user: dates don't expire for them
+    }
+
+    const expiredRes = await dbOrPool.query(
+      `SELECT ts.id, tp.end_date
+       FROM tryout_sessions ts
+       JOIN tryout_packages tp ON tp.id = ts.package_id
+       WHERE ts.user_id = $1 AND ts.submitted_at IS NULL AND tp.end_date IS NOT NULL`,
+      [userId]
+    );
+
+    const now = new Date();
+    for (const row of expiredRes.rows) {
+      const endDateObj = parseLocalDate(row.end_date);
+      if (endDateObj && endDateObj < now) {
+        await autoSubmitSession(dbOrPool, row.id, userId);
+      }
+    }
+  } catch (err) {
+    console.error("[AUTO-SUBMIT] Error checking expired sessions:", err.message);
+  }
+}
+
 // --- Admin Package Management ---
 
 // List all packages
 router.get("/packages", verifyToken, async (req, res, next) => {
   try {
+    if (req.user && req.user.id) {
+      await autoSubmitExpiredSessionsForUser(pool, req.user.id);
+    }
     const result = await pool.query(`
       SELECT 
         tp.*,
@@ -114,14 +290,21 @@ router.get(
 );
 
 // Create package
+// Ensure end_date and required_plan column defaults on tryout_packages
+pool.query("ALTER TABLE tryout_packages ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ;").catch(() => {});
+pool.query("ALTER TABLE tryout_packages ALTER COLUMN required_plan SET DEFAULT 'premium'; UPDATE tryout_packages SET required_plan = 'premium' WHERE required_plan = 'gratis' OR required_plan IS NULL;").catch(() => {});
+
+// Create package
 router.post("/packages", [verifyToken, verifyAdmin], async (req, res, next) => {
   const {
     title,
     subject_config,
     scheduled_at,
+    end_date,
     is_public,
     is_active,
     required_plan,
+    package_number,
   } = req.body;
   if (!title || !title.trim()) {
     return res
@@ -133,17 +316,20 @@ router.post("/packages", [verifyToken, verifyAdmin], async (req, res, next) => {
       typeof subject_config === "string"
         ? subject_config
         : JSON.stringify(subject_config || []);
-    const scheduledValue =
-      scheduled_at && scheduled_at !== "" ? scheduled_at : null;
+    const scheduledValue = scheduled_at && scheduled_at.trim() !== "" ? scheduled_at.trim() : null;
+    const endDateValue = end_date && end_date.trim() !== "" ? end_date.trim() : null;
+    const packageNumValue = package_number && package_number.trim() !== "" ? package_number.trim() : null;
     const result = await pool.query(
-      "INSERT INTO tryout_packages (title, subject_config, scheduled_at, is_public, is_active, required_plan) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      "INSERT INTO tryout_packages (title, subject_config, scheduled_at, end_date, is_public, is_active, required_plan, package_number) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
       [
         title.trim(),
         configJson,
         scheduledValue,
+        endDateValue,
         is_public ?? true,
         is_active ?? true,
-        required_plan || "gratis",
+        required_plan || "premium",
+        packageNumValue,
       ],
     );
     logAdminActivity(req, 'CREATE', 'PAKET_TRYOUT', result.rows[0].title, `Membuat paket UTBK Tryout: ${result.rows[0].title}`);
@@ -172,9 +358,11 @@ router.patch(
       title,
       subject_config,
       scheduled_at,
+      end_date,
       is_public,
       is_active,
       required_plan,
+      package_number,
     } = req.body;
     if (!title || !title.trim()) {
       return res
@@ -186,17 +374,20 @@ router.patch(
         typeof subject_config === "string"
           ? subject_config
           : JSON.stringify(subject_config || []);
-      const scheduledValue =
-        scheduled_at && scheduled_at !== "" ? scheduled_at : null;
+      const scheduledValue = scheduled_at && scheduled_at.trim() !== "" ? scheduled_at.trim() : null;
+      const endDateValue = end_date && end_date.trim() !== "" ? end_date.trim() : null;
+      const packageNumValue = package_number && package_number.trim() !== "" ? package_number.trim() : null;
       const result = await pool.query(
-        "UPDATE tryout_packages SET title = $1, subject_config = $2, scheduled_at = $3, is_public = $4, is_active = COALESCE($5, is_active), required_plan = $6 WHERE id = $7 RETURNING *",
+        "UPDATE tryout_packages SET title = $1, subject_config = $2, scheduled_at = $3, end_date = $4, is_public = $5, is_active = COALESCE($6, is_active), required_plan = $7, package_number = $8 WHERE id = $9 RETURNING *",
         [
           title.trim(),
           configJson,
           scheduledValue,
+          endDateValue,
           is_public,
           is_active,
-          required_plan || "gratis",
+          required_plan || "premium",
+          packageNumValue,
           id,
         ],
       );
@@ -427,6 +618,9 @@ router.get(
           .status(400)
           .json({ success: false, error: "Tipe paket tidak valid." });
       }
+      if (packageType === "utbk" && req.user && req.user.id) {
+        await autoSubmitExpiredSessionsForUser(pool, req.user.id);
+      }
       const checkField =
         packageType === "utbk" ? "utbk_package_id" : "um_package_id";
       const regResult = await pool.query(
@@ -565,7 +759,7 @@ router.post("/start", verifyToken, async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { package_id, selected_subjects, target_ptn, target_major } = req.body;
+    const { package_id, selected_subjects, target_ptn, target_major, is_first_subtest } = req.body;
 
     // ── Resume existing active session if available (prevents duplicate quota deduction) ──
     const selectedArray =
@@ -618,6 +812,8 @@ router.post("/start", verifyToken, async (req, res, next) => {
       });
     }
 
+    let quotaDeducted = false;
+    let newQuotaRemaining = null;
     const isStudent = !req.user.role || req.user.role === 'student';
 
     if (isStudent) {
@@ -625,32 +821,109 @@ router.post("/start", verifyToken, async (req, res, next) => {
       const activeUtbkRes = await client.query(
         `SELECT 1 FROM subscriptions s
          JOIN plans p ON p.id = s.plan_id
-         WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-           AND (p.target_type = 'utbk' OR p.name = 'sultan') AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+         WHERE s.user_id = $1 AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
+           AND (p.target_type = 'utbk' OR p.name = 'sultan' OR p.target_type = 'all') AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
          LIMIT 1`,
         [req.user.id],
       );
       const hasUtbkUnlimited = activeUtbkRes.rows.length > 0;
 
       if (!hasUtbkUnlimited) {
-        // Check if user has active tryout quota for UTBK
+        // Check if user has active tryout quota for UTBK (eceran / retail packages: 5x, 8x, 10x, etc.)
         const quotaRes = await client.query(
           `SELECT s.id, s.quota_remaining FROM subscriptions s
            JOIN plans p ON p.id = s.plan_id
-           WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
-             AND p.plan_type = 'quota' AND p.target_type = 'utbk' AND s.quota_remaining > 0
-           ORDER BY s.expires_at ASC LIMIT 1`,
+           WHERE s.user_id = $1 AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
+             AND p.plan_type = 'quota' AND (p.target_type = 'utbk' OR p.target_type = 'all') AND s.quota_remaining > 0
+           ORDER BY s.expires_at ASC NULLS LAST LIMIT 1`,
           [req.user.id],
         );
 
         if (quotaRes.rows.length > 0) {
-          // Deduct 1 tryout quota credit
-          const quota = quotaRes.rows[0];
-          await client.query(
-            `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1`,
-            [quota.id],
-          );
+          let shouldDeduct = false;
+
+          if (is_first_subtest === true) {
+            shouldDeduct = true;
+          } else if (is_first_subtest === false) {
+            shouldDeduct = false;
+          } else {
+            // 1. Get the latest completion timestamp for this user & package (if any)
+            const lastCompletionRes = await client.query(
+              `SELECT MAX(completed_at) as last_completed
+               FROM tryout_package_completions
+               WHERE user_id = $1 AND package_id = $2 AND package_type = 'utbk'`,
+              [req.user.id, package_id],
+            );
+            const lastCompleted = lastCompletionRes.rows[0]?.last_completed;
+
+            // 2. Check if this attempt has already started any subtest
+            let existingAttemptSessions;
+            if (lastCompleted) {
+              existingAttemptSessions = await client.query(
+                `SELECT 1 FROM tryout_sessions
+                 WHERE user_id = $1 AND package_id = $2 AND started_at > $3 LIMIT 1`,
+                [req.user.id, package_id, lastCompleted],
+              );
+            } else {
+              existingAttemptSessions = await client.query(
+                `SELECT 1 FROM tryout_sessions
+                 WHERE user_id = $1 AND package_id = $2 AND started_at > NOW() - INTERVAL '24 hours' LIMIT 1`,
+                [req.user.id, package_id],
+              );
+            }
+
+            shouldDeduct = existingAttemptSessions.rows.length === 0;
+          }
+
+          if (shouldDeduct) {
+            // Deduct 1 tryout quota credit ONLY on the FIRST subtest of a package attempt
+            const quota = quotaRes.rows[0];
+            const updateQuotaRes = await client.query(
+              `UPDATE subscriptions SET quota_remaining = quota_remaining - 1 WHERE id = $1 RETURNING quota_remaining`,
+              [quota.id],
+            );
+            quotaDeducted = true;
+            newQuotaRemaining = updateQuotaRes.rows[0]?.quota_remaining ?? (quota.quota_remaining - 1);
+          }
         } else {
+          // Free user flow: Auto submit any expired sessions for free user first
+          await autoSubmitExpiredSessionsForUser(client, req.user.id);
+
+          // Check start date (scheduled_at) and end date (end_date) window for Free users
+          const pkgDateCheck = await client.query(
+            "SELECT scheduled_at, end_date, required_plan FROM tryout_packages WHERE id = $1",
+            [package_id]
+          );
+          if (pkgDateCheck.rows.length > 0) {
+            const { scheduled_at, end_date, required_plan } = pkgDateCheck.rows[0];
+            const now = new Date();
+            const startDate = parseLocalDate(scheduled_at);
+            const endDate = parseLocalDate(end_date);
+
+            let isFreeNow = false;
+            if (startDate && endDate) {
+              isFreeNow = now >= startDate && now <= endDate;
+            } else if (required_plan === 'gratis') {
+              isFreeNow = true;
+            }
+
+            if (!isFreeNow) {
+              await client.query("ROLLBACK");
+              if (startDate && now < startDate) {
+                return res.status(403).json({
+                  success: false,
+                  error: "Tryout ini belum dibuka sebagai tryout gratis. Upgrade ke Premium atau beli paket kuota eceran untuk akses kapan saja.",
+                  code: "NOT_STARTED",
+                });
+              }
+              return res.status(403).json({
+                success: false,
+                error: "Tenggat waktu tryout gratis telah berakhir dan kembali berstatus Premium. Upgrade ke Premium atau beli paket kuota eceran untuk akses.",
+                code: "EXPIRED",
+              });
+            }
+          }
+
           // Check if this specific package has already been completed (one attempt per package for free users)
           let packageDone = await isPackageCompleted(
             client,
@@ -664,7 +937,7 @@ router.post("/start", verifyToken, async (req, res, next) => {
             return res.status(403).json({
               success: false,
               error:
-                "Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium untuk akses tanpa batas.",
+                "Akun gratis hanya dapat mengerjakan setiap paket tryout sebanyak 1 kali. Upgrade ke Premium atau gunakan kuota tryout eceran untuk akses tanpa batas.",
               code: "FREE_LIMIT_REACHED",
             });
           }
@@ -795,7 +1068,12 @@ router.post("/start", verifyToken, async (req, res, next) => {
     await client.query("COMMIT");
     res.json({
       success: true,
-      data: { session_id: sessionId, total_questions: allQuestionIds.length },
+      data: {
+        session_id: sessionId,
+        total_questions: allQuestionIds.length,
+        quota_deducted: quotaDeducted,
+        quota_remaining: newQuotaRemaining,
+      },
       message: "Session started",
     });
   } catch (error) {
@@ -1072,9 +1350,92 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
     }
 
     if (!session.submitted_at) {
+      if (session.end_date && new Date(session.end_date) < new Date()) {
+        const activeUtbkRes = await pool.query(
+          `SELECT 1 FROM subscriptions s
+           JOIN plans p ON p.id = s.plan_id
+           WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > NOW()
+             AND (p.target_type = 'utbk' OR p.name = 'sultan') AND (p.plan_type = 'subscription' OR p.plan_type = 'access')
+           LIMIT 1`,
+          [req.user.id]
+        );
+        if (activeUtbkRes.rows.length === 0) {
+          await autoSubmitSession(pool, sessionId, req.user.id);
+          const reFetchRes = await pool.query(
+            `SELECT ts.*, tp.title, tp.subject_config
+             FROM tryout_sessions ts
+             JOIN tryout_packages tp ON ts.package_id = tp.id
+             WHERE ts.id = $1 AND ts.user_id = $2`,
+            [sessionId, req.user.id]
+          );
+          if (reFetchRes.rows.length > 0 && reFetchRes.rows[0].submitted_at) {
+            session = reFetchRes.rows[0];
+          }
+        }
+      }
+    }
+
+    if (!session.submitted_at) {
       return res
         .status(400)
         .json({ success: false, error: "Tryout belum disubmit" });
+    }
+
+    // Find all sessions belonging to the SAME ATTEMPT as this session
+    let relatedSessionIds = [sessionId];
+    try {
+      const allPkgSessionsRes = await pool.query(
+        `SELECT
+           ts.id,
+           ts.started_at,
+           (
+             SELECT s.name
+             FROM user_answers ua
+             JOIN questions q ON ua.question_id = q.id
+             LEFT JOIN subjects s ON q.subject_id = s.id
+             WHERE ua.session_id = ts.id AND s.name IS NOT NULL
+             GROUP BY s.name
+             ORDER BY COUNT(*) DESC
+             LIMIT 1
+           ) AS subtest_name
+         FROM tryout_sessions ts
+         WHERE ts.user_id = $1 AND ts.package_id = $2 AND ts.submitted_at IS NOT NULL
+         ORDER BY ts.started_at ASC`,
+        [req.user.id, session.package_id]
+      );
+
+      const groups = [];
+      let currentGroup = null;
+
+      allPkgSessionsRes.rows.forEach((row) => {
+        const subtest = row.subtest_name || "Unknown";
+        const startedAt = new Date(row.started_at);
+
+        const timeSinceLast = currentGroup
+          ? (startedAt - new Date(currentGroup.latestStartedAt)) / 3600000
+          : Infinity;
+        const subtestAlreadyUsed = currentGroup && currentGroup.subtestSet.has(subtest);
+
+        if (!currentGroup || subtestAlreadyUsed || timeSinceLast > 12) {
+          currentGroup = {
+            subtestSet: new Set(),
+            latestStartedAt: row.started_at,
+            sessionIds: [],
+          };
+          groups.push(currentGroup);
+        }
+
+        currentGroup.sessionIds.push(row.id);
+        currentGroup.subtestSet.add(subtest);
+        currentGroup.latestStartedAt = row.started_at;
+      });
+
+      const matchingGroup = groups.find((g) => g.sessionIds.includes(sessionId));
+      if (matchingGroup) {
+        relatedSessionIds = matchingGroup.sessionIds;
+      }
+    } catch (e) {
+      console.error("[GET RESULT] Error finding related sessions:", e);
     }
 
     // Parse score breakdown safely
@@ -1147,10 +1508,10 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
         FROM user_answers ua
         JOIN questions q ON ua.question_id = q.id
         LEFT JOIN subjects s ON q.subject_id = s.id
-        WHERE ua.session_id = $1
-        ORDER BY ua.position ASC
+        WHERE ua.session_id = ANY($1)
+        ORDER BY ua.session_id, ua.position ASC
       `,
-        [sessionId],
+        [relatedSessionIds],
       );
 
       // Fetch empirical stats for these questions
@@ -1291,9 +1652,9 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
         LEFT JOIN answer_choices ac ON ua.chosen_choice_id = ac.id
         LEFT JOIN questions q ON ua.question_id = q.id
         LEFT JOIN subjects s ON q.subject_id = s.id
-        WHERE ua.session_id = $1
+        WHERE ua.session_id = ANY($1)
       `,
-        [sessionId],
+        [relatedSessionIds],
       );
 
       for (const ans of rawAnswersRes.rows) {
@@ -1421,10 +1782,24 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
 
       const percentage =
         data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
-      const totalTimeSpent = data.questions.reduce(
+      let totalTimeSpent = data.questions.reduce(
         (sum, q) => sum + (q.timeSpentSec || 0),
         0,
       );
+
+      // Fallback if totalTimeSpent is 0 (e.g. older sessions or untracked questions)
+      if (totalTimeSpent === 0) {
+        if (session?.started_at && session?.submitted_at) {
+          const sessionDur = Math.max(0, Math.round((new Date(session.submitted_at).getTime() - new Date(session.started_at).getTime()) / 1000));
+          if (sessionDur > 0) totalTimeSpent = sessionDur;
+        }
+        if (totalTimeSpent === 0 && (cfg.duration || cfg.durationMin)) {
+          totalTimeSpent = ((cfg.duration || cfg.durationMin) * 60) + (cfg.durationSec || 0);
+        } else if (totalTimeSpent === 0 && data.total > 0) {
+          totalTimeSpent = data.total * 75; // ~1.25 min per question standard pace
+        }
+      }
+
       const avgSpeed =
         data.questions.length > 0
           ? Math.round(totalTimeSpent / data.questions.length)
@@ -1464,10 +1839,12 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
 
     // Persist the freshly computed IRT result back to the session (await so leaderboard reads latest)
     try {
-      await pool.query(
-        `UPDATE tryout_sessions SET total_score = $1, score_breakdown = $2 WHERE id = $3`,
-        [totalScore, JSON.stringify(liveIRT), sessionId],
-      );
+      if (totalScore && totalScore > 200) {
+        await pool.query(
+          `UPDATE tryout_sessions SET total_score = $1, score_breakdown = $2 WHERE id = $3`,
+          [totalScore, JSON.stringify(liveIRT), sessionId],
+        );
+      }
     } catch (err) {
       console.error("[GET RESULT] Failed to persist live IRT:", err.message);
     }
@@ -1535,22 +1912,71 @@ router.get("/result/:sessionId", verifyToken, async (req, res, next) => {
 router.post("/result/combined", verifyToken, async (req, res, next) => {
   const { session_ids, package_id } = req.body;
 
-  if (!Array.isArray(session_ids) || session_ids.length === 0) {
+  let querySessionIds = Array.isArray(session_ids) && session_ids.length > 0 ? session_ids : [];
+
+  if (querySessionIds.length === 0 && package_id) {
+    // Fetch all submitted sessions with subtest info for attempt grouping
+    const userPkgSessions = await pool.query(
+      `SELECT ts.id, ts.started_at,
+         (SELECT s.name FROM user_answers ua
+          JOIN questions q ON ua.question_id = q.id
+          LEFT JOIN subjects s ON q.subject_id = s.id
+          WHERE ua.session_id = ts.id AND s.name IS NOT NULL
+          GROUP BY s.name ORDER BY COUNT(*) DESC LIMIT 1
+         ) AS subtest_name
+       FROM tryout_sessions ts
+       WHERE ts.package_id = $1 AND ts.user_id = $2 AND ts.submitted_at IS NOT NULL
+       ORDER BY ts.started_at ASC`,
+      [package_id, req.user.id]
+    );
+
+    // Group sessions into attempts using same logic as GET /result/:sessionId
+    // A new attempt starts when: (a) a subtest name repeats, or (b) >12h gap between sessions
+    if (userPkgSessions.rows.length > 0) {
+      const groups = [];
+      let currentGroup = null;
+      userPkgSessions.rows.forEach((row) => {
+        const subtest = row.subtest_name || 'Unknown';
+        const startedAt = new Date(row.started_at);
+        const timeSinceLast = currentGroup
+          ? (startedAt - new Date(currentGroup.latestStartedAt)) / 3600000
+          : Infinity;
+        const subtestAlreadyUsed = currentGroup && currentGroup.subtestSet.has(subtest);
+
+        if (!currentGroup || subtestAlreadyUsed || timeSinceLast > 12) {
+          currentGroup = {
+            subtestSet: new Set(),
+            latestStartedAt: row.started_at,
+            sessionIds: [],
+          };
+          groups.push(currentGroup);
+        }
+        currentGroup.sessionIds.push(row.id);
+        currentGroup.subtestSet.add(subtest);
+        currentGroup.latestStartedAt = row.started_at;
+      });
+
+      // Use the LATEST attempt group (last group = most recent attempt)
+      querySessionIds = groups[groups.length - 1].sessionIds;
+    }
+  }
+
+  if (querySessionIds.length === 0) {
     return res
-      .status(400)
-      .json({ success: false, error: "session_ids array is required" });
+      .status(404)
+      .json({ success: false, error: "Belum ada sesi tryout yang diselesaikan untuk paket ini" });
   }
 
   try {
     // Verify all sessions belong to this user and are submitted
     const sessionsRes = await pool.query(
       `
-      SELECT ts.id, ts.submitted_at, ts.package_id, tp.title, tp.subject_config
+      SELECT ts.id, ts.started_at, ts.submitted_at, ts.package_id, tp.title, tp.subject_config
       FROM tryout_sessions ts
       JOIN tryout_packages tp ON ts.package_id = tp.id
       WHERE ts.id = ANY($1) AND ts.user_id = $2
     `,
-      [session_ids, req.user.id],
+      [querySessionIds, req.user.id],
     );
 
     if (sessionsRes.rows.length === 0) {
@@ -1690,6 +2116,7 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
         correctAnswer: correctAnswerLabel,
         explanation: questionExplanation,
         timeSpentSec: q.time_spent_sec || 0,
+        sessionId: q.session_id,
         choices: choices,
         stimulus: q.stimulus,
         irtStats: itemStatsMap[q.id] || null,
@@ -1705,12 +2132,16 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
       if (!subjectMap.has(subjectKey)) {
         subjectMap.set(subjectKey, {
           name: subjectKey,
+          sessionId: q.sessionId,
           correct: 0,
           total: 0,
           questions: [],
         });
       }
       const subjectData = subjectMap.get(subjectKey);
+      if (!subjectData.sessionId && q.sessionId) {
+        subjectData.sessionId = q.sessionId;
+      }
       subjectData.total++;
       if (q.isCorrect) subjectData.correct++;
       subjectData.questions.push(q);
@@ -1850,10 +2281,25 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
 
       const percentage =
         data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
-      const totalTimeSpent = data.questions.reduce(
+      let totalTimeSpent = data.questions.reduce(
         (sum, q) => sum + (q.timeSpentSec || 0),
         0,
       );
+
+      // Fallback if totalTimeSpent is 0
+      if (totalTimeSpent === 0) {
+        const matchSession = data.sessionId ? sessionsRes.rows.find(s => s.id === data.sessionId) : null;
+        if (matchSession && matchSession.started_at && matchSession.submitted_at) {
+          const dur = Math.max(0, Math.round((new Date(matchSession.submitted_at).getTime() - new Date(matchSession.started_at).getTime()) / 1000));
+          if (dur > 0) totalTimeSpent = dur;
+        }
+        if (totalTimeSpent === 0 && (cfg.duration || cfg.durationMin)) {
+          totalTimeSpent = ((cfg.duration || cfg.durationMin) * 60) + (cfg.durationSec || 0);
+        } else if (totalTimeSpent === 0 && data.total > 0) {
+          totalTimeSpent = data.total * 75; // ~1.25 min per question standard pace
+        }
+      }
+
       const avgSpeed =
         data.questions.length > 0
           ? Math.round(totalTimeSpent / data.questions.length)
@@ -1891,10 +2337,12 @@ router.post("/result/combined", verifyToken, async (req, res, next) => {
 
     // Persist the freshly computed IRT score to all sessions (await so leaderboard reads latest)
     try {
-      await pool.query(
-        `UPDATE tryout_sessions SET total_score = $1, score_breakdown = $2 WHERE id = ANY($3)`,
-        [totalScore, JSON.stringify(liveIRT), validSessionIds],
-      );
+      if (totalScore && totalScore > 200) {
+        await pool.query(
+          `UPDATE tryout_sessions SET total_score = $1, score_breakdown = $2 WHERE id = ANY($3)`,
+          [totalScore, JSON.stringify(liveIRT), validSessionIds],
+        );
+      }
     } catch (err) {
       console.error(
         "[COMBINED RESULT] Failed to persist live IRT:",
@@ -2385,33 +2833,36 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
     // 2. Query general leaderboard
     const leaderboardRes = await pool.query(
       `
-      SELECT DISTINCT ON (ts.user_id)
+      SELECT
         ts.user_id,
         u.name,
-        ts.total_score,
-        ts.submitted_at,
-        ts.target_ptn,
-        ts.target_major
+        COALESCE(
+          (SELECT ts_curr.total_score FROM tryout_sessions ts_curr WHERE ts_curr.user_id = ts.user_id AND ts_curr.package_id = $1 AND ts_curr.submitted_at IS NOT NULL AND ts_curr.total_score IS NOT NULL ORDER BY ts_curr.started_at DESC LIMIT 1),
+          MAX(ts.total_score)
+        ) as total_score,
+        MAX(ts.submitted_at) as submitted_at,
+        (SELECT ts_t.target_ptn FROM tryout_sessions ts_t WHERE ts_t.user_id = ts.user_id AND ts_t.package_id = $1 AND ts_t.target_ptn IS NOT NULL ORDER BY ts_t.started_at DESC LIMIT 1) as target_ptn,
+        (SELECT ts_t.target_major FROM tryout_sessions ts_t WHERE ts_t.user_id = ts.user_id AND ts_t.package_id = $1 AND ts_t.target_major IS NOT NULL ORDER BY ts_t.started_at DESC LIMIT 1) as target_major
       FROM tryout_sessions ts
       JOIN users u ON u.id = ts.user_id
       WHERE ts.package_id = $1
         AND ts.submitted_at IS NOT NULL
         AND ts.total_score IS NOT NULL
         AND u.role = 'student'
-      ORDER BY ts.user_id, ts.submitted_at DESC
+      GROUP BY ts.user_id, u.name
     `,
       [packageId],
     );
 
-    const allSorted = leaderboardRes.rows.sort(
-      (a, b) => (b.total_score || 0) - (a.total_score || 0),
-    );
+    const allSorted = leaderboardRes.rows
+      .filter((r) => r.total_score !== null && r.total_score !== undefined)
+      .sort((a, b) => (Number(b.total_score) || 0) - (Number(a.total_score) || 0));
     
     const sorted = allSorted.slice(0, limit).map((row, idx) => ({
       rank: idx + 1,
       user_id: row.user_id,
       name: row.name,
-      score: Math.round(row.total_score || 0),
+      score: Math.round(Number(row.total_score) || 0),
       submitted_at: row.submitted_at,
       target_ptn: row.target_ptn,
       target_major: row.target_major,
@@ -2422,7 +2873,7 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
       userIdx >= 0
         ? {
             rank: userIdx + 1,
-            score: Math.round(allSorted[userIdx].total_score || 0),
+            score: Math.round(Number(allSorted[userIdx].total_score) || 0),
             total_participants: allSorted.length,
           }
         : null;
@@ -2434,13 +2885,16 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
     if (userPtn && userMajor) {
       const majorRes = await pool.query(
         `
-        SELECT DISTINCT ON (ts.user_id)
+        SELECT
           ts.user_id,
           u.name,
-          ts.total_score,
-          ts.submitted_at,
-          ts.target_ptn,
-          ts.target_major
+          COALESCE(
+            (SELECT ts_curr.total_score FROM tryout_sessions ts_curr WHERE ts_curr.user_id = ts.user_id AND ts_curr.package_id = $1 AND ts_curr.target_ptn = $2 AND ts_curr.target_major = $3 AND ts_curr.submitted_at IS NOT NULL AND ts_curr.total_score IS NOT NULL ORDER BY ts_curr.started_at DESC LIMIT 1),
+            MAX(ts.total_score)
+          ) as total_score,
+          MAX(ts.submitted_at) as submitted_at,
+          $2 as target_ptn,
+          $3 as target_major
         FROM tryout_sessions ts
         JOIN users u ON u.id = ts.user_id
         WHERE ts.package_id = $1
@@ -2448,20 +2902,21 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
           AND ts.target_major = $3
           AND ts.submitted_at IS NOT NULL
           AND ts.total_score IS NOT NULL
-        ORDER BY ts.user_id, ts.submitted_at DESC
+          AND u.role = 'student'
+        GROUP BY ts.user_id, u.name
       `,
         [packageId, userPtn, userMajor],
       );
 
-      const allMajorSorted = majorRes.rows.sort(
-        (a, b) => (b.total_score || 0) - (a.total_score || 0),
-      );
+      const allMajorSorted = majorRes.rows
+        .filter((r) => r.total_score !== null && r.total_score !== undefined)
+        .sort((a, b) => (Number(b.total_score) || 0) - (Number(a.total_score) || 0));
 
       majorSorted = allMajorSorted.slice(0, limit).map((row, idx) => ({
         rank: idx + 1,
         user_id: row.user_id,
         name: row.name,
-        score: Math.round(row.total_score || 0),
+        score: Math.round(Number(row.total_score) || 0),
         submitted_at: row.submitted_at,
         target_ptn: row.target_ptn,
         target_major: row.target_major,
@@ -2471,7 +2926,7 @@ router.get("/leaderboard/:packageId", verifyToken, async (req, res, next) => {
       if (userMajorIdx >= 0) {
         userMajorRank = {
           rank: userMajorIdx + 1,
-          score: Math.round(allMajorSorted[userMajorIdx].total_score || 0),
+          score: Math.round(Number(allMajorSorted[userMajorIdx].total_score) || 0),
           total_participants: allMajorSorted.length,
         };
       }

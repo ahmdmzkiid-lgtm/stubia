@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { LayoutDashboard, BookOpen, PenLine, Swords, Target, GraduationCap, Landmark, ShieldCheck, Crown, Clock4, User, ChevronDown, LogOut } from 'lucide-react';
 import { getStreakData, updateDailyStreak } from '../../utils/streak';
 import StreakModal from '../StreakModal';
 
@@ -88,15 +89,15 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
 
   // Desktop Main Nav Links
   const mainLinksBefore = [
-    { to: '/dashboard', label: 'Dashboard', active: activePath === '/dashboard' },
+    { to: '/dashboard', label: 'Dashboard', active: activePath === '/dashboard', icon: LayoutDashboard },
   ];
 
   const utbkLinks = [
-    { to: '/latihan', label: 'Latihan', active: activePath === '/latihan' },
-    { to: '/tryout/packages', label: 'Tryout', active: isTryoutActive },
-    { to: '/battle', label: 'Battle', active: isBattleActive },
-    { to: '/prediksi-skor', label: 'Prediksi Skor', active: activePath === '/prediksi-skor' },
-    { to: '/rasionalisasi', label: 'Rasionalisasi', active: activePath === '/rasionalisasi' },
+    { to: '/latihan', label: 'Latihan', active: activePath === '/latihan', icon: PenLine },
+    { to: '/tryout/packages', label: 'Tryout', active: isTryoutActive, icon: BookOpen },
+    { to: '/battle', label: 'Battle', active: isBattleActive, icon: Swords },
+    { to: '/prediksi-skor', label: 'Prediksi Skor', active: activePath === '/prediksi-skor', icon: Target },
+    { to: '/rasionalisasi', label: 'Rasionalisasi', active: activePath === '/rasionalisasi', icon: GraduationCap },
   ];
 
   const isUtbkActive = utbkLinks.some(l => l.active);
@@ -104,14 +105,14 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
   const isSKDActive = activePath.startsWith('/skd');
 
   const mainLinksAfter = [
-    { to: '/ujian-mandiri', label: 'Ujian Mandiri', active: isUmActive },
-    { to: '/skd', label: 'SKD CPNS', active: isSKDActive },
-    { to: '/paket-belajar', label: 'Paket Belajar', active: activePath === '/paket-belajar' },
+    { to: '/ujian-mandiri', label: 'Ujian Mandiri', active: isUmActive, icon: Landmark },
+    { to: '/skd', label: 'SKD CPNS', active: isSKDActive, icon: ShieldCheck },
+    { to: '/paket-belajar', label: 'Paket Belajar', active: activePath === '/paket-belajar', icon: Crown },
   ];
 
   const dropdownLinks = [
-    { to: '/riwayat', label: 'Riwayat', active: activePath === '/riwayat' },
-    { to: '/profile', label: 'Profil Saya', active: activePath === '/profile' },
+    { to: '/riwayat', label: 'Riwayat', active: activePath === '/riwayat', icon: Clock4 },
+    { to: '/profile', label: 'Profil Saya', active: activePath === '/profile', icon: User },
   ];
 
   const isDropdownActive = dropdownLinks.some(l => l.active);
@@ -305,7 +306,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
               className="flex items-center gap-1.5 bg-[#fef3c7] hover:bg-[#fde68a] border border-[#fde68a] px-3 py-1.5 rounded-full shadow-sm active:scale-95 transition-all cursor-pointer select-none shrink-0"
               title="Streak Belajar Harian"
             >
-              <span className="text-amber-500 text-[14px]">🔥</span>
+              <span className="material-symbols-outlined text-amber-500 text-[18px] leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
               <span className="text-xs font-black text-[#78350f]">{streak?.count || 1}</span>
             </button>
 
@@ -394,85 +395,97 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
             className="absolute top-16 left-0 right-0 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-white border-b border-[#c2c6d8]/30 shadow-2xl rounded-b-[24px] animate-slide-down"
             onClick={e => e.stopPropagation()}
           >
-            <nav className="flex flex-col gap-1 p-4 font-sans">
+            <nav className="flex flex-col gap-0.5 p-3 font-sans">
               {/* Dashboard */}
               {mainLinksBefore.map(l => (
                 <Link 
                   key={l.to} 
                   to={l.to} 
                   onClick={() => setMobileMenuOpen(false)} 
-                  className={`px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors ${
-                    l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold transition-all ${
+                    l.active ? 'bg-[#0050cb] text-white shadow-md shadow-[#0050cb]/20' : 'text-[#424656] hover:bg-[#f2f3ff]'
                   }`}
                 >
+                  <l.icon size={20} strokeWidth={1.8} />
                   {l.label}
                 </Link>
               ))}
 
-              {/* UTBK/SNBT Group Accordion */}
-              <div className="flex flex-col">
+              {/* UTBK/SNBT Group */}
+              <div className="mt-1">
                 <button
                   type="button"
                   onClick={() => setMobileUtbkOpen(prev => !prev)}
-                  className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors w-full text-left cursor-pointer ${
-                    isUtbkActive ? 'bg-[#f2f3ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
+                  className={`flex items-center justify-between w-full px-4 py-3 rounded-xl text-[15px] font-semibold transition-all cursor-pointer ${
+                    isUtbkActive && !mobileUtbkOpen ? 'bg-[#0050cb] text-white shadow-md shadow-[#0050cb]/20' : 'text-[#424656] hover:bg-[#f2f3ff]'
                   }`}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-3">
+                    <BookOpen size={20} strokeWidth={1.8} />
                     UTBK/SNBT
-                    {isUtbkActive && <span className="w-2 h-2 rounded-full bg-[#0050cb]" />}
                   </span>
-                  <span 
-                    className="material-symbols-outlined text-[20px] transition-transform duration-200"
-                    style={{ transform: mobileUtbkOpen ? 'rotate(180deg)' : 'none' }}
-                  >
-                    keyboard_arrow_down
-                  </span>
+                  <ChevronDown 
+                    size={18} 
+                    strokeWidth={2} 
+                    className={`transition-transform duration-200 ${mobileUtbkOpen ? 'rotate-180' : ''}`} 
+                  />
                 </button>
 
-                {/* Sub-links: Latihan, Tryout, Battle, Prediksi Skor, Rasionalisasi */}
                 {mobileUtbkOpen && (
-                  <div className="flex flex-col gap-1 pl-3 my-1 border-l-2 border-[#0050cb]/25 ml-4 animate-fade-in">
-                    {utbkLinks.map(l => (
-                      <Link
-                        key={l.to}
-                        to={l.to}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`px-4 py-2.5 rounded-xl text-[14px] transition-colors ${
-                          l.active ? 'bg-[#dae1ff] text-[#0050cb] font-bold' : 'text-[#424656] font-medium hover:bg-[#f2f3ff]'
-                        }`}
-                      >
-                        {l.label}
-                      </Link>
-                    ))}
+                  <div className="mx-2 mt-1 mb-1 p-2 bg-[#f8f9fc] rounded-2xl animate-fade-in">
+                    <div className="flex flex-col gap-0.5">
+                      {utbkLinks.map(l => (
+                        <Link
+                          key={l.to}
+                          to={l.to}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] transition-all ${
+                            l.active 
+                              ? 'bg-white text-[#0050cb] font-bold shadow-sm' 
+                              : 'text-[#5a5e70] font-medium hover:bg-white/70'
+                          }`}
+                        >
+                          <l.icon size={17} strokeWidth={1.8} />
+                          {l.label}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Main Links After: Ujian Mandiri, SKD CPNS, Paket Belajar */}
+              {/* Divider */}
+              <div className="mx-4 my-2 border-t border-[#e8eaf0]" />
+
+              {/* Main Links: Ujian Mandiri, SKD CPNS, Paket Belajar */}
               {mainLinksAfter.map(l => (
                 <Link 
                   key={l.to} 
                   to={l.to} 
                   onClick={() => setMobileMenuOpen(false)} 
-                  className={`px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors ${
-                    l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold transition-all ${
+                    l.active ? 'bg-[#0050cb] text-white shadow-md shadow-[#0050cb]/20' : 'text-[#424656] hover:bg-[#f2f3ff]'
                   }`}
                 >
+                  <l.icon size={20} strokeWidth={1.8} />
                   {l.label}
                 </Link>
               ))}
 
-              {/* Dropdown Links: Riwayat, Profil Saya */}
+              {/* Divider */}
+              <div className="mx-4 my-2 border-t border-[#e8eaf0]" />
+
+              {/* Extra Links: Riwayat, Profil */}
               {dropdownLinks.map(l => (
                 <Link 
                   key={l.to} 
                   to={l.to} 
                   onClick={() => setMobileMenuOpen(false)} 
-                  className={`px-4 py-3.5 rounded-xl text-[15px] font-bold transition-colors ${
-                    l.active ? 'bg-[#dae1ff] text-[#0050cb]' : 'text-[#424656] hover:bg-[#f2f3ff]'
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold transition-all ${
+                    l.active ? 'bg-[#0050cb] text-white shadow-md shadow-[#0050cb]/20' : 'text-[#424656] hover:bg-[#f2f3ff]'
                   }`}
                 >
+                  <l.icon size={20} strokeWidth={1.8} />
                   {l.label}
                 </Link>
               ))}
@@ -481,14 +494,15 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
                 <Link 
                   to="/admin" 
                   onClick={() => setMobileMenuOpen(false)} 
-                  className="px-4 py-3.5 rounded-xl text-[15px] font-bold text-[#a33200] hover:bg-[#f2f3ff]"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold text-[#a33200] hover:bg-red-50/60"
                 >
+                  <ShieldCheck size={20} strokeWidth={1.8} />
                   Admin Panel
                 </Link>
               )}
             </nav>
 
-            <div className="border-t border-[#c2c6d8]/30 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="border-t border-[#e8eaf0] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full bg-[#0050cb] flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -506,7 +520,7 @@ export default function StudentNavbar({ user, isAdmin, onLogout, transparent = f
                   onClick={() => { setMobileMenuOpen(false); onLogout(); }} 
                   className="px-4 py-2.5 rounded-xl text-[13px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-1.5 border border-red-100 shrink-0"
                 >
-                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                  <LogOut size={16} strokeWidth={2} />
                   Keluar
                 </button>
               </div>

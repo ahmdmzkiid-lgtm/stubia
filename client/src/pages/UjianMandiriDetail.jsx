@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ujianMandiriService, tryoutService, subscriptionService } from '../services/api';
 import { getStatusConfig } from '../data/ujianMandiriData';
-import Footer from '../components/Footer';
 import toast from 'react-hot-toast';
 import TryoutVerificationModal from '../components/tryout/TryoutVerificationModal';
 import StudentNavbar from '../components/layout/StudentNavbar';
@@ -990,8 +989,6 @@ export default function UjianMandiriDetail() {
           </Link>
         </div>
       </main>
-
-      <Footer />
 
       {!activePlans.some(p =>
         (p.name || p.plan_name) !== 'gratis' && p.target_type === 'um' && (p.plan_type === 'subscription' || p.plan_type === 'access')

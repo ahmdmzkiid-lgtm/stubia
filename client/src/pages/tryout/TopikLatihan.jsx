@@ -284,12 +284,6 @@ const TopikLatihan = () => {
           { label: 'Tipe Sesi', value: 'Latihan Soal', icon: 'school' }
         ]}
       />
-
-      <footer className="bg-white border-t border-[#c2c6d8]/30">
-        <div className="px-6 lg:px-10 max-w-[1440px] mx-auto py-8 border-t border-[#c2c6d8]/20">
-          <p className="text-[12px] text-[#424656] font-medium text-center md:text-left">© 2026 Stubia. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 };

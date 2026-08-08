@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Footer from '../components/Footer';
 import { useAuth } from '../hooks/useAuth';
 import { ujianMandiriService } from '../services/api';
 import { getStatusConfig } from '../data/ujianMandiriData';
@@ -219,8 +218,6 @@ export default function UjianMandiri() {
           </Link>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { subjectService, settingsService } from '../services/api';
 import toast from 'react-hot-toast';
 import ChatWidget from '../components/ChatWidget';
-import Footer from '../components/Footer';
 import StudentNavbar from '../components/layout/StudentNavbar';
 
 const SUBJECT_ORDER = [
@@ -90,7 +89,6 @@ export default function LatihanSoal() {
             </div>
           </main>
         </div>
-        <Footer />
         <ChatWidget />
       </div>
     );
@@ -191,7 +189,6 @@ export default function LatihanSoal() {
 
       </main>
 
-      <Footer />
       <ChatWidget />
     </div>
   );

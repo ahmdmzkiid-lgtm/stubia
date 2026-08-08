@@ -4,7 +4,6 @@ import { battleService, subjectService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import ChatWidget from '../components/ChatWidget';
-import Footer from '../components/Footer';
 import StudentNavbar from '../components/layout/StudentNavbar';
 
 const SUBJECT_ORDER = [
@@ -119,7 +118,7 @@ const BattleLobby = () => {
         }
       } else {
         // No waiting match found, create a new one
-        toast('Tidak ada lawan yang menunggu, membuat pertandingan baru...', { icon: '🔍' });
+        toast('Tidak ada lawan yang menunggu, membuat pertandingan baru...');
         await handleCreateMatch();
       }
     } catch (err) {
@@ -351,7 +350,6 @@ const BattleLobby = () => {
         </div>
       )}
 
-      <Footer />
       <ChatWidget />
     </div>
   );

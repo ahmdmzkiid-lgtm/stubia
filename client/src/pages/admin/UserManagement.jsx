@@ -518,21 +518,6 @@ const UserManagement = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="mt-16 pt-8 border-t border-outline-variant/30">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>
-            <p className="font-label-md text-label-md text-primary font-bold">Stubia Pro</p>
-            <p className="font-label-sm text-label-sm text-on-surface-variant">© 2026 UTBK Learning Systems. All rights reserved.</p>
-          </div>
-          <div className="flex gap-8">
-            <span className="text-on-surface-variant hover:text-primary font-label-sm text-label-sm cursor-pointer transition-colors">Help Center</span>
-            <span className="text-on-surface-variant hover:text-primary font-label-sm text-label-sm cursor-pointer transition-colors">Privacy Policy</span>
-            <span className="text-on-surface-variant hover:text-primary font-label-sm text-label-sm cursor-pointer transition-colors">System Status</span>
-          </div>
-        </div>
-      </footer>
-
       {/* Detail Modal */}
       {detailUser && (
         <div className="fixed inset-0 z-[120] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setDetailUser(null)}>

@@ -43,6 +43,7 @@ const ManageTryout = () => {
   const [formData, setFormData] = useState({
     title: '',
     scheduled_at: '',
+    end_date: '',
     is_public: true,
     required_plan: 'gratis',
     subject_config: []
@@ -167,22 +168,32 @@ const ManageTryout = () => {
     return arr;
   };
 
+  const formatDateTimeForInput = (dateVal) => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') {
+      const cleaned = dateVal.replace(' ', 'T');
+      if (cleaned.length >= 16) {
+        return cleaned.slice(0, 16);
+      }
+    }
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch (e) {
+      return '';
+    }
+  };
+
   const handleOpenModal = (pkg = null) => {
     if (pkg) {
       setEditingPackage(pkg);
-      let dateStr = '';
-      if (pkg.scheduled_at) {
-        try {
-          const d = new Date(pkg.scheduled_at);
-          if (!isNaN(d.getTime())) {
-            dateStr = d.toISOString().slice(0, 16);
-          }
-        } catch (e) { console.error(e); }
-      }
-
       setFormData({
         title: pkg.title || '',
-        scheduled_at: dateStr,
+        package_number: pkg.package_number || '',
+        scheduled_at: formatDateTimeForInput(pkg.scheduled_at || pkg.start_date),
+        end_date: formatDateTimeForInput(pkg.end_date),
         is_public: !!pkg.is_public,
         is_active: pkg.is_active !== undefined ? pkg.is_active : true,
         required_plan: pkg.required_plan || 'gratis',
@@ -198,10 +209,12 @@ const ManageTryout = () => {
       }));
       setFormData({
         title: '',
+        package_number: '',
         scheduled_at: '',
+        end_date: '',
         is_public: true,
         is_active: true,
-        required_plan: 'gratis',
+        required_plan: 'premium',
         subject_config: initialConfig
       });
     }
@@ -283,15 +296,35 @@ const ManageTryout = () => {
     }
   };
 
-  const formatScheduledDate = (dateStr) => {
-    if (!dateStr) return 'TBA';
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return 'TBA';
-      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch (e) {
-      return 'TBA';
+  const formatScheduledDate = (startVal, endVal) => {
+    if (!startVal && !endVal) return 'TBA';
+    const formatDate = (val) => {
+      if (!val) return '';
+      try {
+        if (typeof val === 'string' && val.length >= 10) {
+          const parts = val.replace(' ', 'T').split('T');
+          const [y, m, d] = parts[0].split('-').map(Number);
+          if (y && m && d) {
+            const dateObj = new Date(y, m - 1, d);
+            return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+          }
+        }
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      } catch (e) {
+        return '';
+      }
+    };
+
+    const s = formatDate(startVal);
+    const e = formatDate(endVal);
+
+    if (s && e) {
+      if (s === e) return s;
+      return `${s} – ${e}`;
     }
+    return s || e || 'TBA';
   };
 
   const handleSelectPackage = (pkg) => {
@@ -1810,7 +1843,7 @@ const ManageTryout = () => {
                             pkg.required_plan === 'premium' ? 'bg-blue-100 text-blue-800 border-blue-200' :
                             'bg-gray-100 text-gray-600 border-gray-200'
                           }`}>
-                            {pkg.required_plan === 'sultan' ? '⭐ Sultan' : pkg.required_plan === 'premium' ? '💎 Premium' : 'Gratis'}
+                            {pkg.required_plan === 'sultan' ? 'Sultan' : pkg.required_plan === 'premium' ? 'Premium' : 'Gratis'}
                           </span>
                         </div>
                         <h3 className="text-[20px] sm:text-[28px] lg:text-[32px] font-bold text-[#191b24] group-hover:text-[#0050cb] transition-colors leading-tight">{pkg.title}</h3>
@@ -1859,7 +1892,7 @@ const ManageTryout = () => {
                         </div>
                         <div>
                           <p className="text-[10px] sm:text-[11px] font-bold text-[#727687] uppercase tracking-wider">Date</p>
-                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">{formatScheduledDate(pkg.scheduled_at)}</p>
+                          <p className="text-[13px] sm:text-[15px] font-extrabold text-[#191b24]">{formatScheduledDate(pkg.scheduled_at || pkg.start_date, pkg.end_date)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -2014,25 +2047,54 @@ const ManageTryout = () => {
             <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-8 lg:p-10 flex-1 bg-[#faf8ff]/30 custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10 mb-8 sm:mb-12">
                 <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Judul Tryout</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: Tryout Nasional Batch 1"
-                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] sm:text-[15px]"
-                      value={formData.title}
-                      onChange={e => setFormData({...formData, title: e.target.value})}
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Judul Tryout</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Contoh: Tryout Nasional Batch 1"
+                        className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] sm:text-[15px]"
+                        value={formData.title}
+                        onChange={e => setFormData({...formData, title: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Nomor / Kode Paket</label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: 1, 2, A"
+                        className="w-full px-4 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] sm:text-[15px] font-bold text-[#0050cb]"
+                        value={formData.package_number || ''}
+                        onChange={e => setFormData({...formData, package_number: e.target.value})}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Jadwal Pelaksanaan</label>
-                    <input
-                      type="datetime-local"
-                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[14px] sm:text-[15px]"
-                      value={formData.scheduled_at}
-                      onChange={e => setFormData({...formData, scheduled_at: e.target.value})}
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Tanggal & Waktu Mulai</label>
+                      <input
+                        type="datetime-local"
+                        className="w-full px-4 py-3 sm:py-3.5 rounded-xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[13px] sm:text-[14px]"
+                        value={formData.scheduled_at}
+                        onChange={e => setFormData({...formData, scheduled_at: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[13px] sm:text-[14px] font-bold text-[#191b24] mb-2">Tanggal & Waktu Berakhir</label>
+                      <input
+                        type="datetime-local"
+                        className="w-full px-4 py-3 sm:py-3.5 rounded-xl border border-[#c2c6d8]/20 focus:ring-2 focus:ring-[#0050cb] outline-none transition-all text-[13px] sm:text-[14px]"
+                        value={formData.end_date}
+                        onChange={e => setFormData({...formData, end_date: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 bg-blue-50/60 border border-blue-100 rounded-xl p-3 text-[12px] text-[#424656] leading-relaxed mt-2">
+                    <span className="material-symbols-outlined text-[16px] text-[#0050cb] shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
+                    <div>
+                      <strong>Jadwal Akses Otomatis:</strong> Paket tryout baru secara bawaan berstatus <strong>Premium</strong>. Jika diisi Tanggal Mulai &amp; Berakhir, paket akan <strong>otomatis berubah menjadi Gratis</strong> selama jendela tanggal tersebut, dan <strong>otomatis kembali menjadi Premium</strong> begitu tenggat waktu berakhir.
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-4 sm:space-y-6">

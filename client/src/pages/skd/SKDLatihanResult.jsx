@@ -4,7 +4,6 @@ import { skdService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import StudentNavbar from '../../components/layout/StudentNavbar';
-import Footer from '../../components/Footer';
 import MathText from '../../components/MathText';
 
 const SUBJECT_COLOR = {
@@ -308,8 +307,6 @@ export default function SKDLatihanResult() {
           </Link>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

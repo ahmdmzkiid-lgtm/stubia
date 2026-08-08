@@ -1233,12 +1233,12 @@ router.get("/admin/packages", [verifyToken, verifyAdmin], async (req, res, next)
 });
 
 router.post("/admin/packages", [verifyToken, verifyAdmin], async (req, res, next) => {
-  const { title, description, subject_config, scheduled_at, is_public, is_active, required_plan } = req.body;
+  const { title, description, subject_config, scheduled_at, is_public, is_active, required_plan, package_number } = req.body;
   try {
     const result = await pool.query(
-      `INSERT INTO skd_tryout_packages (title, description, subject_config, scheduled_at, is_public, is_active, required_plan)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [title, description || null, JSON.stringify(subject_config || []), scheduled_at || null, is_public !== false, is_active !== false, required_plan || "gratis"]
+      `INSERT INTO skd_tryout_packages (title, description, subject_config, scheduled_at, is_public, is_active, required_plan, package_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [title, description || null, JSON.stringify(subject_config || []), scheduled_at || null, is_public !== false, is_active !== false, required_plan || "gratis", package_number || null]
     );
     await logAdminActivity(req.user.id, "create", "skd_package", result.rows[0].id, { title });
     res.json({ success: true, data: result.rows[0] });
@@ -1247,16 +1247,16 @@ router.post("/admin/packages", [verifyToken, verifyAdmin], async (req, res, next
 
 router.patch("/admin/packages/:id", [verifyToken, verifyAdmin], async (req, res, next) => {
   const { id } = req.params;
-  const { title, description, subject_config, scheduled_at, is_public, is_active, required_plan } = req.body;
+  const { title, description, subject_config, scheduled_at, is_public, is_active, required_plan, package_number } = req.body;
   try {
     const result = await pool.query(
       `UPDATE skd_tryout_packages SET
          title = COALESCE($1, title), description = COALESCE($2, description),
          subject_config = COALESCE($3, subject_config), scheduled_at = $4,
          is_public = COALESCE($5, is_public), is_active = COALESCE($6, is_active),
-         required_plan = COALESCE($7, required_plan)
-       WHERE id = $8 RETURNING *`,
-      [title, description, subject_config ? JSON.stringify(subject_config) : null, scheduled_at || null, is_public, is_active, required_plan, id]
+         required_plan = COALESCE($7, required_plan), package_number = COALESCE($8, package_number)
+       WHERE id = $9 RETURNING *`,
+      [title, description, subject_config ? JSON.stringify(subject_config) : null, scheduled_at || null, is_public, is_active, required_plan, package_number, id]
     );
     res.json({ success: true, data: result.rows[0] });
   } catch (err) { next(err); }

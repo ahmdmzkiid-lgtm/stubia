@@ -56,7 +56,7 @@ export default function StreakModal({ isOpen, onClose, streak }) {
 
         {/* Flame Badge Header */}
         <div className="relative w-20 h-20 bg-gradient-to-tr from-amber-500 to-orange-400 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/30 animate-bounce-subtle">
-          <span className="text-4xl select-none">🔥</span>
+          <span className="material-symbols-outlined text-white text-[36px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
           <span className="absolute -bottom-2 bg-amber-900 text-amber-100 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-amber-300/40">
             Streak
           </span>
@@ -90,7 +90,9 @@ export default function StreakModal({ isOpen, onClose, streak }) {
                       : 'bg-amber-100/60 text-amber-400 border border-amber-200/60'
                   }`}
                 >
-                  {d.isActive ? '🔥' : d.dateNum}
+                  {d.isActive ? (
+                    <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
+                  ) : d.dateNum}
                 </div>
               </div>
             ))}
@@ -100,9 +102,10 @@ export default function StreakModal({ isOpen, onClose, streak }) {
         {/* Action Button */}
         <button
           onClick={onClose}
-          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-2xl shadow-lg shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer text-sm"
+          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-2xl shadow-lg shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer text-sm flex items-center justify-center gap-1.5"
         >
-          Mantap, Pertahankan! 🚀
+          <span>Pertahankan Streak</span>
+          <span className="material-symbols-outlined text-[18px]">check_circle</span>
         </button>
 
       </div>

@@ -11,7 +11,7 @@ const PLAN_STYLES = {
     badge: null,
     btnClass: 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50',
     btnLabel: 'Paket Saat Ini',
-    icon: '📚',
+    icon: 'auto_stories',
     headerText: 'text-gray-900',
     priceText: 'text-gray-900',
     featureIcon: 'text-blue-500',
@@ -22,7 +22,7 @@ const PLAN_STYLES = {
     badge: 'Populer',
     btnClass: 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200',
     btnLabel: 'Upgrade Sekarang',
-    icon: '🚀',
+    icon: 'rocket_launch',
     headerText: 'text-blue-600',
     priceText: 'text-gray-900',
     featureIcon: 'text-blue-500',
@@ -33,7 +33,7 @@ const PLAN_STYLES = {
     badge: 'Ujian Mandiri',
     btnClass: 'bg-teal-600 text-white hover:bg-teal-700 shadow-lg shadow-teal-200',
     btnLabel: 'Upgrade Sekarang',
-    icon: '🎯',
+    icon: 'school',
     headerText: 'text-teal-600',
     priceText: 'text-gray-900',
     featureIcon: 'text-teal-500',
@@ -41,10 +41,10 @@ const PLAN_STYLES = {
   sultan: {
     bg: 'bg-gray-900',
     border: 'border-gray-700',
-    badge: '⭐',
+    badge: 'Terlengkap',
     btnClass: 'bg-white text-gray-900 hover:bg-gray-100',
     btnLabel: 'Go Sultan',
-    icon: '👑',
+    icon: 'workspace_premium',
     headerText: 'text-white',
     priceText: 'text-white',
     featureIcon: 'text-yellow-400',
@@ -90,7 +90,7 @@ export default function PricingPage() {
       toast.success('Pembayaran berhasil! Paket kamu sudah aktif.');
       loadData();
     } else if (paymentStatus === 'pending') {
-      toast('Pembayaran sedang diproses...', { icon: '⏳' });
+      toast('Pembayaran sedang diproses...');
     } else if (paymentStatus === 'error') {
       toast.error('Pembayaran gagal. Silakan coba lagi.');
     }
@@ -118,7 +118,7 @@ export default function PricingPage() {
     }
 
     if (plan.name === 'gratis') {
-      toast('Kamu sudah menggunakan paket Gratis', { icon: 'ℹ️' });
+      toast('Kamu sudah menggunakan paket Gratis');
       return;
     }
 
